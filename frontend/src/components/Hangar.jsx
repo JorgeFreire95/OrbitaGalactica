@@ -1,5 +1,5 @@
 import React from 'react';
-import { SHIPS } from '../utils/gameData';
+import { SHIPS, getRank } from '../utils/gameData';
 import { SlotDisplay, StatRow } from './ShipComponents';
 
 export default function Hangar({ 
@@ -12,7 +12,12 @@ export default function Hangar({
   onGoToShop, 
   onJoinGame,
   onReset,
-  ammo 
+  ammo,
+  level,
+  xp,
+  minerals,
+  upgrades,
+  onRefine 
 }) {
   const selectedShip = SHIPS.find(s => s.id === selectedShipId);
   const currentEquipped = equippedByShip[selectedShipId] || [];
@@ -21,9 +26,9 @@ export default function Hangar({
     <div className="hangar-container" style={{ position: 'absolute', top: 0, left: 0, width: '100vw', height: '100vh', background: '#0d0d1a', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       
       {/* Header Panel */}
-      <div style={{ width: '1100px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ width: '1200px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '20px' }}>
-            <h1 className="game-title" style={{ fontSize: '3rem', margin: 0 }}>HANGAR ESTELAR</h1>
+            <h1 className="game-title" style={{ fontSize: '3rem', margin: 0 }}>ÓRBITA GALÁCTICA</h1>
             <div style={{ display: 'flex', gap: '15px', color: '#888', fontSize: '0.8rem' }}>
                 <span>⚪ {ammo.standard > 1000 ? '∞' : ammo.standard}</span>
                 <span style={{ color: ammo.thermal > 0 ? '#ff6600' : '#444' }}>🔥 {ammo.thermal}</span>
@@ -32,6 +37,42 @@ export default function Hangar({
             </div>
         </div>
         <div style={{ display: 'flex', gap: '15px' }}>
+             {/* Rango y Nivel */}
+             <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                background: 'rgba(0,119,255,0.15)',
+                padding: '8px 15px',
+                borderRadius: '12px',
+                border: '1px solid #0077ff',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minWidth: '120px'
+             }}>
+                <span style={{ color: '#0077ff', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>{getRank(level)}</span>
+                <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 'bold' }}>NIVEL {level}</span>
+             </div>
+
+             {/* Progreso XP */}
+             <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '6px',
+                minWidth: '180px',
+                background: 'rgba(255,255,255,0.03)',
+                padding: '8px 15px',
+                borderRadius: '12px',
+                border: '1px solid #333',
+                justifyContent: 'center'
+             }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 'bold', color: '#888' }}>
+                    <span>EXPERIENCIA</span>
+                    <span>{xp} / {level * 1000}</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${(xp / (level * 1000)) * 100}%`, height: '100%', background: 'linear-gradient(90deg, #0077ff, #00ffcc)' }} />
+                </div>
+             </div>
              <button 
                 onClick={onGoToShop}
                 style={{ padding: '12px 25px', background: 'rgba(0,255,204,0.1)', border: '2px solid #00ffcc', color: '#00ffcc', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', textTransform: 'uppercase', transition: 'all 0.3s' }}
@@ -49,7 +90,7 @@ export default function Hangar({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '30px', width: '1100px', height: '65vh' }}>
+      <div style={{ display: 'flex', gap: '30px', width: '1200px', height: '65vh' }}>
         
         {/* Left Panel: ALMACÉN (Warehouse) */}
         <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', borderRadius: '15px', border: '1px solid #333', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -131,13 +172,71 @@ export default function Hangar({
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <StatRow label="❤️ HP" color="#ff3366" value={selectedShip.hp} bonus={currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0)} />
-                        <StatRow label="🛡️ SHLD" color="#00c8ff" value={selectedShip.shld} bonus={currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0)} />
-                        <StatRow label="💥 ATK" color="#ffcc00" value={selectedShip.atk} bonus={currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0)} />
-                        <StatRow label="⚡ SPD" color="#00ccff" value={selectedShip.spd} bonus={currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0)} />
-                        <StatRow label="🔋 ENG" color="#33ff33" value={selectedShip.eng} bonus={currentEquipped.reduce((acc, m) => acc + (m.eng || 0), 0)} />
+                        <StatRow label="❤️ HP" color="#ff3366" value={selectedShip.hp} bonus={currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0)} permanent={0} />
+                        <StatRow label="🛡️ SHLD" color="#00c8ff" value={selectedShip.shld} bonus={currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0)} permanent={upgrades.shld} />
+                        <StatRow label="💥 ATK" color="#ffcc00" value={selectedShip.atk} bonus={currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0)} permanent={upgrades.atk} />
+                        <StatRow label="⚡ SPD" color="#00ccff" value={selectedShip.spd} bonus={currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0)} permanent={upgrades.spd} />
                     </div>
                 </div>
+            </div>
+        </div>
+
+        {/* Right Panel: LABORATORIO (Minerals) */}
+        <div style={{ flex: 1, background: 'rgba(255,255,255,0.02)', borderRadius: '15px', border: '1px solid #333', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '15px', background: '#1a1a2e', borderBottom: '1px solid #333', textAlign: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#00ffcc' }}>🔬 LABORATORIO</h3>
+            </div>
+            
+            <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Bodega Status */}
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px', border: '1px solid #444' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '5px' }}>
+                        <span>BODEGA</span>
+                        <span>{Object.values(minerals).reduce((a,b)=>a+b,0)} / {selectedShip.cargo_capacity}</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#222', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ 
+                            width: `${(Object.values(minerals).reduce((a,b)=>a+b,0) / selectedShip.cargo_capacity) * 100}%`, 
+                            height: '100%', 
+                            background: '#00ffcc' 
+                        }} />
+                    </div>
+                </div>
+
+                {/* Mineral List & Refine Actions */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    {[
+                        { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', color: '#ff3333', amount: 50, bonus: 5 },
+                        { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', color: '#00c8ff', amount: 50, bonus: 10 },
+                        { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', color: '#00ffcc', amount: 50, bonus: 8 },
+                    ].map(min => (
+                        <div key={min.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: min.color }}>{min.icon} {min.name}: <b>{minerals[min.id]}</b></span>
+                            </div>
+                            <button 
+                                onClick={() => onRefine(min.id, min.amount, min.stat, min.bonus)}
+                                disabled={minerals[min.id] < min.amount}
+                                style={{ 
+                                    padding: '6px', 
+                                    background: minerals[min.id] >= min.amount ? min.color : '#222', 
+                                    color: minerals[min.id] >= min.amount ? 'black' : '#444',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    cursor: minerals[min.id] >= min.amount ? 'pointer' : 'not-allowed',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                REFINAR {min.amount} PARA +{min.bonus} {min.stat.toUpperCase()}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                
+                <p style={{ fontSize: '0.7rem', color: '#666', fontStyle: 'italic', marginTop: 'auto' }}>
+                    * El refinamiento otorga mejoras permanentes a todas tus naves.
+                </p>
             </div>
         </div>
       </div>

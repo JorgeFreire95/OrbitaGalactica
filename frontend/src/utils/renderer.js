@@ -34,17 +34,31 @@ export const drawGame = (ctx, gameState) => {
   gameState.loot_boxes?.forEach(box => {
     ctx.save();
     ctx.translate(box.x, box.y);
-    ctx.fillStyle = box.type === 'heal' ? '#00ffcc' : '#ff00aa';
-    // Draw pulsing box
-    const pulse = Math.sin(Date.now() / 200) * 2;
-    ctx.fillRect(-10 - pulse/2, -10 - pulse/2, 20 + pulse, 20 + pulse);
-    // Draw cross or lightning
-    ctx.fillStyle = '#111';
-    if (box.type === 'heal') {
-      ctx.fillRect(-6, -2, 12, 4);
-      ctx.fillRect(-2, -6, 4, 12);
+    
+    if (box.type === 'mineral') {
+      const colors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
+      ctx.fillStyle = colors[box.mineral_type] || '#fff';
+      // Octagon or diamond shape for minerals
+      ctx.beginPath();
+      ctx.moveTo(0, -12); ctx.lineTo(12, 0); ctx.lineTo(0, 12); ctx.lineTo(-12, 0);
+      ctx.closePath();
+      ctx.fill();
+      // Glow
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = ctx.fillStyle;
     } else {
-      ctx.fillRect(-4, -6, 8, 12);
+      ctx.fillStyle = box.type === 'heal' ? '#00ffcc' : '#ff00aa';
+      // Draw pulsing box
+      const pulse = Math.sin(Date.now() / 200) * 2;
+      ctx.fillRect(-10 - pulse/2, -10 - pulse/2, 20 + pulse, 20 + pulse);
+      // Draw cross or lightning
+      ctx.fillStyle = '#111';
+      if (box.type === 'heal') {
+        ctx.fillRect(-6, -2, 12, 4);
+        ctx.fillRect(-2, -6, 4, 12);
+      } else {
+        ctx.fillRect(-4, -6, 8, 12);
+      }
     }
     ctx.restore();
   });
@@ -61,6 +75,13 @@ export const drawGame = (ctx, gameState) => {
     ctx.fillStyle = '#fff'; // eyes
     ctx.beginPath(); ctx.arc(-5, -5, 3, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(5, -5, 3, 0, Math.PI * 2); ctx.fill();
+    // Shield bar
+    if (enemy.max_shield > 0) {
+      ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+      ctx.fillRect(-15, -31, 30, 4);
+      ctx.fillStyle = '#00c8ff';
+      ctx.fillRect(-15, -31, 30 * (enemy.shield / enemy.max_shield), 4);
+    }
     // HP bar
     ctx.fillStyle = 'red';
     ctx.fillRect(-15, -25, 30, 4);
@@ -148,11 +169,11 @@ export const drawGame = (ctx, gameState) => {
     ctx.fillText(player.id.substring(0,6), 0, 30);
     
     // Shield Bar
-    if (player.max_shield > 0) {
+    if (player.max_shld > 0) {
       ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
       ctx.fillRect(-20, 35, 40, 4);
       ctx.fillStyle = '#00c8ff';
-      ctx.fillRect(-20, 35, 40 * Math.max(0, player.shield / player.max_shield), 4);
+      ctx.fillRect(-20, 35, 40 * Math.max(0, player.shld / player.max_shld), 4);
     }
     
     // HP Bar

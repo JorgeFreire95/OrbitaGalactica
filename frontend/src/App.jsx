@@ -33,6 +33,24 @@ function App() {
       'siphon': 0
     };
   });
+  
+  const [level, setLevel] = useState(() => {
+    return parseInt(localStorage.getItem('game_level')) || 1;
+  });
+
+  const [xp, setXp] = useState(() => {
+    return parseInt(localStorage.getItem('game_xp')) || 0;
+  });
+
+  const [minerals, setMinerals] = useState(() => {
+    const saved = localStorage.getItem('game_minerals');
+    return saved ? JSON.parse(saved) : { titanium: 0, plutonium: 0, silicon: 0 };
+  });
+
+  const [upgrades, setUpgrades] = useState(() => {
+    const saved = localStorage.getItem('game_upgrades');
+    return saved ? JSON.parse(saved) : { atk: 0, shld: 0, spd: 0 };
+  });
 
   useEffect(() => {
     localStorage.setItem('game_credits', credits);
@@ -49,6 +67,22 @@ function App() {
   useEffect(() => {
     localStorage.setItem('game_ammo', JSON.stringify(ammo));
   }, [ammo]);
+
+  useEffect(() => {
+    localStorage.setItem('game_level', level);
+  }, [level]);
+
+  useEffect(() => {
+    localStorage.setItem('game_xp', xp);
+  }, [xp]);
+
+  useEffect(() => {
+    localStorage.setItem('game_minerals', JSON.stringify(minerals));
+  }, [minerals]);
+
+  useEffect(() => {
+    localStorage.setItem('game_upgrades', JSON.stringify(upgrades));
+  }, [upgrades]);
 
   const handleBuyAmmo = (ammoId, count, cost) => {
     if (credits < cost) return alert('No tienes suficientes créditos');
@@ -104,7 +138,44 @@ function App() {
     setEquippedByShip({});
     setInventory([]);
     setAmmo({ 'standard': 9999, 'thermal': 0, 'plasma': 0, 'siphon': 0 });
+    setLevel(1);
+    setXp(0);
+    setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
+    setUpgrades({ atk: 0, shld: 0, spd: 0 });
     localStorage.clear();
+  };
+
+  const handleUpdateMinerals = (newMinerals) => {
+    setMinerals(newMinerals);
+  };
+
+  const handleRefine = (mineralType, cost, stat, amount) => {
+    if (minerals[mineralType] < cost) return alert('No tienes suficientes minerales');
+    
+    setMinerals(prev => ({
+      ...prev,
+      [mineralType]: prev[mineralType] - cost
+    }));
+    
+    setUpgrades(prev => ({
+      ...prev,
+      [stat]: prev[stat] + amount
+    }));
+    
+    alert(`¡Mejora aplicada! +${amount} a ${stat.toUpperCase()} base.`);
+  };
+
+  const handleSellMinerals = (mineralId, amount, totalCredits) => {
+    setMinerals(prev => ({
+      ...prev,
+      [mineralId]: prev[mineralId] - amount
+    }));
+    setCredits(prev => prev + totalCredits);
+  };
+
+  const handleUpdateProgress = (newLvl, newXp) => {
+    setLevel(newLvl);
+    setXp(newXp);
   };
 
   const handleJoinGame = () => {
@@ -122,11 +193,16 @@ function App() {
           equippedByShip={equippedByShip}
           inventory={inventory}
           ammo={ammo}
+          level={level}
+          xp={xp}
           onEquip={handleEquip}
           onUnequip={handleUnequip}
           onGoToShop={() => setCurrentView('shop')}
           onJoinGame={handleJoinGame}
           onReset={handleReset}
+          minerals={minerals}
+          upgrades={upgrades}
+          onRefine={handleRefine}
         />
       )}
 
@@ -140,18 +216,30 @@ function App() {
           setInventory={setInventory}
           ammo={ammo}
           onBuyAmmo={handleBuyAmmo}
+          minerals={minerals}
+          onSellMinerals={handleSellMinerals}
+          upgrades={upgrades}
+          level={level}
           onBack={() => setCurrentView('hangar')}
         />
       )}
       
       {currentView === 'game' && (
         <>
-          <h1 className="game-title">Starship Battle</h1>
+          <h1 className="game-title">Órbita Galáctica</h1>
           <GameCanvas 
             selectedShip={selectedShipId} 
             initialModules={currentEquippedModules}
             initialAmmo={ammo}
+            initialLevel={level}
+            initialXp={xp}
+            initialCredits={credits}
+            initialMinerals={minerals}
+            initialUpgrades={upgrades}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}
+            onUpdateProgress={handleUpdateProgress}
+            onUpdateCredits={(newCredits) => setCredits(newCredits)}
+            onUpdateMinerals={handleUpdateMinerals}
           />
           <button 
             style={{ position: 'absolute', top: '10px', right: '10px', padding: '10px', background: '#333', color: 'white', border: '1px solid #555', cursor: 'pointer', borderRadius: '5px' }}

@@ -15,29 +15,29 @@ class GameState:
         self.GAME_WIDTH = 2000
         self.GAME_HEIGHT = 1500
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_modules=None, initial_ammo=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None):
         self.clients[client_id] = websocket
         
         # Stats and Slot profiles
         profiles = {
             "tank": {
-                "hp": 180, "shld": 150, "atk": 70, "spd": 60, "eng": 120, "color": "#ffb300",
+                "hp": 180, "shld": 150, "atk": 70, "spd": 60, "color": "#ffb300",
                 "slots": {"lasers": 2, "shields": 6, "engines": 3, "utility": 2}
             },
             "fast": {
-                "hp": 80, "shld": 50, "atk": 110, "spd": 180, "eng": 100, "color": "#00ccff",
+                "hp": 80, "shld": 50, "atk": 110, "spd": 180, "color": "#00ccff",
                 "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2}
             },
             "stealth": {
-                "hp": 90, "shld": 80, "atk": 130, "spd": 140, "eng": 140, "color": "#9933ff",
+                "hp": 90, "shld": 80, "atk": 130, "spd": 140, "color": "#9933ff",
                 "slots": {"lasers": 5, "shields": 3, "engines": 4, "utility": 3}
             },
             "heavy": {
-                "hp": 160, "shld": 120, "atk": 180, "spd": 50, "eng": 80, "color": "#ff3333",
+                "hp": 160, "shld": 120, "atk": 180, "spd": 50, "color": "#ff3333",
                 "slots": {"lasers": 8, "shields": 4, "engines": 2, "utility": 1}
             },
             "support": {
-                "hp": 110, "shld": 100, "atk": 60, "spd": 100, "eng": 180, "color": "#33ff99",
+                "hp": 110, "shld": 100, "atk": 60, "spd": 100, "color": "#33ff99",
                 "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6}
             }
         }
@@ -68,19 +68,31 @@ class GameState:
             "equipped": [], # List of modules
             "atk": prof["atk"],
             "spd": prof["spd"],
-            "eng": prof["eng"],
-            "max_eng": prof["eng"],
             "color": prof["color"],
             "score": 0,
-            "credits": 2000, 
+            "credits": initial_credits, 
             "last_shot": 0,
             "fire_rate": 0.25,
             "powerup": None,
             "powerup_time": 0,
             "heading": -1.57,
             "ammo": {"standard": 9999, "thermal": 0, "plasma": 0, "siphon": 0},
-            "ammo_type": "standard"
+            "ammo_type": "standard",
+            "level": initial_level,
+            "xp": initial_xp,
+            "xp_next": initial_level * 1000,
+            "minerals": initial_minerals if initial_minerals else {"titanium": 0, "plutonium": 0, "silicon": 0},
+            "max_cargo": prof.get("cargo_capacity", 50),
+            "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0}
         }
+        
+        # Apply permanent upgrades to base stats
+        upg = player["permanent_upgrades"]
+        player["atk"] += upg.get("atk", 0)
+        player["shld"] += upg.get("shld", 0)
+        player["max_shld"] += upg.get("shld", 0)
+        # Note: spd is used for calculations later, but we update the base here
+        player["spd"] += upg.get("spd", 0)
 
         if initial_ammo:
             player["ammo"] = {**player["ammo"], **initial_ammo}
@@ -156,10 +168,8 @@ class GameState:
         if player["powerup"] == "rapid_fire":
             fire_rate *= 0.4
             
-        shoot_cost = 15
-        if keys.get("shoot") and (now - player["last_shot"] > fire_rate) and player["eng"] >= shoot_cost:
+        if keys.get("shoot") and (now - player["last_shot"] > fire_rate):
             player["last_shot"] = now
-            player["eng"] -= shoot_cost
             
             # Apply Ammo Multipliers
             ammo_type = player.get("ammo_type", "standard")
@@ -227,9 +237,6 @@ class GameState:
             p["x"] = max(20, min(self.GAME_WIDTH - 20, p["x"]))
             p["y"] = max(20, min(self.GAME_HEIGHT - 20, p["y"]))
             
-            # Regenerar Energía (ENG)
-            p["eng"] = min(p["max_eng"], p["eng"] + (30.0 * dt)) # 30 ENG per second regen
-            
             # Regenerar Escudos
             # Regenerar Escudos si no ha recibido daño en 3 segundos
             if now - p["last_dmg_time"] > 3.0:
@@ -271,29 +278,33 @@ class GameState:
                 for e in self.enemies:
                     dist = math.hypot(p["x"] - e["x"], p["y"] - e["y"])
                     if dist < 20: # Radio colisión
-                        e["hp"] -= p["damage"]
+                        # Solo aplicar daño si NO es munición Sifón
+                        if p.get("ammo_type") != "siphon":
+                            e["hp"] -= p["damage"]
                         
-                        # Siphon effect
+                        # Siphon effect (Roba escudos)
                         if p.get("ammo_type") == "siphon" and p["owner_id"] in self.players:
                             player = self.players[p["owner_id"]]
-                            # Steal from shield first, then hp
-                            steal_amount = 10
+                            # Robar solo de los escudos del alien
+                            steal_amount = 15 # Cantidad a robar
                             if e.get("shield", 0) > 0:
                                 val = min(e["shield"], steal_amount)
                                 e["shield"] -= val
-                                player["shield"] = min(player["max_shield"], player["shield"] + val)
-                            else:
-                                player["shield"] = min(player["max_shield"], player["shield"] + 5)
+                                # Transferir al jugador usando la propiedad correcta "shld"
+                                player["shld"] = min(player["max_shld"], player["shld"] + val)
                         
                         hit = True
                         if e["hp"] <= 0:
-                            # Kill enemy, award score
+                            # Kill enemy, award score, credits and XP
                             if p["owner_id"] in self.players:
-                                self.players[p["owner_id"]]["score"] += 100
-                                self.players[p["owner_id"]]["credits"] += 250 # Give credits per kill
+                                player = self.players[p["owner_id"]]
+                                player["score"] += 100
+                                player["credits"] += 250 
+                                self.gain_xp(player, 100) # Award 100 XP per kill
+                                
                                 # Chance de recuperar un poco de munición térmica (5%)
                                 if random.random() < 0.05:
-                                    self.players[p["owner_id"]]["ammo"]["thermal"] += 5
+                                    player["ammo"]["thermal"] += 5
                             # Soltar loot box! Chance del 20%
                             if random.random() < 0.2:
                                 self.loot_boxes.append({
@@ -301,6 +312,17 @@ class GameState:
                                     "x": e["x"],
                                     "y": e["y"],
                                     "type": random.choice(["heal", "rapid_fire", "speed"]),
+                                    "spawn_time": now
+                                })
+                            # Soltar MINERALES! Chance del 40%
+                            if random.random() < 0.4:
+                                self.loot_boxes.append({
+                                    "id": str(random.random()),
+                                    "x": e["x"] + random.randint(-15, 15),
+                                    "y": e["y"] + random.randint(-15, 15),
+                                    "type": "mineral",
+                                    "mineral_type": random.choice(["titanium", "plutonium", "silicon"]),
+                                    "amount": random.randint(3, 8),
                                     "spawn_time": now
                                 })
                         break
@@ -346,6 +368,15 @@ class GameState:
                     taken = True
                     if box["type"] == "heal":
                         player["hp"] = min(player["max_hp"], player["hp"] + 50)
+                    elif box["type"] == "mineral":
+                        # Verificar espacio en bodega
+                        current_cargo = sum(player["minerals"].values())
+                        can_take = min(box["amount"], player["max_cargo"] - current_cargo)
+                        if can_take > 0:
+                            m_type = box["mineral_type"]
+                            player["minerals"][m_type] += can_take
+                        else:
+                            taken = False # No pudo recoger nada porque está lleno
                     else:
                         player["powerup"] = box["type"]
                         player["powerup_time"] = now + 10.0 # dura 10 segundos
@@ -420,9 +451,6 @@ class GameState:
             player["max_shld"] += module_data["shld"]
             player["shld"] += module_data["shld"]
         if "spd" in module_data: player["spd"] += module_data["spd"]
-        if "eng" in module_data: 
-            player["max_eng"] += module_data["eng"]
-            player["eng"] += module_data["eng"]
             
         # Recalculate modules count for visuals (lasers, engines etc)
         if m_type == "lasers": player["lasers"] += 1
@@ -435,6 +463,19 @@ class GameState:
             # Verify if player has ammo of that type (standard is always available)
             if ammo_id == "standard" or player["ammo"].get(ammo_id, 0) > 0:
                 player["ammo_type"] = ammo_id
+
+    def gain_xp(self, player, amount):
+        player["xp"] += amount
+        # Level up logic
+        while player["xp"] >= player["xp_next"]:
+            player["xp"] -= player["xp_next"]
+            player["level"] += 1
+            player["xp_next"] = player["level"] * 1000
+            
+            # Bonus per level up (Example: heal a bit)
+            player["hp"] = min(player["max_hp"], player["hp"] + 25)
+            # You could also add a notification flag here if needed
+
 
     def get_state(self):
         return {

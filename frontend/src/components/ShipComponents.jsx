@@ -40,14 +40,26 @@ export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequi
   </div>
 );
 
-export const StatRow = ({ label, color, value, bonus }) => (
-  <div style={{ display: 'flex', alignItems: 'center' }}>
-    <span style={{ width: '80px', fontSize: '0.8rem', fontWeight: 'bold', color }}>{label}:</span>
-    <div style={{ flex: 1, background: '#333', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
-      <div style={{ width: `${Math.min(100, ((value + bonus) / 300) * 100)}%`, background: color, height: '100%', transition: 'width 0.3s' }}></div>
+export const StatRow = ({ label, color, value, bonus, permanent = 0 }) => {
+  const total = value + bonus + permanent;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <span style={{ width: '80px', fontSize: '0.8rem', fontWeight: 'bold', color }}>{label}:</span>
+      <div style={{ flex: 1, background: '#333', height: '10px', borderRadius: '5px', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ 
+          width: `${Math.min(100, (total / 350) * 100)}%`, 
+          background: color, 
+          height: '100%', 
+          transition: 'width 0.3s' 
+        }}>
+           {/* Representación visual del bono permanente y módulos si quisieras separarlos, pero por ahora mostramos total */}
+        </div>
+      </div>
+      <span style={{ width: '80px', fontSize: '0.8rem', textAlign: 'right' }}>
+        {value}
+        {bonus > 0 && <span style={{ color: '#33ff33', fontSize: '0.7rem' }}> +{bonus}</span>}
+        {permanent > 0 && <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}> +{permanent}★</span>}
+      </span>
     </div>
-    <span style={{ width: '60px', fontSize: '0.8rem', textAlign: 'right' }}>
-      {value} {bonus > 0 && <span style={{ color: '#33ff33', fontSize: '0.7rem' }}>+{bonus}</span>}
-    </span>
-  </div>
-);
+  );
+};

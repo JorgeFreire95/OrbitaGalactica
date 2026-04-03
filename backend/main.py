@@ -84,9 +84,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 ship_type = data.get("ship_type", "tank")
                 modules = data.get("modules", [])
                 initial_ammo = data.get("initial_ammo", {}) # Corrected key
-                game_state.add_player(client_id, websocket, ship_type, modules, initial_ammo)
+                initial_level = data.get("level", 1)
+                initial_xp = data.get("xp", 0)
+                initial_credits = data.get("credits", 2000)
+                initial_minerals = data.get("minerals", None)
+                initial_upgrades = data.get("upgrades", None)
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_minerals, initial_upgrades, modules, initial_ammo)
                 player_added = True
-                logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules and ammo {initial_ammo}")
+                logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
                 
             elif data.get("type") == "input" and player_added:
                 keys = data.get("keys", {})

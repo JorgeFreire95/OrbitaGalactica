@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { drawGame } from '../utils/renderer';
+import { getRank } from '../utils/gameData';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ selectedShip, initialModules, initialAmmo, onUpdateAmmo }) {
+export default function GameCanvas({ selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   
@@ -47,7 +48,12 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
           type: 'join', 
           ship_type: selectedShip,
           modules: initialModules || [],
-          initial_ammo: initialAmmo
+          initial_ammo: initialAmmo,
+          level: initialLevel,
+          xp: initialXp,
+          credits: initialCredits,
+          minerals: initialMinerals,
+          upgrades: initialUpgrades
         }));
       };
 
@@ -62,6 +68,15 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
             if (me) {
               // Update counts in App.jsx to persist
               onUpdateAmmo(me.ammo);
+              if (onUpdateProgress) {
+                onUpdateProgress(me.level, me.xp);
+              }
+              if (onUpdateCredits) {
+                onUpdateCredits(me.credits);
+              }
+              if (onUpdateMinerals) {
+                onUpdateMinerals(me.minerals);
+              }
             }
           }
         }
@@ -224,14 +239,92 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
                 <div className="hud-item">
                   <div style={{ color: '#00ccff', fontWeight: 'bold' }}>⚡ SPD: {me.spd}</div>
                 </div>
-                <div className="hud-item">
-                  <div style={{ color: '#33ff33', fontWeight: 'bold' }}>🔋 ENG: {Math.floor(me.eng)} / {me.max_eng}</div>
+              </div>
+
+              {/* NIVEL Y RANGO */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginBottom: '5px',
+                width: '1000px'
+              }}>
+                <div style={{ 
+                  background: 'rgba(0,119,255,0.2)', 
+                  border: '1px solid #0077ff', 
+                  padding: '4px 12px', 
+                  borderRadius: '15px',
+                  color: '#0077ff',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase'
+                }}>
+                  {getRank(me.level)}
+                </div>
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.1)', 
+                  border: '1px solid #fff', 
+                  padding: '4px 12px', 
+                  borderRadius: '15px',
+                  color: '#fff',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold'
+                }}>
+                  NIVEL {me.level}
                 </div>
               </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '1000px' }}>
-                <div className="hud-item">
-                  <div style={{ color: '#fff', fontWeight: 'bold' }}>🏆 PUNTAJE: {me.score || 0}</div>
+
+              {/* BARRA DE EXPERIENCIA */}
+              <div style={{ width: '100%', maxWidth: '1000px', background: 'rgba(0,0,0,0.5)', height: '15px', borderRadius: '10px', border: '1px solid #333', overflow: 'hidden', position: 'relative', marginBottom: '15px' }}>
+                <div style={{ 
+                  width: `${(me.xp / me.xp_next) * 100}%`, 
+                  height: '100%', 
+                  background: 'linear-gradient(90deg, #0077ff, #00ffcc)',
+                  transition: 'width 0.3s ease-out'
+                }} />
+                <div style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontSize: '0.65rem', 
+                  fontWeight: 'bold', 
+                  color: 'white', 
+                  textShadow: '0 0 5px black' 
+                }}>
+                  XP: {Math.floor(me.xp)} / {me.xp_next}
+                </div>
+              </div>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '1000px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <div className="hud-item">
+                    <div style={{ color: '#fff', fontWeight: 'bold' }}>🏆 PUNTAJE: {me.score || 0}</div>
+                  </div>
+                  <div className="hud-item" style={{ background: 'rgba(0,255,204,0.2)', border: '1px solid #00ffcc' }}>
+                    <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>💰 CRÉDITOS: {me.credits || 0}</div>
+                  </div>
+                  <div className="hud-item" style={{ background: 'rgba(150,150,150,0.2)', border: '1px solid #aaa', marginTop: '5px' }}>
+                    <div style={{ color: '#aaa', fontSize: '0.9rem' }}>
+                      📦 BODEGA: {Object.values(me.minerals || {}).reduce((a, b) => a + b, 0)} / {me.max_cargo}
+                    </div>
+                  </div>
+                </div>             
+
+                {/* MINERALES RECOGIDOS */}
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  {me.minerals && Object.entries(me.minerals).map(([type, amount]) => {
+                    const icons = { titanium: '💎', plutonium: '🏮', silicon: '💾' };
+                    const colors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
+                    if (amount === 0) return null;
+                    return (
+                      <div key={type} className="hud-item" style={{ borderColor: colors[type], color: colors[type] }}>
+                        {icons[type]} {amount}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* HUD DE MUNICIÓN */}
