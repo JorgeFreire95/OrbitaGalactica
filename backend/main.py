@@ -2,9 +2,16 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import json
+import traceback
+import logging
 from contextlib import asynccontextmanager
 
 from game_logic import GameState
+
+# Configurar logging a archivo
+logging.basicConfig(filename='app.log', level=logging.INFO, 
+                    format='%(asctime)s %(levelname)s:%(message)s')
+logger = logging.getLogger(__name__)
 
 # Manejo de ciclo de vida de la app
 game_state = GameState()
@@ -83,13 +90,15 @@ async def websocket_endpoint(websocket: WebSocket):
             if data.get("type") == "join" and not player_added:
                 ship_type = data.get("ship_type", "tank")
                 modules = data.get("modules", [])
-                initial_ammo = data.get("initial_ammo", {}) # Corrected key
+                user_id = data.get("userId") # Extraer el ID persistente
+                initial_ammo = data.get("initial_ammo", {})
                 initial_level = data.get("level", 1)
                 initial_xp = data.get("xp", 0)
                 initial_credits = data.get("credits", 2000)
                 initial_minerals = data.get("minerals", None)
                 initial_upgrades = data.get("upgrades", None)
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_minerals, initial_upgrades, modules, initial_ammo)
+                
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id)
                 player_added = True
                 logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
                 

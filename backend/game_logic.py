@@ -10,12 +10,22 @@ class GameState:
         self.projectiles = []
         self.loot_boxes = []
         self.last_alien_spawn = time.time()
-        self.alien_spawn_rate = 3.0 # Segundos
+        self.alien_spawn_rate = 1.2 
+        self.max_enemies = 60 
+        self.kill_events = [] 
         
-        self.GAME_WIDTH = 2000
-        self.GAME_HEIGHT = 1500
+        # --- BASE Y ZONA SEGURA ---
+        self.BASE_X = 1750
+        self.BASE_Y = 1150
+        self.SAFE_ZONE_RADIUS = 350
+        
+        self.GAME_WIDTH = 10000
+        self.GAME_HEIGHT = 8000
+        
+        # --- PERSISTENCIA DE SESIÓN ---
+        self.player_persistence = {} # { user_id: {x, y} }
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None):
         self.clients[client_id] = websocket
         
         # Stats and Slot profiles
@@ -51,9 +61,10 @@ class GameState:
         
         player = {
             "id": client_id,
+            "user_id": user_id,
             "ship_type": ship_type,
-            "x": self.GAME_WIDTH / 2,
-            "y": self.GAME_HEIGHT / 2,
+            "x": 1600,
+            "y": 1050,
             "vx": 0,
             "vy": 0,
             "hp": prof["hp"],
@@ -72,7 +83,7 @@ class GameState:
             "score": 0,
             "credits": initial_credits, 
             "last_shot": 0,
-            "fire_rate": 0.25,
+            "fire_rate": 0.12, # Cadencia base más rápida (antes 0.25)
             "powerup": None,
             "powerup_time": 0,
             "heading": -1.57,
@@ -96,6 +107,13 @@ class GameState:
 
         if initial_ammo:
             player["ammo"] = {**player["ammo"], **initial_ammo}
+            
+        # --- RESTAURAR POSICIÓN PERSISTENTE ---
+        if user_id and user_id in self.player_persistence:
+            saved = self.player_persistence[user_id]
+            player["x"] = saved["x"]
+            player["y"] = saved["y"]
+            print(f"Restaurando posición para {user_id}: ({player['x']}, {player['y']})")
         
         self.players[client_id] = player
 
@@ -105,34 +123,86 @@ class GameState:
                 self.buy_module(client_id, mod, free=True)
 
     def remove_player(self, client_id):
+        if client_id in self.players:
+            player = self.players[client_id]
+            user_id = player.get("user_id")
+            if user_id:
+                # Guardar posición para la próxima vez
+                self.player_persistence[user_id] = {
+                    "x": player["x"],
+                    "y": player["y"]
+                }
+                print(f"Guardando posición para {user_id}: ({player['x']}, {player['y']})")
+                
+            del self.players[client_id]
+            
         if client_id in self.clients:
             del self.clients[client_id]
-        if client_id in self.players:
-            del self.players[client_id]
 
     def handle_input(self, client_id, keys):
         if client_id not in self.players:
             return
         player = self.players[client_id]
-        if player["hp"] <= 0:
-            return # Dead
-            
-        # Detect Heading (Mouse)
-        mx = keys.get("mouseX")
-        my = keys.get("mouseY")
-        if mx is not None and my is not None:
-            player["heading"] = math.atan2(my - player["y"], mx - player["x"])
+        # Detect Direction (Target or Mouse)
+        target_x = keys.get("target_x")
+        target_y = keys.get("target_y")
+        
+        # PERSISTENCIA MEJORADA: Solo actualizar si la clave está presente
+        if "locked_target_id" in keys:
+            player["locked_target_id"] = keys["locked_target_id"]
+        
+        locked_id = player.get("locked_target_id")
+        MAX_COMBAT_RANGE = 700
+        player["in_range"] = True
 
-        # Movement Target
+        if locked_id:
+            # Si hay un objetivo fijado, buscarlo
+            target_enemy = next((e for e in self.enemies if e["id"] == locked_id), None)
+            if target_enemy:
+                # Calcular distancia al objetivo
+                dist = math.hypot(target_enemy["x"] - player["x"], target_enemy["y"] - player["y"])
+                if dist > MAX_COMBAT_RANGE:
+                    player["in_range"] = False
+                
+                # Si estamos disparando y EN RANGO, apuntar al objetivo automáticamente
+                if keys.get("shoot") and player["in_range"]:
+                    dx = target_enemy["x"] - player["x"]
+                    dy = target_enemy["y"] - player["y"]
+                    player["heading"] = math.atan2(dy, dx)
+            else:
+                # El objetivo murió o desapareció
+                player["locked_target_id"] = None
+        
+        # Si NO hay objetivo fijado pero sí destino de movimiento, apuntar al destino
+        if not locked_id and target_x is not None and target_y is not None:
+            dx = target_x - player["x"]
+            dy = target_y - player["y"]
+            dist_sq = dx*dx + dy*dy
+            if dist_sq > 25:
+                player["heading"] = math.atan2(dy, dx)
+
+        # Shooting Toggle / Logic
+        is_shooting = keys.get("shoot", False)
+        
+        # El disparo automático solo persiste si hay un objetivo y está en rango
+        player["shoot_active"] = is_shooting
+        
+        # BLOQUEO: No disparar si no hay un objetivo seleccionado
+        if not locked_id:
+            player["shoot_active"] = False
+        
+        # Override: si el target murió o está FUERA DE RANGO, obligar a que shoot_active sea False
+        if locked_id:
+            target_exists = next((e for e in self.enemies if e["id"] == locked_id), None)
+            if not target_exists or not player.get("in_range", True):
+                player["shoot_active"] = False
+
+        # Movement Calculation
         vx = 0
         vy = 0
-        # Convert stat SPD (100) to pixel speed (350)
         speed = player["spd"] * 3.5
         if player["powerup"] == "speed":
             speed *= 1.5
-
-        target_x = keys.get("target_x")
-        target_y = keys.get("target_y")
 
         if target_x is not None and target_y is not None:
             # Mouse point-and-click movement
@@ -168,7 +238,8 @@ class GameState:
         if player["powerup"] == "rapid_fire":
             fire_rate *= 0.4
             
-        if keys.get("shoot") and (now - player["last_shot"] > fire_rate):
+        # IMPORTANTE: Usar shoot_active que ya tiene filtrado el rango y el objetivo
+        if player.get("shoot_active", False) and (now - player["last_shot"] > fire_rate):
             player["last_shot"] = now
             
             # Apply Ammo Multipliers
@@ -190,41 +261,37 @@ class GameState:
                     ammo_type = "standard"
                     config = ammo_config["standard"]
 
-            actual_damage = player["atk"] * 0.25 * config["dmg"]
-            
-            # Disparar hacia el mouse (heading) en abanico según cantidad de láseres
-            projectile_speed = 800
-            base_heading = player.get("heading", -1.57)
-            
-            # Si tiene múltiples lásers, calcular spread angle
+            # Un solo Rayo Láser potente (el daño ahora escala con num_lasers en un solo disparo)
             num_lasers = player.get("lasers", 1)
-            spread = 0.15 # Radianes entre proyectiles
+            actual_damage = (player["atk"] * 0.25 * config["dmg"]) * max(1, num_lasers)
             
-            # Centrar el abanico
-            start_angle = base_heading - (spread * (num_lasers - 1)) / 2
+            projectile_speed = 1400 # Velocidad de rayo láser
+            angle = player.get("heading", -1.57)
             
-            for i in range(num_lasers):
-                angle = start_angle + (spread * i)
-                self.projectiles.append({
-                    "id": str(random.random()),
-                    "owner_id": client_id,
-                    "is_player": True,
-                    "x": player["x"],
-                    "y": player["y"],
-                    "vx": math.cos(angle) * projectile_speed,
-                    "vy": math.sin(angle) * projectile_speed,
-                    "damage": actual_damage,
-                    "ammo_type": ammo_type,
-                    "life": 1.5 # seconds
-                })
+            self.projectiles.append({
+                "id": str(random.random()),
+                "owner_id": client_id,
+                "is_player": True,
+                "x": player["x"],
+                "y": player["y"],
+                "vx": math.cos(angle) * projectile_speed,
+                "vy": math.sin(angle) * projectile_speed,
+                "damage": actual_damage,
+                "ammo_type": ammo_type,
+                "life": 1.2 # segundos de vida del rayo
+            })
 
     def update(self, dt):
         now = time.time()
         
-        # 1. Spawn Enemies
+        # 1. Spawn Enemies (Solo si no se ha superado el límite)
         if now - self.last_alien_spawn > self.alien_spawn_rate:
-            self.last_alien_spawn = now
-            self.spawn_alien()
+            if len(self.enemies) < self.max_enemies:
+                self.last_alien_spawn = now
+                self.spawn_alien()
+            else:
+                # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
+                self.last_alien_spawn = now
             
         # 2. Update Players
         for pid, p in self.players.items():
@@ -245,6 +312,18 @@ class GameState:
             # Quitar powerup si expiró
             if p["powerup"] and now > p["powerup_time"]:
                 p["powerup"] = None
+                
+            # --- DETECCIÓN DE ZONA SEGURA (BASE) ---
+            dist_to_base = math.hypot(p["x"] - self.BASE_X, p["y"] - self.BASE_Y)
+            p["in_safe_zone"] = dist_to_base < self.SAFE_ZONE_RADIUS
+                
+            # Limpieza de objetivo (Lock-on) si el enemigo murió o desapareció
+            if p.get("locked_target_id"):
+                target_exists = any(en["id"] == p["locked_target_id"] for en in self.enemies)
+                if not target_exists:
+                    p["locked_target_id"] = None
+                    p["shoot_active"] = False # Detener disparo al morir el blanco
+
 
         # 3. Update Projectiles
         for proj in self.projectiles:
@@ -259,10 +338,16 @@ class GameState:
             enemy["y"] += enemy["vy"] * dt
             enemy["x"] += enemy["vx"] * dt
             
-            # Si salen por abajo reaparecen arriba
-            if enemy["y"] > self.GAME_HEIGHT + 50:
-                enemy["y"] = -50
+            # Si salen de los límites del mapa (cualquiera de los 4 bordes), reaparecen
+            if (enemy["y"] > self.GAME_HEIGHT + 100 or enemy["y"] < -100 or
+                enemy["x"] > self.GAME_WIDTH + 100 or enemy["x"] < -100):
+                enemy["y"] = -50 # Reaparecer desde arriba
                 enemy["x"] = random.randint(50, self.GAME_WIDTH - 50)
+                enemy["vx"] = random.uniform(-50, 50)
+                enemy["vy"] = random.uniform(50, 150)
+        
+        # Limpiar eventos de muerte antiguos (2.5 segundos)
+        self.kill_events = [e for e in self.kill_events if now - e["time"] < 2.5]
                 
         # 5. Collisions
         self._check_collisions(now)
@@ -301,6 +386,17 @@ class GameState:
                                 player["score"] += 100
                                 player["credits"] += 250 
                                 self.gain_xp(player, 100) # Award 100 XP per kill
+                                
+                                # Registrar evento de recompensa para el HUD
+                                self.kill_events.append({
+                                    "id": str(random.random()),
+                                    "x": e["x"],
+                                    "y": e["y"],
+                                    "xp": 100,
+                                    "credits": 250,
+                                    "time": now,
+                                    "owner_id": p["owner_id"]
+                                })
                                 
                                 # Chance de recuperar un poco de munición térmica (5%)
                                 if random.random() < 0.05:
@@ -390,7 +486,7 @@ class GameState:
         # Aliens vs Jugadores (Daño por contacto)
         for e in self.enemies:
             for pid, p in self.players.items():
-                if p["hp"] <= 0: continue
+                if p["hp"] <= 0 or p.get("in_safe_zone", False): continue
                 dist = math.hypot(e["x"] - p["x"], e["y"] - p["y"])
                 if dist < 25:
                     damage = 10
@@ -427,8 +523,13 @@ class GameState:
         m_type = module_data.get("type", "") # lasers, shields, engines, utility
         
         # Check credits (unless it's free/initial)
-        if not free and player["credits"] < cost:
-            return # Not enough money
+        if not free:
+            if player["credits"] < cost:
+                return # Not enough money
+            
+            # BLOQUEO: Solo permitir equipar en la Base / Zona Segura
+            if not player.get("in_safe_zone", False):
+                return # Debe estar en la base para equipar
             
         # Check slot capacity
         max_slots = player["slots"].get(m_type, 0)
@@ -476,11 +577,20 @@ class GameState:
             player["hp"] = min(player["max_hp"], player["hp"] + 25)
             # You could also add a notification flag here if needed
 
+    def update_player_input(self, client_id, keys):
+        if client_id in self.players:
+            player = self.players[client_id]
+            player["keys"] = keys
+            # Only update locked_target_id if it's explicitly provided in the keys object
+            if "locked_target_id" in keys:
+                player["locked_target_id"] = keys["locked_target_id"]
 
     def get_state(self):
         return {
             "players": list(self.players.values()),
             "enemies": self.enemies,
             "projectiles": self.projectiles,
-            "loot_boxes": self.loot_boxes
+            "loot_boxes": self.loot_boxes,
+            "kill_events": self.kill_events,
+            "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS}
         }

@@ -7,9 +7,10 @@ const WS_URL = 'ws://127.0.0.1:8000/ws';
 export default function GameCanvas({ selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
+  const gameStateRef = useRef(null);
+  const cameraRef = useRef({ x: 0, y: 0 });
   
   const [gameState, setGameState] = useState(null);
-  const gameStateRef = useRef(null);
   const [error, setError] = useState(null);
 
   // Keyboard state
@@ -44,8 +45,17 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
         if (!isMounted) return ws.close();
         console.log('Connected to server!');
         setError(null);
+        
+        // Obtener o crear un userID persistente
+        let userId = localStorage.getItem('orbita_galactica_user_id');
+        if (!userId) {
+          userId = 'user_' + Math.random().toString(36).substr(2, 9);
+          localStorage.setItem('orbita_galactica_user_id', userId);
+        }
+
         ws.send(JSON.stringify({ 
           type: 'join', 
+          userId: userId,
           ship_type: selectedShip,
           modules: initialModules || [],
           initial_ammo: initialAmmo,
@@ -63,20 +73,26 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
         if (data.type === 'state') {
           gameStateRef.current = data.state;
           setGameState(data.state);
-          if (onUpdateAmmo && data.state.players) {
+
+          // Sincronizar estadísticas (XP, Créditos, etc) pero NO el objetivo fijado de forma directa
+          // para evitar que el servidor limpie el target local por lag o latencia.
+          if (data.state.players) {
             const me = data.state.players.find(p => p.is_self);
             if (me) {
-              // Update counts in App.jsx to persist
-              onUpdateAmmo(me.ammo);
-              if (onUpdateProgress) {
-                onUpdateProgress(me.level, me.xp);
+              // SOLO limpiamos si el target YA NO EXISTE en la lista global de enemigos (Muerte)
+              if (keys.current.locked_target_id) {
+                const stillExists = data.state.enemies?.some(en => en.id === keys.current.locked_target_id);
+                if (!stillExists) {
+                  console.log("Sistema: Objetivo fuera del radar o destruido. Limpiando selección.");
+                  keys.current.locked_target_id = null;
+                  keys.current.shoot = false;
+                }
               }
-              if (onUpdateCredits) {
-                onUpdateCredits(me.credits);
-              }
-              if (onUpdateMinerals) {
-                onUpdateMinerals(me.minerals);
-              }
+              
+              if (onUpdateAmmo) onUpdateAmmo(me.ammo);
+              if (onUpdateProgress) onUpdateProgress(me.level, me.xp);
+              if (onUpdateCredits) onUpdateCredits(me.credits);
+              if (onUpdateMinerals) onUpdateMinerals(me.minerals);
             }
           }
         }
@@ -110,27 +126,35 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
 
       if (gameStateRef.current) {
         const ctx = canvas.getContext('2d');
-        drawGame(ctx, gameStateRef.current);
+        const me = gameStateRef.current.players?.find(p => p.is_self);
         
-        // Draw bullets with ammo colors
-        if (gameStateRef.current.projectiles) {
-          gameStateRef.current.projectiles.forEach(p => {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-            
-            // Color based on ammo type
-            const ammoColors = {
-              'standard': '#ffffff',
-              'thermal': '#ff6600',
-              'plasma': '#ff33ff',
-              'siphon': '#33ff33'
-            };
-            ctx.fillStyle = ammoColors[p.ammo_type] || '#fff';
-            ctx.fill();
-            ctx.restore();
-          });
+        // --- CÁLCULO DE CÁMARA ---
+        let camX = 0;
+        let camY = 0;
+        
+        if (me) {
+          // Centrar cámara en el jugador
+          camX = me.x - canvas.width / 2;
+          camY = me.y - canvas.height / 2;
+          
+          // Limitar cámara a los bordes del mundo (10000x8000)
+          const WORLD_WIDTH = 10000;
+          const WORLD_HEIGHT = 8000;
+          
+          camX = Math.max(0, Math.min(WORLD_WIDTH - canvas.width, camX));
+          camY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, camY));
         }
+        
+        cameraRef.current = { x: camX, y: camY };
+
+        // El estado ahora lo enviamos extendido con el target local para dibujar la retícula
+        const stateToDraw = {
+            ...gameStateRef.current,
+            selectedTargetId: keys.current.locked_target_id
+        };
+        
+        // Pasamos la cámara al renderer
+        drawGame(ctx, stateToDraw, camX, camY);
       }
       
       animationId = requestAnimationFrame(renderLoop);
@@ -140,45 +164,95 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
     // Set up Input Listeners
     const handleKeyDown = (e) => {
       if (e.repeat) return;
-      const k = e.key.toLowerCase();
-      if (k === 'arrowup' || k === 'w') { keys.current.up = true; keys.current.target_x = null; }
-      if (k === 'arrowdown' || k === 's') { keys.current.down = true; keys.current.target_x = null; }
-      if (k === 'arrowleft' || k === 'a') { keys.current.left = true; keys.current.target_x = null; }
-      if (k === 'arrowright' || k === 'd') { keys.current.right = true; keys.current.target_x = null; }
-      if (e.key === ' ' || e.key === 'Enter') keys.current.shoot = true;
+      const k = e.key;
 
-      // Ammo switching
+      // Cambiar munición (1-4)
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        if (k === '1') wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: 'standard' }));
-        if (k === '2') wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: 'thermal' }));
-        if (k === '3') wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: 'plasma' }));
-        if (k === '4') wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: 'siphon' }));
+        if (k === '1' || k === '2' || k === '3' || k === '4') {
+          // SOLO disparar si hay un objetivo fijado
+          if (keys.current.locked_target_id) {
+            keys.current.shoot = true;
+          }
+          const ammoId = k === '1' ? 'standard' : k === '2' ? 'thermal' : k === '3' ? 'plasma' : 'siphon';
+          wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: ammoId }));
+        }
+      }
+
+      // Espacio alterna disparo SOLO si hay un objetivo
+      if (k === ' ') {
+        if (keys.current.locked_target_id) {
+          keys.current.shoot = !keys.current.shoot;
+        } else {
+          keys.current.shoot = false;
+        }
       }
     };
 
-    const handleKeyUp = (e) => {
-      const k = e.key.toLowerCase();
-      if (k === 'arrowup' || k === 'w') keys.current.up = false;
-      if (k === 'arrowdown' || k === 's') keys.current.down = false;
-      if (k === 'arrowleft' || k === 'a') keys.current.left = false;
-      if (k === 'arrowright' || k === 'd') keys.current.right = false;
-      if (e.key === ' ' || e.key === 'Enter') keys.current.shoot = false;
-    };
+    const handleKeyUp = (e) => { };
 
-    // Al hacer click, guardamos la coordenada como target
     const handleMouseDown = (e) => { 
+      const rect = canvasRef.current.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      
+      const width = canvasRef.current.width;
+      const height = canvasRef.current.height;
+
+      // --- DETECCIÓN DE CLIC EN MINIMAPA ---
+      const mmW = 200;
+      const mmH = 150;
+      const margin = 20;
+      const mmX_start = width - mmW - margin;
+      const mmY_start = height - mmH - margin;
+
+      if (screenX >= mmX_start && screenX <= width - margin && 
+          screenY >= mmY_start && screenY <= height - margin) {
+        
+        // Coordenadas relativas dentro del minimapa
+        const relX = screenX - mmX_start;
+        const relY = screenY - mmY_start;
+        
+        // Mapear a coordenadas del Mundo (10000x8000)
+        keys.current.target_x = (relX / mmW) * 10000;
+        keys.current.target_y = (relY / mmH) * 8000;
+        
+        console.log("Navegación Táctica:", keys.current.target_x, keys.current.target_y);
+        return; // Detener aquí para no seleccionar enemigos "debajo" del minimapa
+      }
+
+      // Convertir coordenadas de PANTALLA a coordenadas de MUNDO para clics normales
+      const mouseX = screenX + cameraRef.current.x;
+      const mouseY = screenY + cameraRef.current.y;
+
       if(e.button === 0) {
-        keys.current.target_x = e.clientX;
-        keys.current.target_y = e.clientY;
-      } else if (e.button === 2) { // Right click = shoot
-        keys.current.shoot = true;
+        let hitTarget = null;
+        if (gameStateRef.current?.enemies) {
+          hitTarget = gameStateRef.current.enemies.find(en => {
+            const dist = Math.hypot(en.x - mouseX, en.y - mouseY);
+            return dist < 45; // Radio de selección
+          });
+        }
+
+        if (hitTarget) {
+            console.log("Objetivo Fijado:", hitTarget.id);
+            keys.current.locked_target_id = hitTarget.id;
+            keys.current.target_x = null;
+            keys.current.target_y = null;
+        } else {
+            // Si hace click fuera de un enemigo, SOLO se mueve ahí. NO limpia el target.
+            keys.current.target_x = mouseX;
+            keys.current.target_y = mouseY;
+        }
+      } else if (e.button === 2) { 
+        // CLIC DERECHO: Ahora SOLO sirve para DESMARCAR el objetivo
+        console.log("Deseleccionando objetivo.");
+        keys.current.locked_target_id = null;
+        keys.current.shoot = false; // Detener disparo al desmarcar
       }
     };
     
     const handleMouseUp = (e) => { 
-      if(e.button === 2) {
-        keys.current.shoot = false;
-      }
+        // Eliminado el reseteo de 'shoot' para que sea toggle real
     };
 
     const handleMouseMove = (e) => {
@@ -211,9 +285,50 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
     };
   }, []); // Run only once on mount
 
+  const me = gameState?.players?.find(p => p.is_self);
+
   return (
     <>
       <canvas ref={canvasRef} style={{ display: 'block' }} />
+      
+      {/* Indicador de Zona Segura - Reubicado al centro inferior */}
+      {me?.in_safe_zone && (
+        <div style={{
+          position: 'absolute',
+          bottom: '100px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'rgba(0, 255, 255, 0.07)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(0, 255, 255, 0.3)',
+          borderBottom: '3px solid #00ffff',
+          padding: '6px 12px',
+          borderRadius: '4px',
+          color: '#00ffff',
+          fontFamily: 'Orbitron',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          letterSpacing: '1px',
+          pointerEvents: 'none',
+          boxShadow: '0 0 20px rgba(0, 255, 255, 0.1)',
+          zIndex: 100,
+          animation: 'pulse-safe 2s infinite ease-in-out'
+        }}>
+          <style>{`
+            @keyframes pulse-safe {
+              0% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
+              50% { box-shadow: 0 0 25px rgba(0, 255, 255, 0.3); border-color: rgba(0, 255, 255, 0.7); }
+              100% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
+            }
+          `}</style>
+          <span style={{ fontSize: '16px' }}>🛡️</span>
+          <span>ESTACIÓN CENTRAL - ZONA SEGURA</span>
+        </div>
+      )}
+
       {error && (
         <div style={{ position: 'absolute', top: 10, left: 10, color: 'red', background: 'rgba(0,0,0,0.5)', padding: 10 }}>
           {error}
