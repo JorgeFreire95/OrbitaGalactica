@@ -21,24 +21,25 @@
 
 ## 🎮 Funcionalidades Principales
 
-### 🛸 Sistema de Naves y Combate
+### 🛸 Navegación y Mundo Galáctico
+- **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
+- **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'** o clic directo, con animación de flash de salto hiperespacial.
+- **Minimapa Táctico**: Radar en tiempo real que ahora incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m.
+- **Persistencia Total**: Tu sesión guarda automáticamente tu posición exacta (`X, Y`) y el **sector (mapa)** donde te encuentras. Despega al espacio y retoma tu misión exactamente donde la dejaste.
+
+### 🛡️ Zonas Seguras y Estaciones
+- **Santuario Galáctico**: Tanto la Estación Central en Alfa como los Portales Estelares en ambos sectores cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
+- **Centro de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
+
+### 💰 Economía y Tesoros
+- **Moneda Especial (✨)**: Nueva divisa premium obtenible mediante la recolección de **Cofres Dorados** que aparecen aleatoriamente por la galaxia cada 30 segundos.
+- **Filtro de Contexto**: Sistema inteligente que evita que la nave se mueva accidentalmente hacia coordenadas del mapa anterior tras realizar un salto estelar.
+- **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
+
+### ⚔️ Combate y Progresión
 - **5 Clases de Naves**: Aegis Vanguard (Tanque), Nova Striker (Rápida), Orion Phantom (Sigilo), Titan Hammer (Pesada) y Helix Support (Soporte).
-- **Armamento**: Munición estándar infinita y municiones especiales (Térmica para daño extra, Plasma penetrante y Sifón para robar escudos).
-- **HUD Intuitivo**: Seguimiento en tiempo real de HP, Escudos, Munición, XP y Carga.
-
-### 📈 Progresión y Personalización
-- **Sistema de Niveles y Rangos**: Gana XP destruyendo enemigos para subir de nivel y ascender de rango (Cadete, Piloto, Capitán, Comandante, Almirante).
-- **Hangar Avanzado**: Configura tu nave equipando módulos de Láseres, Escudos, Motores y Utilidad comprados en la tienda.
-- **Estadísticas Visuales**: Diferenciación clara entre estadísticas base, bonos de módulos y mejoras permanentes (★).
-
-### 💎 Economía y Recursos
-- **Recolección de Minerales**: Los aliens sueltan Titanio, Plutonio y Silicio.
-- **Gestión de Bodega**: Capacidad limitada de carga según el tipo de nave seleccionada.
-- **Tienda Espacial**: Compra módulos tácticos y munición especial usando créditos ganados en combate.
-- **Venta de Recursos**: Posibilidad de vender minerales sobrantes por créditos para financiar tu equipo.
-
-### 🔬 Laboratorio de Minerales
-- **Refinamiento**: Convierte tus minerales en mejoras permanentes para el Ataque (Plutonio), Escudo (Titanio) y Velocidad (Silicio) de todas tus naves.
+- **Armamento Avanzado**: Munición estándar infinita y proyectiles especiales (Térmica, Plasma, Sifón) con efectos visuales únicos.
+- **Retícula Dinámica**: Sistema de lock-on con indicador de rango (Cian/Amarillo/Rojo) y alertas de proximidad crítica.
 
 ---
 

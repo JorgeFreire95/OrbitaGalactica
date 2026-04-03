@@ -21,22 +21,15 @@ async def game_loop():
     while True:
         try:
             game_state.update(1.0 / 60.0) # 60 FPS update
-            # Broadcast state
-            state = game_state.get_state()
-            
-            # We need to send subjective state (who is "self") to each client
+            # we iterate through clients and send filtered state
             disconnected_clients = []
             for client_id, ws in list(game_state.clients.items()):
                 try:
-                    # Modificamos el estado para que el cliente sepa cuál es su nave
-                    personalized_state = state.copy()
-                    personalized_state["players"] = [
-                        {**p, "is_self": p["id"] == client_id} for p in state["players"]
-                    ]
+                    # Get state filtered for this specific client (Map + Self)
+                    personalized_state = game_state.get_state(client_id)
                     await ws.send_text(json.dumps({"type": "state", "state": personalized_state}))
                 except Exception as e:
                     print(f"Error sending to {client_id}: {e}", flush=True)
-                    traceback.print_exc()
                     disconnected_clients.append(client_id)
                     
             for client_id in disconnected_clients:
@@ -114,6 +107,9 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "switch_ammo" and player_added:
                 ammo_id = data.get("ammo_id")
                 game_state.switch_ammo(client_id, ammo_id)
+                
+            elif data.get("type") == "jump_portal" and player_added:
+                game_state.jump_portal(client_id)
                 
     except WebSocketDisconnect as e:
         logger.info(f"Client disconnected: {client_id} Code: {e.code} Reason: {e.reason}")

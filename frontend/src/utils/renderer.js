@@ -19,6 +19,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   // 1. Limpiar canvas (Fondo fijo)
   ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, width, height);
+  
+  const me = gameState.players?.find(p => p.is_self);
 
   // 2. Dibujar cuadrícula Galáctica (Efecto Parallax Infinito)
   // Dibujamos la cuadrícula desplazada por el módulo para que parezca infinita
@@ -112,12 +114,97 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillText("ESTACIÓN CENTRAL", x, y - radius - 20);
   }
 
+  // --- DIBUJAR PORTAL DE SALTO (AGUJERO DE GUSANO) ---
+  if (gameState.portal) {
+    const { x, y, radius } = gameState.portal;
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // Efecto de distorsión pulsante
+    const time = Date.now() / 1000;
+    const pulse = Math.sin(time * 3) * 10;
+    
+    // Capas del Agujero de Gusano
+    for(let i=0; i<3; i++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius - (i * 20) + pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = i === 0 ? '#00ffff' : (i === 1 ? '#0088ff' : '#0044ff');
+        ctx.lineWidth = 5 - i;
+        ctx.globalAlpha = 0.6 - (i * 0.2);
+        ctx.setLineDash([20, 15]);
+        ctx.lineDashOffset = (i % 2 === 0 ? 1 : -1) * time * 100;
+        ctx.stroke();
+    }
+    
+    // Núcleo brillante
+    ctx.globalAlpha = 1.0;
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = 'cyan';
+    ctx.fillStyle = '#00ffff33';
+    ctx.beginPath();
+    ctx.arc(0, 0, 30 + pulse/2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Etiqueta del Portal
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 24px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillText("PORTAL DE SALTO", 0, -radius - 30);
+    ctx.font = '14px Orbitron';
+    const targetName = gameState.portal.target === "galaxy_1" ? "Sector Alfa" : "Sector Beta";
+    ctx.fillText("Hacia: " + targetName, 0, -radius - 10);
+    
+    // --- NUEVO: INDICADOR DE ZONA SEGURA DEL PORTAL ---
+    ctx.beginPath();
+    ctx.arc(0, 0, 350, 0, Math.PI * 2); // 350 is the PORTAL_SAFE_ZONE_RADIUS
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([10, 10]);
+    ctx.globalAlpha = 0.3;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1.0;
+    
+    ctx.restore();
+  }
+
   // Draw loot boxes
   gameState.loot_boxes?.forEach(box => {
     ctx.save();
     ctx.translate(box.x, box.y);
     
-    if (box.type === 'mineral') {
+    const isMineral = box.type === "mineral";
+    const isSpecial = box.type === "special_coin";
+    
+    // Dibujar Sombra/Fondo del cofre
+    ctx.shadowBlur = isSpecial ? 25 : 15;
+    ctx.shadowColor = isSpecial ? '#ff00ff' : (isMineral ? '#00ffff' : '#ffcc00');
+    
+    if (isSpecial) {
+        // --- COFRE DORADO ESPECIAL ---
+        const grad = ctx.createLinearGradient(-20, -20, 20, 20);
+        grad.addColorStop(0, '#ffd700');
+        grad.addColorStop(0.5, '#fff000');
+        grad.addColorStop(1, '#ff8c00');
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-20, -20, 40, 40);
+        ctx.fillRect(-20, -20, 40, 40);
+        
+        // Detalle de gema en el centro
+        ctx.fillStyle = '#ff00ff';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Etiqueta flotante
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.fillText("ESPECIAL", 0, -30);
+    } else if (isMineral) {
       const colors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
       ctx.fillStyle = colors[box.mineral_type] || '#fff';
       // Octagon or diamond shape for minerals
@@ -125,9 +212,6 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.moveTo(0, -12); ctx.lineTo(12, 0); ctx.lineTo(0, 12); ctx.lineTo(-12, 0);
       ctx.closePath();
       ctx.fill();
-      // Glow
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = ctx.fillStyle;
     } else {
       ctx.fillStyle = box.type === 'heal' ? '#00ffcc' : '#ff00aa';
       // Draw pulsing box
@@ -173,7 +257,6 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     // Retícula de fijación (Lock-on)
     if (gameState.selectedTargetId === enemy.id) {
         // Calcular distancia y determinar estado de rango
-        const me = gameState.players?.find(p => p.is_self);
         let dist = 0;
         let inRange = true;
         if (me) {
@@ -357,8 +440,6 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   // Draw Kill Rewards (XP/Credits)
   gameState.kill_events?.forEach(event => {
-    const me = gameState.players?.find(p => p.is_self);
-    // Solo mostrar recompensas propias para no saturar
     if (me && event.owner_id === me.id) {
       const now = Date.now() / 1000;
       const elapsed = now - event.time;
@@ -366,27 +447,70 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       
       if (elapsed < duration && elapsed >= 0) {
         const alpha = 1 - (elapsed / duration);
-        const y_offset = elapsed * 50; // Se eleva 50px por segundo
+        const y_offset = elapsed * 50;
         
         ctx.save();
         ctx.translate(event.x, event.y - 40 - y_offset);
         ctx.globalAlpha = alpha;
-        
-        // Sombra para legibilidad
         ctx.shadowBlur = 10;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        
-        // Texto con degradado premium
         ctx.font = 'bold 18px Orbitron';
         ctx.textAlign = 'center';
         
         const gradient = ctx.createLinearGradient(-50, 0, 50, 0);
-        gradient.addColorStop(0, '#00ffff'); // XP en Cian
-        gradient.addColorStop(1, '#ffcc00'); // CR en Dorado/Amarillo
+        gradient.addColorStop(0, '#00ffff');
+        gradient.addColorStop(1, '#ffcc00');
         
         ctx.fillStyle = gradient;
         ctx.fillText(`+${event.xp} XP  /  +${event.credits} CR`, 0, 0);
-        
+        ctx.restore();
+      }
+    }
+  });
+
+  // Draw Loot Rewards (Minerals/Heal/Powerups)
+  gameState.loot_events?.forEach(event => {
+    if (me && event.owner_id === me.id) {
+      const now = Date.now() / 1000;
+      const elapsed = now - event.time;
+      const duration = 2.0;
+
+      if (elapsed < duration && elapsed >= 0) {
+        const alpha = 1 - (elapsed / duration);
+        const y_offset = elapsed * 60; // Sube un poco más rápido
+
+        ctx.save();
+        ctx.translate(event.x, event.y - 30 - y_offset);
+        ctx.globalAlpha = alpha;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.font = 'bold 16px Orbitron';
+        ctx.textAlign = 'center';
+
+        let text = "";
+        let color = "#fff";
+
+        if (event.type === 'heal') {
+          text = `💚 +${event.amount} HP`;
+          color = "#00ffcc";
+        } else if (event.type === 'mineral') {
+          const mIcons = { titanium: '💎', plutonium: '🏮', silicon: '💾' };
+          const mColors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
+          text = `📦 +${event.amount} ${mIcons[event.mineral_type] || ''}`;
+          color = mColors[event.mineral_type] || "#fff";
+        } else if (event.type === 'rapid_fire') {
+          text = `⚡ CADENCIA MAX!`;
+          color = "#ff00aa";
+        } else if (event.type === 'speed') {
+          text = `🚀 VELOCIDAD MAX!`;
+          color = "#00fbff";
+        } else if (event.type === "special_coin") {
+          text = `✨ +${event.amount} ESPECIAL`;
+          color = '#ff00ff';
+        }
+
+        ctx.fillStyle = color;
+        ctx.fillText(text, 0, 0);
         ctx.restore();
       }
     }
@@ -441,7 +565,6 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     gameState.players?.forEach(p => {
       ctx.fillStyle = p.is_self ? '#00ffff' : '#fff';
       if (p.is_self) {
-        // Tu nave parpadea ligeramente en el radar
         ctx.globalAlpha = 0.7 + Math.sin(Date.now()/100) * 0.3;
       }
       ctx.beginPath();
@@ -449,7 +572,58 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.fill();
       ctx.globalAlpha = 1.0;
     });
+
+    // Dibujar Portal en Minimapa
+    if (gameState.portal) {
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(mmX + gameState.portal.x * scaleX, mmY + gameState.portal.y * scaleY, 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#00ffff22';
+      ctx.fill();
+    }
+
+    // --- NUEVO: DIBUJAR COFRES ESPECIALES EN MINIMAPA (CON RANGO) ---
+    if (gameState.loot_boxes && me) {
+      gameState.loot_boxes.forEach(box => {
+        if (box.type === 'special_coin') {
+          const dist = Math.hypot(me.x - box.x, me.y - box.y);
+          if (dist < 2500) { // Rango de detección de 2500 unidades
+            const bx = mmX + (box.x * scaleX);
+            const by = mmY + (box.y * scaleY);
+            
+            // Efecto de pulso en el minimapa
+            const pulse = (Math.sin(Date.now() / 200) + 1) / 2;
+            ctx.fillStyle = `rgba(255, 0, 255, ${0.5 + pulse * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(bx, by, 3 + pulse * 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Brillo
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      });
+    }
   };
+
+  // 5. DIBUJAR INDICADOR DE SECTOR (En la parte superior)
+  if (gameState.current_map_name) {
+    ctx.font = 'bold 24px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(gameState.current_map_name, width / 2, 40);
+    // Decoración del indicador
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - 100, 50);
+    ctx.lineTo(width / 2 + 100, 50);
+    ctx.stroke();
+  }
 
   drawMinimap();
 };

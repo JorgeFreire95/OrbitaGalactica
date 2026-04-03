@@ -12,6 +12,8 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
   
   const [gameState, setGameState] = useState(null);
   const [error, setError] = useState(null);
+  const [isJumping, setIsJumping] = useState(false);
+  const [showJumpPrompt, setShowJumpPrompt] = useState(false);
 
   // Keyboard state
   const keys = useRef({
@@ -71,8 +73,29 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
         if (!isMounted) return;
         const data = JSON.parse(event.data);
         if (data.type === 'state') {
+          // Detectar cambio de mapa para la animación y limpieza de navegación
+          if (gameStateRef.current && gameStateRef.current.current_map_name !== data.state.current_map_name) {
+            triggerJumpAnimation();
+            // Limpieza TOTAL de navegación al cambiar de sector
+            keys.current.target_x = null;
+            keys.current.target_y = null;
+            keys.current.up = false;
+            keys.current.down = false;
+            keys.current.left = false;
+            keys.current.right = false;
+          }
+
           gameStateRef.current = data.state;
           setGameState(data.state);
+          
+          // Verificar proximidad al portal para el prompt
+          const me = data.state.players?.find(p => p.is_self);
+          if (me && data.state.portal) {
+            const dist = Math.hypot(me.x - data.state.portal.x, me.y - data.state.portal.y);
+            setShowJumpPrompt(dist < data.state.portal.radius);
+          } else {
+            setShowJumpPrompt(false);
+          }
 
           // Sincronizar estadísticas (XP, Créditos, etc) pero NO el objetivo fijado de forma directa
           // para evitar que el servidor limpie el target local por lag o latencia.
@@ -112,6 +135,20 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
     };
     
     connectWs();
+
+    const triggerJumpAnimation = () => {
+      setIsJumping(true);
+      setTimeout(() => setIsJumping(false), 800);
+    };
+
+    const handleJump = () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        // Reset local movement to prevent ghost navigation after jump
+        keys.current.target_x = null;
+        keys.current.target_y = null;
+        wsRef.current.send(JSON.stringify({ type: 'jump_portal' }));
+      }
+    };
 
     // Animation Loop
     let animationId;
@@ -185,6 +222,11 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
         } else {
           keys.current.shoot = false;
         }
+      }
+
+      // Tecla J para saltar portal
+      if (k.toLowerCase() === 'j') {
+        handleJump();
       }
     };
 
@@ -292,40 +334,91 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
       <canvas ref={canvasRef} style={{ display: 'block' }} />
       
       {/* Indicador de Zona Segura - Reubicado al centro inferior */}
-      {me?.in_safe_zone && (
-        <div style={{
-          position: 'absolute',
-          bottom: '100px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(0, 255, 255, 0.07)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(0, 255, 255, 0.3)',
-          borderBottom: '3px solid #00ffff',
-          padding: '6px 12px',
-          borderRadius: '4px',
-          color: '#00ffff',
-          fontFamily: 'Orbitron',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          letterSpacing: '1px',
-          pointerEvents: 'none',
-          boxShadow: '0 0 20px rgba(0, 255, 255, 0.1)',
-          zIndex: 100,
-          animation: 'pulse-safe 2s infinite ease-in-out'
-        }}>
+      {me?.in_safe_zone && (() => {
+        const dist_to_base = Math.hypot(me.x - (gameState.base?.x || 0), me.y - (gameState.base?.y || 0));
+        return (
+          <div style={{
+            position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: 'rgba(0, 255, 255, 0.07)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(0, 255, 255, 0.3)', borderBottom: '3px solid #00ffff',
+            padding: '6px 12px', borderRadius: '4px', color: '#00ffff',
+            fontFamily: 'Orbitron', fontSize: '12px', fontWeight: 'bold',
+            letterSpacing: '1px', pointerEvents: 'none',
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.1)', zIndex: 100,
+            animation: 'pulse-safe 2s infinite ease-in-out'
+          }}>
+            <style>{`
+              @keyframes pulse-safe {
+                0% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
+                50% { box-shadow: 0 0 25px rgba(0, 255, 255, 0.3); border-color: rgba(0, 255, 255, 0.7); }
+                100% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
+              }
+            `}</style>
+            <span style={{ fontSize: '16px' }}>🛡️</span>
+            <span>{dist_to_base < 1000 ? "ESTACIÓN CENTRAL - ZONA SEGURA" : "PORTAL ESTELAR - ZONA SEGURA"}</span>
+          </div>
+        );
+      })()}
+
+      {/* PROMPT DE SALTO AL PORTAL */}
+      {showJumpPrompt && (
+        <div 
+          onClick={() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: 'jump_portal' }));
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '40%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0, 255, 255, 0.2)',
+            backdropFilter: 'blur(10px)',
+            border: '2px solid #00ffff',
+            padding: '20px 40px',
+            borderRadius: '15px',
+            color: '#00ffff',
+            fontFamily: 'Orbitron',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: '0 0 30px rgba(0, 255, 255, 0.4)',
+            zIndex: 1000,
+            animation: 'float 2s infinite ease-in-out'
+          }}
+        >
           <style>{`
-            @keyframes pulse-safe {
-              0% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
-              50% { box-shadow: 0 0 25px rgba(0, 255, 255, 0.3); border-color: rgba(0, 255, 255, 0.7); }
-              100% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
+            @keyframes float {
+              0%, 100% { transform: translate(-50%, -52%); }
+              50% { transform: translate(-50%, -48%); }
             }
           `}</style>
-          <span style={{ fontSize: '16px' }}>🛡️</span>
-          <span>ESTACIÓN CENTRAL - ZONA SEGURA</span>
+          <span style={{ fontSize: '32px' }}>🌀</span>
+          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>SALTAR SECTOR [J]</span>
+          <span style={{ fontSize: '10px', opacity: 0.7 }}>CLICK O TECLA J PARA INICIAR SALTO</span>
+        </div>
+      )}
+
+      {/* ANIMACIÓN DE SALTO (FLASH) */}
+      {isJumping && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, width: '100%', height: '100%',
+          background: 'white',
+          zIndex: 9999,
+          animation: 'jump-flash 0.8s forwards ease-out'
+        }}>
+          <style>{`
+            @keyframes jump-flash {
+              0% { opacity: 0; }
+              20% { opacity: 1; }
+              100% { opacity: 0; }
+            }
+          `}</style>
         </div>
       )}
 
@@ -420,6 +513,9 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
                   </div>
                   <div className="hud-item" style={{ background: 'rgba(0,255,204,0.2)', border: '1px solid #00ffcc' }}>
                     <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>💰 CRÉDITOS: {me.credits || 0}</div>
+                  </div>
+                  <div className="hud-item" style={{ background: 'rgba(255,0,255,0.2)', border: '1px solid #ff00ff' }}>
+                    <div style={{ color: '#ff00ff', fontWeight: 'bold' }}>✨ ESPECIAL: {me.special_currency || 0}</div>
                   </div>
                   <div className="hud-item" style={{ background: 'rgba(150,150,150,0.2)', border: '1px solid #aaa', marginTop: '5px' }}>
                     <div style={{ color: '#aaa', fontSize: '0.9rem' }}>

@@ -13,6 +13,9 @@ class GameState:
         self.alien_spawn_rate = 1.2 
         self.max_enemies = 60 
         self.kill_events = [] 
+        self.loot_events = [] 
+        self.last_special_spawn = time.time()
+        self.special_spawn_rate = 30.0 # Más constante: cada 30 segundos
         
         # --- BASE Y ZONA SEGURA ---
         self.BASE_X = 1750
@@ -21,6 +24,18 @@ class GameState:
         
         self.GAME_WIDTH = 10000
         self.GAME_HEIGHT = 8000
+        
+        # --- PORTALES Y MAPAS ---
+        self.PORTAL_ALFA_X = 9000
+        self.PORTAL_ALFA_Y = 7000
+        self.PORTAL_BETA_X = 1000
+        self.PORTAL_BETA_Y = 1000
+        self.PORTAL_RADIUS = 150
+        self.PORTAL_SAFE_ZONE_RADIUS = 350
+        self.MAPS = {
+            "galaxy_1": {"name": "Sector Alfa", "level": 1},
+            "galaxy_2": {"name": "Sector Beta", "level": 2}
+        }
         
         # --- PERSISTENCIA DE SESIÓN ---
         self.player_persistence = {} # { user_id: {x, y} }
@@ -94,7 +109,9 @@ class GameState:
             "xp_next": initial_level * 1000,
             "minerals": initial_minerals if initial_minerals else {"titanium": 0, "plutonium": 0, "silicon": 0},
             "max_cargo": prof.get("cargo_capacity", 50),
-            "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0}
+            "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0},
+            "current_map": "galaxy_1",
+            "special_currency": 0
         }
         
         # Apply permanent upgrades to base stats
@@ -113,7 +130,9 @@ class GameState:
             saved = self.player_persistence[user_id]
             player["x"] = saved["x"]
             player["y"] = saved["y"]
-            print(f"Restaurando posición para {user_id}: ({player['x']}, {player['y']})")
+            player["current_map"] = saved.get("current_map", "galaxy_1")
+            player["special_currency"] = saved.get("special_currency", 0)
+            print(f"Restaurando para {user_id}: ({player['x']}, {player['y']}) en {player['current_map']}, Moneda: {player['special_currency']}")
         
         self.players[client_id] = player
 
@@ -130,9 +149,11 @@ class GameState:
                 # Guardar posición para la próxima vez
                 self.player_persistence[user_id] = {
                     "x": player["x"],
-                    "y": player["y"]
+                    "y": player["y"],
+                    "current_map": player.get("current_map", "galaxy_1"),
+                    "special_currency": player.get("special_currency", 0)
                 }
-                print(f"Guardando posición para {user_id}: ({player['x']}, {player['y']})")
+                print(f"Guardando para {user_id}: ({player['x']}, {player['y']}) en {player['current_map']}, Moneda: {player['special_currency']}")
                 
             del self.players[client_id]
             
@@ -147,6 +168,21 @@ class GameState:
         target_x = keys.get("target_x")
         target_y = keys.get("target_y")
         
+        # --- FILTRO ANTI-STALE TARGET TRAS SALTO ---
+        now = time.time()
+        if now - player.get("last_jump_time", 0) < 1.0:
+            if target_x is not None and target_y is not None:
+                # Comprobar si el target recibido es el portal del OTRO mapa
+                # Si estamos en Mapa 2 (Beta), el portal "viejo" es el Alfa (9000,7000)
+                # Si estamos en Mapa 1 (Alfa), el portal "viejo" es el Beta (1000,1000)
+                old_px = self.PORTAL_ALFA_X if player["current_map"] == "galaxy_2" else self.PORTAL_BETA_X
+                old_py = self.PORTAL_ALFA_Y if player["current_map"] == "galaxy_2" else self.PORTAL_BETA_Y
+                
+                dist_to_stale = math.hypot(target_x - old_px, target_y - old_py)
+                if dist_to_stale < 300: # Margen amplio para atrapar clics residuales
+                    target_x = None
+                    target_y = None
+
         # PERSISTENCIA MEJORADA: Solo actualizar si la clave está presente
         if "locked_target_id" in keys:
             player["locked_target_id"] = keys["locked_target_id"]
@@ -278,20 +314,30 @@ class GameState:
                 "vy": math.sin(angle) * projectile_speed,
                 "damage": actual_damage,
                 "ammo_type": ammo_type,
-                "life": 1.2 # segundos de vida del rayo
+                "life": 1.2, # segundos de vida del rayo
+                "map_id": player["current_map"]
             })
 
     def update(self, dt):
         now = time.time()
         
-        # 1. Spawn Enemies (Solo si no se ha superado el límite)
+        # 1. Spawn Enemies (Por cada mapa)
         if now - self.last_alien_spawn > self.alien_spawn_rate:
-            if len(self.enemies) < self.max_enemies:
-                self.last_alien_spawn = now
-                self.spawn_alien()
-            else:
-                # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
-                self.last_alien_spawn = now
+            for map_id in self.MAPS:
+                map_enemies = [e for e in self.enemies if e.get("map_id") == map_id]
+                if len(map_enemies) < self.max_enemies // 2: # Repartir límite entre mapas
+                    self.spawn_alien(map_id)
+            # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
+            self.last_alien_spawn = now
+            
+        # Spawn de Cofre Especial (Cada 30 segundos si hay menos de 10 en total)
+        if now - self.last_special_spawn > self.special_spawn_rate:
+            special_count = len([b for b in self.loot_boxes if b.get("type") == "special_coin"])
+            if special_count < 10:
+                # Spawnear en un mapa aleatorio
+                target_map = random.choice(list(self.MAPS.keys()))
+                self.spawn_special_chest(target_map)
+            self.last_special_spawn = now
             
         # 2. Update Players
         for pid, p in self.players.items():
@@ -313,11 +359,20 @@ class GameState:
             if p["powerup"] and now > p["powerup_time"]:
                 p["powerup"] = None
                 
-            # --- DETECCIÓN DE ZONA SEGURA (BASE) ---
-            dist_to_base = math.hypot(p["x"] - self.BASE_X, p["y"] - self.BASE_Y)
-            p["in_safe_zone"] = dist_to_base < self.SAFE_ZONE_RADIUS
+            # --- DETECCIÓN DE ZONA SEGURA (BASE Y PORTAL) ---
+            # La base solo existe en el Sector Alfa (Mapa 1)
+            in_base_safety = False
+            if p["current_map"] == "galaxy_1":
+                dist_to_base = math.hypot(p["x"] - self.BASE_X, p["y"] - self.BASE_Y)
+                in_base_safety = dist_to_base < self.SAFE_ZONE_RADIUS
+            
+            # Localizar el portal del mapa actual
+            px = self.PORTAL_ALFA_X if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_X
+            py = self.PORTAL_ALFA_Y if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_Y
+            dist_to_portal = math.hypot(p["x"] - px, p["y"] - py)
+            
+            p["in_safe_zone"] = in_base_safety or dist_to_portal < self.PORTAL_SAFE_ZONE_RADIUS
                 
-            # Limpieza de objetivo (Lock-on) si el enemigo murió o desapareció
             if p.get("locked_target_id"):
                 target_exists = any(en["id"] == p["locked_target_id"] for en in self.enemies)
                 if not target_exists:
@@ -346,8 +401,9 @@ class GameState:
                 enemy["vx"] = random.uniform(-50, 50)
                 enemy["vy"] = random.uniform(50, 150)
         
-        # Limpiar eventos de muerte antiguos (2.5 segundos)
+        # Limpiar eventos antiguos (2.5 segundos)
         self.kill_events = [e for e in self.kill_events if now - e["time"] < 2.5]
+        self.loot_events = [e for e in self.loot_events if now - e["time"] < 2.5]
                 
         # 5. Collisions
         self._check_collisions(now)
@@ -408,7 +464,8 @@ class GameState:
                                     "x": e["x"],
                                     "y": e["y"],
                                     "type": random.choice(["heal", "rapid_fire", "speed"]),
-                                    "spawn_time": now
+                                    "spawn_time": now,
+                                    "map_id": player["current_map"]
                                 })
                             # Soltar MINERALES! Chance del 40%
                             if random.random() < 0.4:
@@ -419,7 +476,8 @@ class GameState:
                                     "type": "mineral",
                                     "mineral_type": random.choice(["titanium", "plutonium", "silicon"]),
                                     "amount": random.randint(3, 8),
-                                    "spawn_time": now
+                                    "spawn_time": now,
+                                    "map_id": player["current_map"]
                                 })
                         break
                 # Check contra jugadores
@@ -464,6 +522,12 @@ class GameState:
                     taken = True
                     if box["type"] == "heal":
                         player["hp"] = min(player["max_hp"], player["hp"] + 50)
+                        self.loot_events.append({
+                            "id": str(random.random()),
+                            "x": box["x"], "y": box["y"],
+                            "type": "heal", "amount": 50,
+                            "time": now, "owner_id": pid
+                        })
                     elif box["type"] == "mineral":
                         # Verificar espacio en bodega
                         current_cargo = sum(player["minerals"].values())
@@ -471,11 +535,32 @@ class GameState:
                         if can_take > 0:
                             m_type = box["mineral_type"]
                             player["minerals"][m_type] += can_take
+                            self.loot_events.append({
+                                "id": str(random.random()),
+                                "x": box["x"], "y": box["y"],
+                                "type": "mineral", "mineral_type": m_type, "amount": can_take,
+                                "time": now, "owner_id": pid
+                            })
                         else:
                             taken = False # No pudo recoger nada porque está lleno
+                    elif box["type"] == "special_coin":
+                        amt = random.randint(1, 5) # Recompensa reducida
+                        player["special_currency"] = player.get("special_currency", 0) + amt
+                        self.loot_events.append({
+                            "id": str(random.random()),
+                            "x": box["x"], "y": box["y"],
+                            "type": "special_coin", "amount": amt,
+                            "time": now, "owner_id": pid
+                        })
                     else:
                         player["powerup"] = box["type"]
                         player["powerup_time"] = now + 10.0 # dura 10 segundos
+                        self.loot_events.append({
+                            "id": str(random.random()),
+                            "x": box["x"], "y": box["y"],
+                            "type": box["type"], # rapid_fire, speed
+                            "time": now, "owner_id": pid
+                        })
                     break
             
             if not taken:
@@ -501,18 +586,37 @@ class GameState:
                     e["hp"] -= 50 # El alien también sufre daño
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
-    def spawn_alien(self):
+    def spawn_alien(self, map_id="galaxy_1"):
+        is_beta = map_id == "galaxy_2"
+        
+        hp = 150 if is_beta else 50
+        shield = 100 if is_beta else 30
+        
         self.enemies.append({
             "id": str(random.random()),
-            "x": random.randint(50, self.GAME_WIDTH - 50),
-            "y": -50,
-            "vx": random.uniform(-50, 50),
-            "vy": random.uniform(50, 150),
-            "hp": 50,
-            "max_hp": 50,
-            "shield": 30,
-            "max_shield": 30
+            "x": random.randint(100, self.GAME_WIDTH - 100),
+            "y": random.randint(100, self.GAME_HEIGHT - 100),
+            "vx": random.uniform(-60, 60),
+            "vy": random.uniform(-60, 60),
+            "hp": hp,
+            "max_hp": hp,
+            "shield": shield,
+            "max_shield": shield,
+            "map_id": map_id,
+            "is_elite": is_beta
         })
+
+    def spawn_special_chest(self, map_id="galaxy_1"):
+        # Spawnear un cofre en una posición totalmente aleatoria
+        self.loot_boxes.append({
+            "id": "special_" + str(random.random()),
+            "x": random.randint(200, self.GAME_WIDTH - 200),
+            "y": random.randint(200, self.GAME_HEIGHT - 200),
+            "type": "special_coin",
+            "spawn_time": time.time() + 100, # Los cofres especiales duran más (100+10 segundos por el check de update)
+            "map_id": map_id
+        })
+        print(f"¡Cofre Especial spawneado en {map_id}!")
 
     def buy_module(self, client_id, module_data, free=False):
         if client_id not in self.players:
@@ -585,12 +689,70 @@ class GameState:
             if "locked_target_id" in keys:
                 player["locked_target_id"] = keys["locked_target_id"]
 
-    def get_state(self):
+    def jump_portal(self, client_id):
+        if client_id not in self.players:
+            return
+        
+        p = self.players[client_id]
+        # Localizar el portal del mapa actual
+        px = self.PORTAL_ALFA_X if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_X
+        py = self.PORTAL_ALFA_Y if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_Y
+        dist_to_portal = math.hypot(p["x"] - px, p["y"] - py)
+        
+        # Debe estar dentro del radio del portal para activarlo
+        if dist_to_portal < self.PORTAL_RADIUS:
+            if p["current_map"] == "galaxy_1":
+                p["current_map"] = "galaxy_2"
+                # Aparecer cerca del portal de retorno en Beta
+                p["x"] = self.PORTAL_BETA_X + 220
+                p["y"] = self.PORTAL_BETA_Y + 220
+            else:
+                p["current_map"] = "galaxy_1"
+                # Volver cerca del portal en el Sector Alfa
+                p["x"] = self.PORTAL_ALFA_X - 220
+                p["y"] = self.PORTAL_ALFA_Y - 220
+            
+            # --- RESETEO DE MOVIMIENTO Y BLOQUEO TEMPORAL ---
+            p["vx"] = 0
+            p["vy"] = 0
+            p["target_x"] = None
+            p["target_y"] = None
+            p["last_jump_time"] = time.time()
+            
+            return True
+        return False
+
+    def get_state(self, client_id=None):
+        # Si se proporciona client_id, devolvemos solo lo que le interesa a ese mapa
+        players_list = list(self.players.values())
+        
+        if client_id and client_id in self.players:
+            me = self.players[client_id]
+            m_id = me["current_map"]
+            
+            # Portal dinámico según el mapa
+            px = self.PORTAL_ALFA_X if m_id == "galaxy_1" else self.PORTAL_BETA_X
+            py = self.PORTAL_ALFA_Y if m_id == "galaxy_1" else self.PORTAL_BETA_Y
+
+            return {
+                "players": [{**p, "is_self": p["id"] == client_id} for p in players_list if p["current_map"] == m_id],
+                "enemies": [e for e in self.enemies if e.get("map_id") == m_id],
+                "projectiles": [p for p in self.projectiles if p.get("map_id") == m_id],
+                "loot_boxes": [b for b in self.loot_boxes if b.get("map_id") == m_id],
+                "kill_events": [e for e in self.kill_events if e.get("owner_id") == client_id],
+                "loot_events": [e for e in self.loot_events if e.get("owner_id") == client_id],
+                "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS} if m_id == "galaxy_1" else None,
+                "portal": {"x": px, "y": py, "radius": self.PORTAL_RADIUS, "target": "galaxy_2" if m_id == "galaxy_1" else "galaxy_1"},
+                "current_map_name": self.MAPS[m_id]["name"]
+            }
+
         return {
-            "players": list(self.players.values()),
+            "players": players_list,
             "enemies": self.enemies,
             "projectiles": self.projectiles,
             "loot_boxes": self.loot_boxes,
             "kill_events": self.kill_events,
-            "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS}
+            "loot_events": self.loot_events,
+            "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS},
+            "portal": {"x": self.PORTAL_X, "y": self.PORTAL_Y, "radius": self.PORTAL_RADIUS}
         }
