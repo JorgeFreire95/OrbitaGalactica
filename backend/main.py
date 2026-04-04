@@ -21,21 +21,21 @@ async def game_loop():
     while True:
         try:
             game_state.update(1.0 / 60.0) # 60 FPS update
-            # we iterate through clients and send filtered state
-            disconnected_clients = []
-            for client_id, ws in list(game_state.clients.items()):
+            async def send_to_client(cid, ws_client):
                 try:
-                    # Get state filtered for this specific client (Map + Self)
-                    personalized_state = game_state.get_state(client_id)
-                    await ws.send_text(json.dumps({"type": "state", "state": personalized_state}))
+                    personalized_state = game_state.get_state(cid)
+                    await ws_client.send_text(json.dumps({"type": "state", "state": personalized_state}))
                 except Exception as e:
-                    print(f"Error sending to {client_id}: {e}", flush=True)
-                    disconnected_clients.append(client_id)
-                    
-            for client_id in disconnected_clients:
-                game_state.remove_player(client_id)
-                
+                    print(f"Error sending to {cid}: {e}", flush=True)
+                    game_state.remove_player(cid)
+
+            # Enviar estado a todos los clientes de forma paralela (No bloqueante)
+            tasks = [asyncio.create_task(send_to_client(client_id, ws)) 
+                     for client_id, ws in list(game_state.clients.items())]
+            
+            # Wait for short duration if needed, but the loop continues
             await asyncio.sleep(1.0 / 60.0)
+
         except Exception as e:
             print(f"Game loop master exception: {e}", flush=True)
             traceback.print_exc()
@@ -88,10 +88,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 initial_level = data.get("level", 1)
                 initial_xp = data.get("xp", 0)
                 initial_credits = data.get("credits", 2000)
+                initial_uridium = data.get("initialUridium", 0)
                 initial_minerals = data.get("minerals", None)
                 initial_upgrades = data.get("upgrades", None)
                 
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id)
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_uridium, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id)
                 player_added = True
                 logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
                 

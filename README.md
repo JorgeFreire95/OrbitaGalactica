@@ -23,23 +23,24 @@
 
 ### 🛸 Navegación y Mundo Galáctico
 - **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
-- **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'** o clic directo, con animación de flash de salto hiperespacial.
-- **Minimapa Táctico**: Radar en tiempo real que ahora incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m.
-- **Persistencia Total**: Tu sesión guarda automáticamente tu posición exacta (`X, Y`) y el **sector (mapa)** donde te encuentras. Despega al espacio y retoma tu misión exactamente donde la dejaste.
+- **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'**, con animación de flash de salto hiperespacial.
+- **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m.
+- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Incluye posición exacta (`X, Y`), sector actual, créditos, uridium, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
 
 ### 🛡️ Zonas Seguras y Estaciones
-- **Santuario Galáctico**: Tanto la Estación Central en Alfa como los Portales Estelares en ambos sectores cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
-- **Centro de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
+- **Santuario Galáctico**: Tanto la Estación Central como los Portales Estelares cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
+- **Hangar de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
 
-### 💰 Economía y Tesoros
-- **Moneda Especial (✨)**: Nueva divisa premium obtenible mediante la recolección de **Cofres Dorados** que aparecen aleatoriamente por la galaxia cada 30 segundos.
-- **Filtro de Contexto**: Sistema inteligente que evita que la nave se mueva accidentalmente hacia coordenadas del mapa anterior tras realizar un salto estelar.
-- **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
+### 💰 Economía y Recursos
+- **Uridium (💎)**: Moneda premium recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
+- **Créditos (🔋)**: Ganados al destruir naves enemigas.
+- **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
 
-### ⚔️ Combate y Progresión
-- **5 Clases de Naves**: Aegis Vanguard (Tanque), Nova Striker (Rápida), Orion Phantom (Sigilo), Titan Hammer (Pesada) y Helix Support (Soporte).
-- **Armamento Avanzado**: Munición estándar infinita y proyectiles especiales (Térmica, Plasma, Sifón) con efectos visuales únicos.
-- **Retícula Dinámica**: Sistema de lock-on con indicador de rango (Cian/Amarillo/Rojo) y alertas de proximidad crítica.
+### ⚔️ Combate y HUD Avanzado
+- **Munición Finita**: Todas las municiones, incluida la **Estándar**, son limitadas y deben ser gestionadas. Puedes reabastecerte en la tienda (1000 disparos por 50 Créditos).
+- **HUD Modernizado**: Interfaz limpia con cabeceras minimalistas en Menú, Tienda y Hangar. 
+- **Hotbar Draggable & Lockable**: La barra de armas es arrastrable por el HUD y cuenta con un sistema de bloqueo (**🔒/🔓**) para evitar movimientos accidentales durante el combate.
+- **Sincronización en Tiempo Real**: Sincronización fluida entre la Tienda y el Juego. Las compras realizadas en el menú se reflejan instantáneamente al despegar.
 
 ---
 
@@ -70,4 +71,4 @@ El juego estará disponible en `http://localhost:5173`.
 ## 🌌 Próximos Pasos
 - Implementar clanes y escuadrones.
 - Añadir jefes finales (Bosses) en zonas específicas del mapa.
-- Eventos dinámicos en el servidor.
+- Eventos dinámicos en el servidor con recompensas exclusivas.

@@ -14,6 +14,7 @@ class GameState:
         self.max_enemies = 60 
         self.kill_events = [] 
         self.loot_events = [] 
+        self.damage_events = []
         self.last_special_spawn = time.time()
         self.special_spawn_rate = 30.0 # Más constante: cada 30 segundos
         
@@ -39,8 +40,13 @@ class GameState:
         
         # --- PERSISTENCIA DE SESIÓN ---
         self.player_persistence = {} # { user_id: {x, y} }
+        
+        # --- INICIALIZAR CAJAS ESPECIALES (5 por mapa) ---
+        for map_id in self.MAPS:
+            for _ in range(5):
+                self.spawn_special_chest(map_id)
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_uridium=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None):
         self.clients[client_id] = websocket
         
         # Stats and Slot profiles
@@ -102,7 +108,10 @@ class GameState:
             "powerup": None,
             "powerup_time": 0,
             "heading": -1.57,
-            "ammo": {"standard": 9999, "thermal": 0, "plasma": 0, "siphon": 0},
+            "ammo": {"standard": 2000, "thermal": 0, "plasma": 0, "siphon": 0},
+            "missiles": {"missile_1": 0, "missile_2": 0, "missile_3": 0},
+            "missile_type": "missile_1",
+            "last_missile_shot": 0,
             "ammo_type": "standard",
             "level": initial_level,
             "xp": initial_xp,
@@ -111,7 +120,7 @@ class GameState:
             "max_cargo": prof.get("cargo_capacity", 50),
             "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0},
             "current_map": "galaxy_1",
-            "special_currency": 0
+            "uridium": 0
         }
         
         # Apply permanent upgrades to base stats
@@ -121,18 +130,45 @@ class GameState:
         player["max_shld"] += upg.get("shld", 0)
         # Note: spd is used for calculations later, but we update the base here
         player["spd"] += upg.get("spd", 0)
-
+ 
         if initial_ammo:
-            player["ammo"] = {**player["ammo"], **initial_ammo}
+            # Separar munición de láseres vs misiles
+            for k, v in initial_ammo.items():
+                if k.startswith("missile_"):
+                    player["missiles"][k] = v
+                else:
+                    player["ammo"][k] = v
             
-        # --- RESTAURAR POSICIÓN PERSISTENTE ---
+        # --- RESTAURAR POSICIÓN Y ESTADO PERSISTENTE ---
         if user_id and user_id in self.player_persistence:
             saved = self.player_persistence[user_id]
-            player["x"] = saved["x"]
-            player["y"] = saved["y"]
+            player["x"] = saved.get("x", 1600)
+            player["y"] = saved.get("y", 1050)
             player["current_map"] = saved.get("current_map", "galaxy_1")
-            player["special_currency"] = saved.get("special_currency", 0)
-            print(f"Restaurando para {user_id}: ({player['x']}, {player['y']}) en {player['current_map']}, Moneda: {player['special_currency']}")
+            
+            # Sincronización inteligente de Monedas:
+            # Si el frontend envía menos créditos/uridium que los guardados, 
+            # asumimos que acaba de comprar algo en la tienda (offline) y usamos el valor del frontend.
+            if initial_credits < saved.get("credits", initial_credits):
+                player["credits"] = initial_credits
+            else:
+                player["credits"] = saved.get("credits", initial_credits)
+            
+            if initial_uridium < saved.get("uridium", initial_uridium):
+                player["uridium"] = initial_uridium
+            else:
+                player["uridium"] = saved.get("uridium", initial_uridium)
+            
+            # Restaurar XP/Nivel si existen (Preferimos el backend si no hay discrepancia masiva)
+            player["xp"] = saved.get("xp", initial_xp)
+            player["level"] = saved.get("level", initial_level)
+            
+            print(f"Restaurando Sesión para {user_id}: Map={player['current_map']}, Credits={player['credits']}, Uridium={player['uridium']}")
+        else:
+            # Si no hay persistencia en memoria del servidor, usamos los valores iniciales del cliente
+            player["credits"] = initial_credits
+            player["uridium"] = initial_uridium
+            print(f"Nueva sesión (o servidor reiniciado) para {user_id}: Usando valores del cliente ({initial_credits} C, {initial_uridium} U).")
         
         self.players[client_id] = player
 
@@ -146,14 +182,20 @@ class GameState:
             player = self.players[client_id]
             user_id = player.get("user_id")
             if user_id:
-                # Guardar posición para la próxima vez
                 self.player_persistence[user_id] = {
                     "x": player["x"],
                     "y": player["y"],
                     "current_map": player.get("current_map", "galaxy_1"),
-                    "special_currency": player.get("special_currency", 0)
+                    "uridium": player.get("uridium", 0),
+                    "credits": player.get("credits", 0),
+                    "xp": player.get("xp", 0),
+                    "level": player.get("level", 1),
+                    "ammo": player.get("ammo", {}).copy(),
+                    "missiles": player.get("missiles", {}).copy(),
+                    "minerals": player.get("minerals", {}).copy(),
+                    "last_save": time.time()
                 }
-                print(f"Guardando para {user_id}: ({player['x']}, {player['y']}) en {player['current_map']}, Moneda: {player['special_currency']}")
+                print(f"Guardando persistencia para {user_id}: Credits={player['credits']}, Map={player['current_map']}")
                 
             del self.players[client_id]
             
@@ -168,20 +210,12 @@ class GameState:
         target_x = keys.get("target_x")
         target_y = keys.get("target_y")
         
-        # --- FILTRO ANTI-STALE TARGET TRAS SALTO ---
-        now = time.time()
-        if now - player.get("last_jump_time", 0) < 1.0:
-            if target_x is not None and target_y is not None:
-                # Comprobar si el target recibido es el portal del OTRO mapa
-                # Si estamos en Mapa 2 (Beta), el portal "viejo" es el Alfa (9000,7000)
-                # Si estamos en Mapa 1 (Alfa), el portal "viejo" es el Beta (1000,1000)
-                old_px = self.PORTAL_ALFA_X if player["current_map"] == "galaxy_2" else self.PORTAL_BETA_X
-                old_py = self.PORTAL_ALFA_Y if player["current_map"] == "galaxy_2" else self.PORTAL_BETA_Y
-                
-                dist_to_stale = math.hypot(target_x - old_px, target_y - old_py)
-                if dist_to_stale < 300: # Margen amplio para atrapar clics residuales
-                    target_x = None
-                    target_y = None
+        # --- PRIORIDAD TECLADO ---
+        if keys.get("up") or keys.get("down") or keys.get("left") or keys.get("right"):
+            target_x = None
+            target_y = None
+            player["target_x"] = None # Persistencia en el objeto player si existiera
+            player["target_y"] = None
 
         # PERSISTENCIA MEJORADA: Solo actualizar si la clave está presente
         if "locked_target_id" in keys:
@@ -204,6 +238,7 @@ class GameState:
                 if keys.get("shoot") and player["in_range"]:
                     dx = target_enemy["x"] - player["x"]
                     dy = target_enemy["y"] - player["y"]
+                    # Suavizado de rotación (opcional, por ahora directo)
                     player["heading"] = math.atan2(dy, dx)
             else:
                 # El objetivo murió o desapareció
@@ -260,10 +295,13 @@ class GameState:
             if keys.get("right"): vx += speed
             
             # Normalize diagonal
-            if vx != 0 and vy != 0:
+            if vx != 0 or vy != 0:
                 norm = math.sqrt(vx*vx + vy*vy)
                 vx = (vx/norm) * speed
                 vy = (vy/norm) * speed
+                # --- ACTUALIZAR HEADING CON TECLADO ---
+                if not locked_id:
+                    player["heading"] = math.atan2(vy, vx)
             
         player["vx"] = vx
         player["vy"] = vy
@@ -288,14 +326,23 @@ class GameState:
             }
             config = ammo_config.get(ammo_type, ammo_config["standard"])
             
-            # Consume Ammo (except standard)
-            if ammo_type != "standard":
-                if player["ammo"].get(ammo_type, 0) > 0:
-                    player["ammo"][ammo_type] -= 1
-                else:
-                    player["ammo_type"] = "standard" # Revert
+            # Consume Ammo
+            if player["ammo"].get(ammo_type, 0) > 0:
+                player["ammo"][ammo_type] -= 1
+            else:
+                # Si se acabó la munición especial, intentar volver a la estándar
+                if ammo_type != "standard":
+                    player["ammo_type"] = "standard"
                     ammo_type = "standard"
                     config = ammo_config["standard"]
+                    # Pero si la estándar también está en 0, no disparar
+                    if player["ammo"].get("standard", 0) <= 0:
+                         player["shoot_active"] = False
+                         return
+                else:
+                    # Se acabó la estándar
+                    player["shoot_active"] = False
+                    return
 
             # Un solo Rayo Láser potente (el daño ahora escala con num_lasers en un solo disparo)
             num_lasers = player.get("lasers", 1)
@@ -318,6 +365,47 @@ class GameState:
                 "map_id": player["current_map"]
             })
 
+        # Missile Firing (Tecla E)
+        if keys.get("missile_shoot") and (now - player["last_missile_shot"] > 1.5): # Cooldown de 1.5s
+            m_type = player.get("missile_type", "missile_1")
+            if player["missiles"].get(m_type, 0) > 0:
+                player["missiles"][m_type] -= 1
+                player["last_missile_shot"] = now
+                
+                # Configuración de daño de misiles (Proporcional al Atk del jugador)
+                atk = player.get("atk", 100)
+                m_config = {
+                    "missile_1": {"dmg": atk * 5.0,  "spd": 800}, # Equiv a 500 si atk=100
+                    "missile_2": {"dmg": atk * 12.0, "spd": 700}, # Equiv a 1200 si atk=100
+                    "missile_3": {"dmg": atk * 35.0, "spd": 500}  # Equiv a 3500 si atk=100
+                }
+                conf = m_config.get(m_type)
+                # Determinar dirección del misil: al objetivo o al frente
+                locked_id = player.get("locked_target_id")
+                target_enemy = next((e for e in self.enemies if e["id"] == locked_id), None) if locked_id else None
+                
+                if target_enemy:
+                    dx = target_enemy["x"] - player["x"]
+                    dy = target_enemy["y"] - player["y"]
+                    angle = math.atan2(dy, dx)
+                else:
+                    angle = player.get("heading", -1.57)
+                
+                self.projectiles.append({
+                    "id": "missile_" + str(random.random()),
+                    "owner_id": client_id,
+                    "is_player": True,
+                    "is_missile": True,
+                    "x": player["x"],
+                    "y": player["y"],
+                    "vx": math.cos(angle) * conf["spd"],
+                    "vy": math.sin(angle) * conf["spd"],
+                    "damage": conf["dmg"],
+                    "m_type": m_type,
+                    "life": 4.0, # Los misiles duran más
+                    "map_id": player["current_map"]
+                })
+
     def update(self, dt):
         now = time.time()
         
@@ -330,13 +418,12 @@ class GameState:
             # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
             self.last_alien_spawn = now
             
-        # Spawn de Cofre Especial (Cada 30 segundos si hay menos de 10 en total)
+        # Spawn de Cofre Especial (Cada 30 segundos mantenemos 5 por mapa)
         if now - self.last_special_spawn > self.special_spawn_rate:
-            special_count = len([b for b in self.loot_boxes if b.get("type") == "special_coin"])
-            if special_count < 10:
-                # Spawnear en un mapa aleatorio
-                target_map = random.choice(list(self.MAPS.keys()))
-                self.spawn_special_chest(target_map)
+            for map_id in self.MAPS:
+                special_count = len([b for b in self.loot_boxes if b.get("type") == "special_coin" and b.get("map_id") == map_id])
+                if special_count < 5:
+                    self.spawn_special_chest(map_id)
             self.last_special_spawn = now
             
         # 2. Update Players
@@ -404,6 +491,7 @@ class GameState:
         # Limpiar eventos antiguos (2.5 segundos)
         self.kill_events = [e for e in self.kill_events if now - e["time"] < 2.5]
         self.loot_events = [e for e in self.loot_events if now - e["time"] < 2.5]
+        self.damage_events = [e for e in self.damage_events if now - e["time"] < 1.0] # Daño dura 1 seg
                 
         # 5. Collisions
         self._check_collisions(now)
@@ -418,10 +506,20 @@ class GameState:
                 # Check contra aliens
                 for e in self.enemies:
                     dist = math.hypot(p["x"] - e["x"], p["y"] - e["y"])
-                    if dist < 20: # Radio colisión
+                    if dist < 20 or (p.get("is_missile") and dist < 45): # Radio colisión mayor para misiles
                         # Solo aplicar daño si NO es munición Sifón
                         if p.get("ammo_type") != "siphon":
                             e["hp"] -= p["damage"]
+                            
+                            # Registrar evento de daño para el frontend
+                            self.damage_events.append({
+                                "id": str(random.random()),
+                                "x": e["x"] + random.randint(-15, 15),
+                                "y": e["y"] + random.randint(-15, 15),
+                                "amount": int(p["damage"]),
+                                "time": now,
+                                "owner_id": p["owner_id"]
+                            })
                         
                         # Siphon effect (Roba escudos)
                         if p.get("ammo_type") == "siphon" and p["owner_id"] in self.players:
@@ -457,28 +555,29 @@ class GameState:
                                 # Chance de recuperar un poco de munición térmica (5%)
                                 if random.random() < 0.05:
                                     player["ammo"]["thermal"] += 5
-                            # Soltar loot box! Chance del 20%
-                            if random.random() < 0.2:
-                                self.loot_boxes.append({
-                                    "id": str(random.random()),
-                                    "x": e["x"],
-                                    "y": e["y"],
-                                    "type": random.choice(["heal", "rapid_fire", "speed"]),
-                                    "spawn_time": now,
-                                    "map_id": player["current_map"]
-                                })
-                            # Soltar MINERALES! Chance del 40%
-                            if random.random() < 0.4:
-                                self.loot_boxes.append({
-                                    "id": str(random.random()),
-                                    "x": e["x"] + random.randint(-15, 15),
-                                    "y": e["y"] + random.randint(-15, 15),
-                                    "type": "mineral",
-                                    "mineral_type": random.choice(["titanium", "plutonium", "silicon"]),
-                                    "amount": random.randint(3, 8),
-                                    "spawn_time": now,
-                                    "map_id": player["current_map"]
-                                })
+                                    
+                                # Soltar loot box! Chance del 20%
+                                if random.random() < 0.2:
+                                    self.loot_boxes.append({
+                                        "id": str(random.random()),
+                                        "x": e["x"],
+                                        "y": e["y"],
+                                        "type": random.choice(["heal", "rapid_fire", "speed"]),
+                                        "spawn_time": now,
+                                        "map_id": e["map_id"]
+                                    })
+                                # Soltar MINERALES! Chance del 40%
+                                if random.random() < 0.4:
+                                    self.loot_boxes.append({
+                                        "id": str(random.random()),
+                                        "x": e["x"] + random.randint(-15, 15),
+                                        "y": e["y"] + random.randint(-15, 15),
+                                        "type": "mineral",
+                                        "mineral_type": random.choice(["titanium", "plutonium", "silicon"]),
+                                        "amount": random.randint(3, 8),
+                                        "spawn_time": now,
+                                        "map_id": e["map_id"]
+                                    })
                         break
                 # Check contra jugadores
                 for pid, target in self.players.items():
@@ -544,14 +643,36 @@ class GameState:
                         else:
                             taken = False # No pudo recoger nada porque está lleno
                     elif box["type"] == "special_coin":
-                        amt = random.randint(1, 5) # Recompensa reducida
-                        player["special_currency"] = player.get("special_currency", 0) + amt
-                        self.loot_events.append({
-                            "id": str(random.random()),
-                            "x": box["x"], "y": box["y"],
-                            "type": "special_coin", "amount": amt,
-                            "time": now, "owner_id": pid
-                        })
+                        # --- RECOMPENSA ALEATORIA URIDIUM/CRÉDITOS/MUNICIÓN ---
+                        rand = random.random()
+                        if rand < 0.40: # 40% Créditos
+                            amt = random.randint(1000, 5000)
+                            player["credits"] += amt
+                            self.loot_events.append({
+                                "id": str(random.random()),
+                                "x": box["x"], "y": box["y"],
+                                "type": "credits", "amount": amt,
+                                "time": now, "owner_id": pid
+                            })
+                        elif rand < 0.80: # 40% Munición Especial
+                            amt = random.randint(50, 150)
+                            ammo_id = random.choice(["thermal", "plasma", "siphon"])
+                            player["ammo"][ammo_id] += amt
+                            self.loot_events.append({
+                                "id": str(random.random()),
+                                "x": box["x"], "y": box["y"],
+                                "type": "ammo", "ammo_type": ammo_id, "amount": amt,
+                                "time": now, "owner_id": pid
+                            })
+                        else: # 20% Uridium
+                            amt = random.randint(2, 10)
+                            player["uridium"] = player.get("uridium", 0) + amt
+                            self.loot_events.append({
+                                "id": str(random.random()),
+                                "x": box["x"], "y": box["y"],
+                                "type": "special_coin", "amount": amt,
+                                "time": now, "owner_id": pid
+                            })
                     else:
                         player["powerup"] = box["type"]
                         player["powerup_time"] = now + 10.0 # dura 10 segundos
@@ -666,7 +787,10 @@ class GameState:
         if client_id in self.players:
             player = self.players[client_id]
             # Verify if player has ammo of that type (standard is always available)
-            if ammo_id == "standard" or player["ammo"].get(ammo_id, 0) > 0:
+            if ammo_id.startswith("missile_"):
+                if player["missiles"].get(ammo_id, 0) > 0:
+                    player["missile_type"] = ammo_id
+            elif ammo_id == "standard" or player["ammo"].get(ammo_id, 0) > 0:
                 player["ammo_type"] = ammo_id
 
     def gain_xp(self, player, amount):
@@ -743,7 +867,8 @@ class GameState:
                 "loot_events": [e for e in self.loot_events if e.get("owner_id") == client_id],
                 "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS} if m_id == "galaxy_1" else None,
                 "portal": {"x": px, "y": py, "radius": self.PORTAL_RADIUS, "target": "galaxy_2" if m_id == "galaxy_1" else "galaxy_1"},
-                "current_map_name": self.MAPS[m_id]["name"]
+                "current_map_name": self.MAPS[m_id]["name"],
+                "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id]
             }
 
         return {
@@ -753,6 +878,7 @@ class GameState:
             "loot_boxes": self.loot_boxes,
             "kill_events": self.kill_events,
             "loot_events": self.loot_events,
+            "damage_events": self.damage_events,
             "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS},
             "portal": {"x": self.PORTAL_X, "y": self.PORTAL_Y, "radius": self.PORTAL_RADIUS}
         }

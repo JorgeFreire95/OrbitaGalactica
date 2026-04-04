@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { drawGame } from '../utils/renderer';
 import { getRank } from '../utils/gameData';
 
@@ -15,29 +15,166 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
   const [isJumping, setIsJumping] = useState(false);
   const [showJumpPrompt, setShowJumpPrompt] = useState(false);
 
+  // --- DRAGGABLE HUD STATE ---
+  const [hotbarPos, setHotbarPos] = useState(() => {
+    const saved = localStorage.getItem('og_hotbar_pos');
+    return saved ? JSON.parse(saved) : { x: window.innerWidth / 2 - 275, y: window.innerHeight - 100 };
+  });
+  const [isUiLocked, setIsUiLocked] = useState(() => {
+    return localStorage.getItem('og_ui_locked') === 'true';
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const lastSyncRef = useRef({ credits: -1, uridium: -1, xp: -1, level: -1, minerals: '' });
+
   // Keyboard state
   const keys = useRef({
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-    shoot: false
+    up: false, down: false, left: false, right: false,
+    shoot: false, missile_shoot: false,
+    target_x: null, target_y: null, locked_target_id: null
   });
 
+  const triggerJumpAnimation = useCallback(() => {
+    setIsJumping(true);
+    setTimeout(() => setIsJumping(false), 800);
+  }, []);
+
+  const handleJump = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      keys.current.target_x = null;
+      keys.current.target_y = null;
+      wsRef.current.send(JSON.stringify({ type: 'jump_portal' }));
+    }
+  }, []);
+
+  // --- INPUT HANDLERS ---
+  const handleKeyDown = useCallback((e) => {
+    if (e.repeat) return;
+    const k = e.key.toLowerCase();
+    if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+      if (k === 'w' || k === 'arrowup') keys.current.up = true;
+      if (k === 's' || k === 'arrowdown') keys.current.down = true;
+      if (k === 'a' || k === 'arrowleft') keys.current.left = true;
+      if (k === 'd' || k === 'arrowright') keys.current.right = true;
+      keys.current.target_x = null;
+      keys.current.target_y = null;
+    }
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      if (k === '1' || k === '2' || k === '3' || k === '4') {
+        const ammoId = k === '1' ? 'standard' : k === '2' ? 'thermal' : k === '3' ? 'plasma' : 'siphon';
+        wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: ammoId }));
+      }
+      if (k === '5' || k === '6' || k === '7') {
+        const mId = k === '5' ? 'missile_1' : k === '6' ? 'missile_2' : 'missile_3';
+        wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: mId }));
+      }
+    }
+    if (k === ' ') {
+      if (keys.current.locked_target_id) keys.current.shoot = !keys.current.shoot;
+      else keys.current.shoot = false;
+    }
+    if (k === 'e') keys.current.missile_shoot = true;
+    if (k === 'j') handleJump();
+  }, [handleJump]);
+
+  const handleKeyUp = useCallback((e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') keys.current.up = false;
+    if (k === 's' || k === 'arrowdown') keys.current.down = false;
+    if (k === 'a' || k === 'arrowleft') keys.current.left = false;
+    if (k === 'd' || k === 'arrowright') keys.current.right = false;
+    if (k === 'e' || k === '6' || k === '7' || k === '8') keys.current.missile_shoot = false;
+  }, []);
+
+  const handleMouseDown = useCallback((e) => { 
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const width = canvasRef.current.width, height = canvasRef.current.height;
+    const mmW = 200, mmH = 150, margin = 20;
+    const mmX_start = width - mmW - margin, mmY_start = height - mmH - margin;
+
+    if (screenX >= mmX_start && screenX <= width - margin && screenY >= mmY_start && screenY <= height - margin) {
+      keys.current.target_x = ((screenX - mmX_start) / mmW) * 10000;
+      keys.current.target_y = ((screenY - mmY_start) / mmH) * 8000;
+      return;
+    }
+
+    const mouseX = screenX + cameraRef.current.x, mouseY = screenY + cameraRef.current.y;
+    if(e.button === 0) {
+      const hitTarget = gameStateRef.current?.enemies?.find(en => Math.hypot(en.x - mouseX, en.y - mouseY) < 45);
+      if (hitTarget) {
+        keys.current.locked_target_id = hitTarget.id;
+        keys.current.target_x = null; keys.current.target_y = null;
+      } else {
+        keys.current.target_x = mouseX; keys.current.target_y = mouseY;
+      }
+    } else if (e.button === 2) { 
+      keys.current.locked_target_id = null; keys.current.shoot = false;
+    }
+  }, []);
+
+  const handleMouseUp = useCallback(() => { 
+    if (isDragging) {
+      localStorage.setItem('og_hotbar_pos', JSON.stringify(hotbarPos));
+    }
+    setIsDragging(false);
+  }, [isDragging, hotbarPos]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (isDragging) {
+      setHotbarPos({
+        x: e.clientX - dragOffset.current.x,
+        y: e.clientY - dragOffset.current.y
+      });
+    }
+  }, [isDragging]);
+
+  const handleHotbarMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    setIsDragging(true);
+    dragOffset.current = { x: e.clientX - hotbarPos.x, y: e.clientY - hotbarPos.y };
+    e.stopPropagation();
+  }, [isUiLocked, hotbarPos]);
+
+  const toggleUiLock = useCallback(() => {
+    setIsUiLocked(prev => {
+      const next = !prev;
+      localStorage.setItem('og_ui_locked', next.toString());
+      return next;
+    });
+  }, []);
+
+  const handleContextMenu = useCallback((e) => e.preventDefault(), []);
+
+  // --- STABLE PROPS REF ---
+  // We store props in a ref to avoid re-triggering the main effect when parents re-render
+  const propsRef = useRef({
+    selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades,
+    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
+  });
+  
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Handle resizing
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+    propsRef.current = {
+      selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades,
+      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
     };
-    window.addEventListener('resize', resize);
-    resize();
+  });
 
-    // WebSocket Init
+  // --- CORE SYSTEM EFFECT ---
+  useEffect(() => {
     let isMounted = true;
+    let animationId;
+    let lastInputTime = 0;
+
+    const resize = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+      }
+    };
+
     const connectWs = () => {
       if (!isMounted) return;
       const ws = new WebSocket(WS_URL);
@@ -45,27 +182,16 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
       
       ws.onopen = () => {
         if (!isMounted) return ws.close();
-        console.log('Connected to server!');
-        setError(null);
+        let userId = localStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
+        localStorage.setItem('orbita_galactica_user_id', userId);
         
-        // Obtener o crear un userID persistente
-        let userId = localStorage.getItem('orbita_galactica_user_id');
-        if (!userId) {
-          userId = 'user_' + Math.random().toString(36).substr(2, 9);
-          localStorage.setItem('orbita_galactica_user_id', userId);
-        }
-
+        const p = propsRef.current;
         ws.send(JSON.stringify({ 
-          type: 'join', 
-          userId: userId,
-          ship_type: selectedShip,
-          modules: initialModules || [],
-          initial_ammo: initialAmmo,
-          level: initialLevel,
-          xp: initialXp,
-          credits: initialCredits,
-          minerals: initialMinerals,
-          upgrades: initialUpgrades
+          type: 'join', userId, ship_type: p.selectedShip,
+          modules: p.initialModules, initial_ammo: p.initialAmmo,
+          level: p.initialLevel, xp: p.initialXp, credits: p.initialCredits,
+          initialUridium: propsRef.current.initialUridium,
+          minerals: p.initialMinerals, upgrades: p.initialUpgrades
         }));
       };
 
@@ -73,513 +199,204 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
         if (!isMounted) return;
         const data = JSON.parse(event.data);
         if (data.type === 'state') {
-          // Detectar cambio de mapa para la animación y limpieza de navegación
-          if (gameStateRef.current && gameStateRef.current.current_map_name !== data.state.current_map_name) {
+          if (gameStateRef.current?.current_map_name && gameStateRef.current.current_map_name !== data.state.current_map_name) {
             triggerJumpAnimation();
-            // Limpieza TOTAL de navegación al cambiar de sector
-            keys.current.target_x = null;
-            keys.current.target_y = null;
-            keys.current.up = false;
-            keys.current.down = false;
-            keys.current.left = false;
-            keys.current.right = false;
+            keys.current.target_x = null; keys.current.target_y = null;
           }
-
           gameStateRef.current = data.state;
           setGameState(data.state);
-          
-          // Verificar proximidad al portal para el prompt
           const me = data.state.players?.find(p => p.is_self);
-          if (me && data.state.portal) {
-            const dist = Math.hypot(me.x - data.state.portal.x, me.y - data.state.portal.y);
-            setShowJumpPrompt(dist < data.state.portal.radius);
-          } else {
-            setShowJumpPrompt(false);
-          }
-
-          // Sincronizar estadísticas (XP, Créditos, etc) pero NO el objetivo fijado de forma directa
-          // para evitar que el servidor limpie el target local por lag o latencia.
-          if (data.state.players) {
-            const me = data.state.players.find(p => p.is_self);
-            if (me) {
-              // SOLO limpiamos si el target YA NO EXISTE en la lista global de enemigos (Muerte)
-              if (keys.current.locked_target_id) {
-                const stillExists = data.state.enemies?.some(en => en.id === keys.current.locked_target_id);
-                if (!stillExists) {
-                  console.log("Sistema: Objetivo fuera del radar o destruido. Limpiando selección.");
-                  keys.current.locked_target_id = null;
-                  keys.current.shoot = false;
+          if (me) {
+            const p = propsRef.current;
+            const last = lastSyncRef.current;
+            
+            // Throttled/Smart Updates: Only trigger React state change if value actually differs
+            if (p.onUpdateCredits && me.credits !== last.credits) {
+                p.onUpdateCredits(me.credits);
+                last.credits = me.credits;
+            }
+            if (p.onUpdateUridium && me.uridium !== last.uridium) {
+                p.onUpdateUridium(me.uridium);
+                last.uridium = me.uridium;
+            }
+            if (p.onUpdateProgress && (me.level !== last.level || me.xp !== last.xp)) {
+                p.onUpdateProgress(me.level, me.xp);
+                last.level = me.level;
+                last.xp = me.xp;
+            }
+            if (p.onUpdateMinerals) {
+                const minStr = JSON.stringify(me.minerals);
+                if (minStr !== last.minerals) {
+                    p.onUpdateMinerals(me.minerals);
+                    last.minerals = minStr;
                 }
-              }
-              
-              if (onUpdateAmmo) onUpdateAmmo(me.ammo);
-              if (onUpdateProgress) onUpdateProgress(me.level, me.xp);
-              if (onUpdateCredits) onUpdateCredits(me.credits);
-              if (onUpdateMinerals) onUpdateMinerals(me.minerals);
+            }
+            if (p.onUpdateAmmo) p.onUpdateAmmo({ ...me.ammo, ...me.missiles }); 
+            
+            // Check portal prompt
+            if (data.state.portal) {
+              const dist = Math.hypot(me.x - data.state.portal.x, me.y - data.state.portal.y);
+              setShowJumpPrompt(dist < data.state.portal.radius);
+            } else setShowJumpPrompt(false);
+
+            // Cleanup target if dead
+            if (keys.current.locked_target_id && data.state.enemies) {
+                if (!data.state.enemies.some(en => en.id === keys.current.locked_target_id)) {
+                    keys.current.locked_target_id = null;
+                    keys.current.shoot = false;
+                }
             }
           }
         }
       };
 
-      ws.onclose = () => {
-        if (!isMounted) return;
-        console.log('Disconnected.');
-        setError('Desconectado del servidor. Intentando reconectar...');
-        setTimeout(connectWs, 2000); // Reconnect loop
-      };
-
-      ws.onerror = (err) => {
-        if (!isMounted) return;
-        console.error('WebSocket Error:', err);
-      };
-    };
-    
-    connectWs();
-
-    const triggerJumpAnimation = () => {
-      setIsJumping(true);
-      setTimeout(() => setIsJumping(false), 800);
+      ws.onclose = () => { if (isMounted) setTimeout(connectWs, 2000); };
     };
 
-    const handleJump = () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        // Reset local movement to prevent ghost navigation after jump
-        keys.current.target_x = null;
-        keys.current.target_y = null;
-        wsRef.current.send(JSON.stringify({ type: 'jump_portal' }));
-      }
-    };
-
-    // Animation Loop
-    let animationId;
     const renderLoop = () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        // Send inputs
-        wsRef.current.send(JSON.stringify({
-          type: 'input',
-          keys: keys.current
-        }));
+      const now = Date.now();
+      if (wsRef.current?.readyState === WebSocket.OPEN && now - lastInputTime > 50) {
+        wsRef.current.send(JSON.stringify({ type: 'input', keys: keys.current }));
+        lastInputTime = now;
       }
-
-      if (gameStateRef.current) {
+      const canvas = canvasRef.current;
+      if (gameStateRef.current && canvas) {
         const ctx = canvas.getContext('2d');
-        const me = gameStateRef.current.players?.find(p => p.is_self);
-        
-        // --- CÁLCULO DE CÁMARA ---
-        let camX = 0;
-        let camY = 0;
-        
-        if (me) {
-          // Centrar cámara en el jugador
-          camX = me.x - canvas.width / 2;
-          camY = me.y - canvas.height / 2;
-          
-          // Limitar cámara a los bordes del mundo (10000x8000)
-          const WORLD_WIDTH = 10000;
-          const WORLD_HEIGHT = 8000;
-          
-          camX = Math.max(0, Math.min(WORLD_WIDTH - canvas.width, camX));
-          camY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, camY));
+        if (ctx) {
+          const me = gameStateRef.current.players?.find(p => p.is_self);
+          if (me) {
+            cameraRef.current.x = Math.max(0, Math.min(10000 - canvas.width, me.x - canvas.width / 2));
+            cameraRef.current.y = Math.max(0, Math.min(8000 - canvas.height, me.y - canvas.height / 2));
+          }
+          drawGame(ctx, { ...gameStateRef.current, selectedTargetId: keys.current.locked_target_id }, cameraRef.current.x, cameraRef.current.y);
         }
-        
-        cameraRef.current = { x: camX, y: camY };
-
-        // El estado ahora lo enviamos extendido con el target local para dibujar la retícula
-        const stateToDraw = {
-            ...gameStateRef.current,
-            selectedTargetId: keys.current.locked_target_id
-        };
-        
-        // Pasamos la cámara al renderer
-        drawGame(ctx, stateToDraw, camX, camY);
       }
-      
       animationId = requestAnimationFrame(renderLoop);
     };
-    renderLoop();
 
-    // Set up Input Listeners
-    const handleKeyDown = (e) => {
-      if (e.repeat) return;
-      const k = e.key;
-
-      // Cambiar munición (1-4)
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        if (k === '1' || k === '2' || k === '3' || k === '4') {
-          // SOLO disparar si hay un objetivo fijado
-          if (keys.current.locked_target_id) {
-            keys.current.shoot = true;
-          }
-          const ammoId = k === '1' ? 'standard' : k === '2' ? 'thermal' : k === '3' ? 'plasma' : 'siphon';
-          wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: ammoId }));
-        }
-      }
-
-      // Espacio alterna disparo SOLO si hay un objetivo
-      if (k === ' ') {
-        if (keys.current.locked_target_id) {
-          keys.current.shoot = !keys.current.shoot;
-        } else {
-          keys.current.shoot = false;
-        }
-      }
-
-      // Tecla J para saltar portal
-      if (k.toLowerCase() === 'j') {
-        handleJump();
-      }
-    };
-
-    const handleKeyUp = (e) => { };
-
-    const handleMouseDown = (e) => { 
-      const rect = canvasRef.current.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      
-      const width = canvasRef.current.width;
-      const height = canvasRef.current.height;
-
-      // --- DETECCIÓN DE CLIC EN MINIMAPA ---
-      const mmW = 200;
-      const mmH = 150;
-      const margin = 20;
-      const mmX_start = width - mmW - margin;
-      const mmY_start = height - mmH - margin;
-
-      if (screenX >= mmX_start && screenX <= width - margin && 
-          screenY >= mmY_start && screenY <= height - margin) {
-        
-        // Coordenadas relativas dentro del minimapa
-        const relX = screenX - mmX_start;
-        const relY = screenY - mmY_start;
-        
-        // Mapear a coordenadas del Mundo (10000x8000)
-        keys.current.target_x = (relX / mmW) * 10000;
-        keys.current.target_y = (relY / mmH) * 8000;
-        
-        console.log("Navegación Táctica:", keys.current.target_x, keys.current.target_y);
-        return; // Detener aquí para no seleccionar enemigos "debajo" del minimapa
-      }
-
-      // Convertir coordenadas de PANTALLA a coordenadas de MUNDO para clics normales
-      const mouseX = screenX + cameraRef.current.x;
-      const mouseY = screenY + cameraRef.current.y;
-
-      if(e.button === 0) {
-        let hitTarget = null;
-        if (gameStateRef.current?.enemies) {
-          hitTarget = gameStateRef.current.enemies.find(en => {
-            const dist = Math.hypot(en.x - mouseX, en.y - mouseY);
-            return dist < 45; // Radio de selección
-          });
-        }
-
-        if (hitTarget) {
-            console.log("Objetivo Fijado:", hitTarget.id);
-            keys.current.locked_target_id = hitTarget.id;
-            keys.current.target_x = null;
-            keys.current.target_y = null;
-        } else {
-            // Si hace click fuera de un enemigo, SOLO se mueve ahí. NO limpia el target.
-            keys.current.target_x = mouseX;
-            keys.current.target_y = mouseY;
-        }
-      } else if (e.button === 2) { 
-        // CLIC DERECHO: Ahora SOLO sirve para DESMARCAR el objetivo
-        console.log("Deseleccionando objetivo.");
-        keys.current.locked_target_id = null;
-        keys.current.shoot = false; // Detener disparo al desmarcar
-      }
-    };
-    
-    const handleMouseUp = (e) => { 
-        // Eliminado el reseteo de 'shoot' para que sea toggle real
-    };
-
-    const handleMouseMove = (e) => {
-      keys.current.mouseX = e.clientX;
-      keys.current.mouseY = e.clientY;
-    };
-    
-    const handleContextMenu = (e) => e.preventDefault(); // Prevent right-click menu
-
+    window.addEventListener('resize', resize);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
-    // Bind to window or canvas
-    const canvasEl = canvasRef.current;
-    if (canvasEl) {
-      canvasEl.addEventListener('mousedown', handleMouseDown);
-      canvasEl.addEventListener('mouseup', handleMouseUp);
-      canvasEl.addEventListener('mousemove', handleMouseMove);
-      canvasEl.addEventListener('contextmenu', handleContextMenu);
-    }
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    resize();
+    connectWs();
+    renderLoop();
 
     return () => {
       isMounted = false;
       window.removeEventListener('resize', resize);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
       cancelAnimationFrame(animationId);
       if (wsRef.current) wsRef.current.close();
     };
-  }, []); // Run only once on mount
+  }, []); // WE ONLY CONNECT ONCE
 
   const me = gameState?.players?.find(p => p.is_self);
 
   return (
     <>
-      <canvas ref={canvasRef} style={{ display: 'block' }} />
+      <canvas ref={canvasRef} onMouseDown={handleMouseDown} onContextMenu={handleContextMenu} style={{ display: 'block' }} />
       
-      {/* Indicador de Zona Segura - Reubicado al centro inferior */}
-      {me?.in_safe_zone && (() => {
-        const dist_to_base = Math.hypot(me.x - (gameState.base?.x || 0), me.y - (gameState.base?.y || 0));
-        return (
-          <div style={{
-            position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: 'rgba(0, 255, 255, 0.07)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(0, 255, 255, 0.3)', borderBottom: '3px solid #00ffff',
-            padding: '6px 12px', borderRadius: '4px', color: '#00ffff',
-            fontFamily: 'Orbitron', fontSize: '12px', fontWeight: 'bold',
-            letterSpacing: '1px', pointerEvents: 'none',
-            boxShadow: '0 0 20px rgba(0, 255, 255, 0.1)', zIndex: 100,
-            animation: 'pulse-safe 2s infinite ease-in-out'
-          }}>
-            <style>{`
-              @keyframes pulse-safe {
-                0% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
-                50% { box-shadow: 0 0 25px rgba(0, 255, 255, 0.3); border-color: rgba(0, 255, 255, 0.7); }
-                100% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3); }
-              }
-            `}</style>
-            <span style={{ fontSize: '16px' }}>🛡️</span>
-            <span>{dist_to_base < 1000 ? "ESTACIÓN CENTRAL - ZONA SEGURA" : "PORTAL ESTELAR - ZONA SEGURA"}</span>
-          </div>
-        );
-      })()}
-
-      {/* PROMPT DE SALTO AL PORTAL */}
-      {showJumpPrompt && (
-        <div 
-          onClick={() => {
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send(JSON.stringify({ type: 'jump_portal' }));
-            }
-          }}
-          style={{
-            position: 'absolute',
-            top: '40%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'rgba(0, 255, 255, 0.2)',
-            backdropFilter: 'blur(10px)',
-            border: '2px solid #00ffff',
-            padding: '20px 40px',
-            borderRadius: '15px',
-            color: '#00ffff',
-            fontFamily: 'Orbitron',
-            cursor: 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 0 30px rgba(0, 255, 255, 0.4)',
-            zIndex: 1000,
-            animation: 'float 2s infinite ease-in-out'
-          }}
-        >
-          <style>{`
-            @keyframes float {
-              0%, 100% { transform: translate(-50%, -52%); }
-              50% { transform: translate(-50%, -48%); }
-            }
-          `}</style>
-          <span style={{ fontSize: '32px' }}>🌀</span>
-          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>SALTAR SECTOR [J]</span>
-          <span style={{ fontSize: '10px', opacity: 0.7 }}>CLICK O TECLA J PARA INICIAR SALTO</span>
-        </div>
-      )}
-
-      {/* ANIMACIÓN DE SALTO (FLASH) */}
-      {isJumping && (
+      {me?.in_safe_zone && (
         <div style={{
-          position: 'fixed',
-          top: 0, left: 0, width: '100%', height: '100%',
-          background: 'white',
-          zIndex: 9999,
-          animation: 'jump-flash 0.8s forwards ease-out'
+          position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          background: 'rgba(0, 255, 255, 0.07)', backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(0, 255, 255, 0.3)', borderBottom: '3px solid #00ffff',
+          padding: '6px 12px', borderRadius: '4px', color: '#00ffff',
+          fontFamily: 'Orbitron', fontSize: '12px', fontWeight: 'bold',
+          letterSpacing: '1px', pointerEvents: 'none', zIndex: 100,
+          animation: 'pulse-safe 2s infinite ease-in-out'
         }}>
-          <style>{`
-            @keyframes jump-flash {
-              0% { opacity: 0; }
-              20% { opacity: 1; }
-              100% { opacity: 0; }
-            }
-          `}</style>
+          <style>{`@keyframes pulse-safe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }`}</style>
+          <span>🛡️</span>
+          <span>ZONA SEGURA</span>
         </div>
       )}
 
-      {error && (
-        <div style={{ position: 'absolute', top: 10, left: 10, color: 'red', background: 'rgba(0,0,0,0.5)', padding: 10 }}>
-          {error}
+      {showJumpPrompt && (
+        <div onClick={handleJump} style={{
+            position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
+            background: 'rgba(0, 255, 255, 0.2)', backdropFilter: 'blur(10px)',
+            border: '2px solid #00ffff', padding: '20px 40px', borderRadius: '15px', color: '#00ffff',
+            fontFamily: 'Orbitron', cursor: 'pointer', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: '10px', boxShadow: '0 0 30px rgba(0, 255, 255, 0.4)', zIndex: 1000
+        }}>
+          <span>🌀</span>
+          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>SALTAR SECTOR [J]</span>
         </div>
       )}
+
+      {isJumping && <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'white', zIndex: 9999, animation: 'jump-flash 0.8s forwards' }}>
+        <style>{`@keyframes jump-flash { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }`}</style>
+      </div>}
+
       <div className="ui-overlay">
-        {/* We can grab local player from gameState to show HUD */}
-        {gameState?.players && (() => {
-          const me = gameState.players.find(p => p.is_self);
-          if (!me) return null;
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <div className="hud-item">
-                  <div style={{ color: '#ff3366', fontWeight: 'bold' }}>❤️ HP: {Math.max(0, Math.floor(me.hp))} / {me.max_hp}</div>
-                </div>
-                <div className="hud-item">
-                  <div style={{ color: '#00c8ff', fontWeight: 'bold' }}>🛡️ SHLD: {Math.max(0, Math.floor(me.shld))} / {me.max_shld}</div>
-                </div>
-                <div className="hud-item">
-                  <div style={{ color: '#ffcc00', fontWeight: 'bold' }}>💥 ATK: {me.atk}</div>
-                </div>
-                <div className="hud-item">
-                  <div style={{ color: '#00ccff', fontWeight: 'bold' }}>⚡ SPD: {me.spd}</div>
-                </div>
-              </div>
-
-              {/* NIVEL Y RANGO */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginBottom: '5px',
-                width: '1000px'
-              }}>
-                <div style={{ 
-                  background: 'rgba(0,119,255,0.2)', 
-                  border: '1px solid #0077ff', 
-                  padding: '4px 12px', 
-                  borderRadius: '15px',
-                  color: '#0077ff',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase'
-                }}>
-                  {getRank(me.level)}
-                </div>
-                <div style={{ 
-                  background: 'rgba(255,255,255,0.1)', 
-                  border: '1px solid #fff', 
-                  padding: '4px 12px', 
-                  borderRadius: '15px',
-                  color: '#fff',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold'
-                }}>
-                  NIVEL {me.level}
-                </div>
-              </div>
-
-              {/* BARRA DE EXPERIENCIA */}
-              <div style={{ width: '100%', maxWidth: '1000px', background: 'rgba(0,0,0,0.5)', height: '15px', borderRadius: '10px', border: '1px solid #333', overflow: 'hidden', position: 'relative', marginBottom: '15px' }}>
-                <div style={{ 
-                  width: `${(me.xp / me.xp_next) * 100}%`, 
-                  height: '100%', 
-                  background: 'linear-gradient(90deg, #0077ff, #00ffcc)',
-                  transition: 'width 0.3s ease-out'
-                }} />
-                <div style={{ 
-                  position: 'absolute', 
-                  top: 0, 
-                  left: 0, 
-                  width: '100%', 
-                  height: '100%', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  fontSize: '0.65rem', 
-                  fontWeight: 'bold', 
-                  color: 'white', 
-                  textShadow: '0 0 5px black' 
-                }}>
-                  XP: {Math.floor(me.xp)} / {me.xp_next}
-                </div>
-              </div>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '1000px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <div className="hud-item">
-                    <div style={{ color: '#fff', fontWeight: 'bold' }}>🏆 PUNTAJE: {me.score || 0}</div>
-                  </div>
-                  <div className="hud-item" style={{ background: 'rgba(0,255,204,0.2)', border: '1px solid #00ffcc' }}>
-                    <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>💰 CRÉDITOS: {me.credits || 0}</div>
-                  </div>
-                  <div className="hud-item" style={{ background: 'rgba(255,0,255,0.2)', border: '1px solid #ff00ff' }}>
-                    <div style={{ color: '#ff00ff', fontWeight: 'bold' }}>✨ ESPECIAL: {me.special_currency || 0}</div>
-                  </div>
-                  <div className="hud-item" style={{ background: 'rgba(150,150,150,0.2)', border: '1px solid #aaa', marginTop: '5px' }}>
-                    <div style={{ color: '#aaa', fontSize: '0.9rem' }}>
-                      📦 BODEGA: {Object.values(me.minerals || {}).reduce((a, b) => a + b, 0)} / {me.max_cargo}
+        {me && (
+          <>
+            <div className="status-display-container hud-mode">
+                <div className="status-block hud-variant">
+                    <div className="status-item"><span>✪</span><span className="status-value">{Math.floor(me.xp).toLocaleString()} XP</span></div>
+                    <div className="status-item"><span style={{ color: '#ffcc00' }}>🔋</span><span className="status-value">{me.credits.toLocaleString()} CR</span></div>
+                    <div className="status-item"><span style={{ color: '#00ffcc' }}>🎖️</span><span className="status-value">Lvl {me.level}</span></div>
+                    <div className="status-item" style={{ background: 'rgba(100,0,200,0.1)', borderLeft: '2px solid #cc33ff' }}>
+                        <span style={{ color: '#cc33ff' }}>💎</span>
+                        <span className="status-value">{me.uridium.toLocaleString()} URI</span>
                     </div>
-                  </div>
-                </div>             
-
-                {/* MINERALES RECOGIDOS */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  {me.minerals && Object.entries(me.minerals).map(([type, amount]) => {
-                    const icons = { titanium: '💎', plutonium: '🏮', silicon: '💾' };
-                    const colors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
-                    if (amount === 0) return null;
-                    return (
-                      <div key={type} className="hud-item" style={{ borderColor: colors[type], color: colors[type] }}>
-                        {icons[type]} {amount}
-                      </div>
-                    );
-                  })}
+                    <div className="status-item"><span>🎯</span><span className="status-value">{me.score.toLocaleString()} PTS</span></div>
                 </div>
+                <div className="status-block hud-variant">
+                    <div className="status-item"><span>❤️</span><span className="status-value">{Math.floor(me.hp).toLocaleString()}</span></div>
+                    <div className="status-item"><span>🛡️</span><span className="status-value">{Math.floor(me.shield).toLocaleString()}</span></div>
+                    <div className="status-item"><span>🚀</span><span className="status-value">{me.spd}</span></div>
+                    <div className="status-item"><span>💥</span><span className="status-value">{me.atk}</span></div>
+                </div>
+            </div>
 
-                {/* HUD DE MUNICIÓN */}
-                <div style={{ 
-                    background: 'rgba(0,0,0,0.8)', 
-                    padding: '12px', 
-                    borderRadius: '10px', 
-                    border: '1px solid #333',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '5px',
-                    minWidth: '130px'
-                }}>
+            <div className="weapon-hotbar-container" style={{ position: 'fixed', left: hotbarPos.x, top: hotbarPos.y, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', pointerEvents: 'auto', userSelect: 'none', cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handleHotbarMouseDown}>
+                 <div style={{ display: 'flex', gap: '8px', pointerEvents: 'none' }}>
+                  {me.minerals && Object.entries(me.minerals).map(([type, amount]) => amount > 0 && (
+                    <div key={type} className="hud-item" style={{ fontSize: '0.65rem', padding: '1px 6px', background: 'rgba(0,0,0,0.6)' }}>
+                      {type === 'titanium' ? '💎' : type === 'plutonium' ? '🏮' : '💾'} {amount}
+                    </div>
+                  ))}
+                </div>
+                <div className="weapon-hotbar" style={{ display: 'flex', alignItems: 'center' }}>
+                    <div onClick={(e) => { e.stopPropagation(); toggleUiLock(); }} style={{ width: '30px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isUiLocked ? 'rgba(255,204,0,0.1)' : 'rgba(0,0,0,0.3)', border: '1px solid ' + (isUiLocked ? '#ffcc0044' : '#333'), marginRight: '5px', borderRadius: '4px', cursor: 'pointer' }}>
+                      {isUiLocked ? '🔒' : '🔓'}
+                    </div>
                     {[
-                        { id: 'standard', name: 'Básica', icon: '⚪', color: '#fff' },
-                        { id: 'thermal', name: 'Térmica', icon: '🔥', color: '#ff6600' },
-                        { id: 'plasma', name: 'Plasma', icon: '🔷', color: '#ff33ff' },
-                        { id: 'siphon', name: 'Sifón', icon: '🔋', color: '#33ff33' },
-                    ].map(type => {
-                        const count = me.ammo[type.id];
-                        const isActive = me.ammo_type === type.id;
+                        { id: 'standard', type: 'laser', icon: '⚪', key: '1' },
+                        { id: 'thermal', type: 'laser', icon: '🔥', key: '2' },
+                        { id: 'plasma', type: 'laser', icon: '🔷', key: '3' },
+                        { id: 'siphon', type: 'laser', icon: '🔋', key: '4' },
+                        { id: 'missile_1', type: 'missile', icon: '🚀', key: '5' },
+                        { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
+                        { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
+                        { id: 'blank_8', key: '8', disabled: true },
+                        { id: 'blank_9', key: '9', disabled: true },
+                        { id: 'blank_0', key: '0', disabled: true },
+                    ].map((slot) => {
+                        const isActive = (slot.type === 'laser' && me.ammo_type === slot.id) || (slot.type === 'missile' && me.missile_type === slot.id);
+                        const count = slot.type === 'laser' ? me.ammo[slot.id] : slot.type === 'missile' ? (me.missiles?.[slot.id] || 0) : null;
                         return (
-                            <div key={type.id} style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                fontSize: '0.75rem',
-                                color: isActive ? '#00ffcc' : (count > 0 || type.id === 'standard' ? '#fff' : '#444'),
-                                background: isActive ? 'rgba(0,255,204,0.1)' : 'transparent',
-                                padding: '2px 5px',
-                                borderRadius: '4px',
-                                border: isActive ? '1px solid #00ffcc44' : '1px solid transparent'
-                            }}>
-                                <span>{type.icon} {type.name}</span>
-                                <span style={{ fontWeight: isActive ? 'bold' : 'normal' }}>
-                                    {type.id === 'standard' ? '∞' : count}
-                                </span>
+                            <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} onClick={() => !slot.disabled && wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }))}>
+                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: isActive ? '100%' : '20%', opacity: isActive ? 1 : 0.3 }} /></div>
+                                <div className="slot-icon">{slot.icon}</div>
+                                {count !== null && <div className="slot-count">{count}</div>}
+                                <div className="slot-key">{slot.key}</div>
                             </div>
                         );
                     })}
                 </div>
-              </div>
             </div>
-          );
-        })()}
+          </>
+        )}
       </div>
     </>
   );

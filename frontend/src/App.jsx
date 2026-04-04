@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react'
 import GameCanvas from './components/GameCanvas'
 import Hangar from './components/Hangar'
 import Shop from './components/Shop'
+import MainMenu from './components/MainMenu'
+import Laboratory from './components/Laboratory'
 import { SHIPS } from './utils/gameData'
 import './index.css'
 
 function App() {
-  const [currentView, setCurrentView] = useState('hangar')
-  const [selectedShipId, setSelectedShipId] = useState('tank')
+  const [currentView, setCurrentView] = useState('menu')
+  const [selectedShipId, setSelectedShipId] = useState(() => {
+    return localStorage.getItem('selected_ship_id') || 'tank';
+  });
   
   // Persistent Global State
   const [credits, setCredits] = useState(() => {
@@ -30,7 +34,10 @@ function App() {
       'standard': 9999,
       'thermal': 0,
       'plasma': 0,
-      'siphon': 0
+      'siphon': 0,
+      'missile_1': 0,
+      'missile_2': 0,
+      'missile_3': 0
     };
   });
   
@@ -52,9 +59,25 @@ function App() {
     return saved ? JSON.parse(saved) : { atk: 0, shld: 0, spd: 0 };
   });
 
+  const [uridium, setUridium] = useState(() => {
+    return parseInt(localStorage.getItem('game_uridium')) || 0;
+  });
+
+  // Auto-lanzamiento si se abre en pestaña nueva con ?play=true
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('play') === 'true') {
+      setCurrentView('game');
+    }
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('game_credits', credits);
   }, [credits]);
+
+  useEffect(() => {
+    localStorage.setItem('selected_ship_id', selectedShipId);
+  }, [selectedShipId]);
 
   useEffect(() => {
     localStorage.setItem('equipped_modules', JSON.stringify(equippedByShip));
@@ -83,6 +106,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('game_upgrades', JSON.stringify(upgrades));
   }, [upgrades]);
+
+  useEffect(() => {
+    localStorage.setItem('game_uridium', uridium);
+  }, [uridium]);
 
   const handleBuyAmmo = (ammoId, count, cost) => {
     if (credits < cost) return alert('No tienes suficientes créditos');
@@ -137,7 +164,10 @@ function App() {
     setCredits(2000);
     setEquippedByShip({});
     setInventory([]);
-    setAmmo({ 'standard': 9999, 'thermal': 0, 'plasma': 0, 'siphon': 0 });
+    setAmmo({ 
+      'standard': 9999, 'thermal': 0, 'plasma': 0, 'siphon': 0,
+      'missile_1': 0, 'missile_2': 0, 'missile_3': 0
+    });
     setLevel(1);
     setXp(0);
     setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
@@ -173,6 +203,10 @@ function App() {
     setCredits(prev => prev + totalCredits);
   };
 
+  const handleUpdateUridium = (newUridium) => {
+    setUridium(newUridium);
+  };
+
   const handleUpdateProgress = (newLvl, newXp) => {
     setLevel(newLvl);
     setXp(newXp);
@@ -186,6 +220,20 @@ function App() {
 
   return (
     <div className="app-container">
+      {currentView === 'menu' && (
+        <MainMenu 
+          onNavigate={(view) => setCurrentView(view)} 
+          credits={credits}
+          uridium={uridium}
+          xp={xp}
+          level={level}
+          minerals={minerals}
+          selectedShipId={selectedShipId}
+          equippedByShip={equippedByShip}
+          upgrades={upgrades}
+        />
+      )}
+
       {currentView === 'hangar' && (
         <Hangar 
           selectedShipId={selectedShipId}
@@ -197,9 +245,10 @@ function App() {
           xp={xp}
           onEquip={handleEquip}
           onUnequip={handleUnequip}
-          onGoToShop={() => setCurrentView('shop')}
-          onJoinGame={handleJoinGame}
+          onBack={() => setCurrentView('menu')}
           onReset={handleReset}
+          credits={credits}
+          uridium={uridium}
           minerals={minerals}
           upgrades={upgrades}
           onRefine={handleRefine}
@@ -220,7 +269,19 @@ function App() {
           onSellMinerals={handleSellMinerals}
           upgrades={upgrades}
           level={level}
-          onBack={() => setCurrentView('hangar')}
+          uridium={uridium}
+          onBack={() => setCurrentView('menu')}
+        />
+      )}
+
+      {currentView === 'lab' && (
+        <Laboratory 
+          minerals={minerals}
+          upgrades={upgrades}
+          onRefine={handleRefine}
+          onSellMinerals={handleSellMinerals}
+          onBack={() => setCurrentView('menu')}
+          selectedShip={SHIPS.find(s => s.id === selectedShipId)}
         />
       )}
       
@@ -234,19 +295,15 @@ function App() {
             initialLevel={level}
             initialXp={xp}
             initialCredits={credits}
+            initialUridium={uridium}
             initialMinerals={minerals}
             initialUpgrades={upgrades}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}
             onUpdateProgress={handleUpdateProgress}
             onUpdateCredits={(newCredits) => setCredits(newCredits)}
+            onUpdateUridium={handleUpdateUridium}
             onUpdateMinerals={handleUpdateMinerals}
           />
-          <button 
-            style={{ position: 'absolute', top: '10px', right: '10px', padding: '10px', background: '#333', color: 'white', border: '1px solid #555', cursor: 'pointer', borderRadius: '5px' }}
-            onClick={() => setCurrentView('hangar')}
-          >
-            SALIR AL HANGAR
-          </button>
         </>
       )}
     </div>

@@ -328,30 +328,69 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     const angle = Math.atan2(proj.vy, proj.vx);
     ctx.rotate(angle);
 
-    const baseColor = proj.is_player ? '#00ffcc' : '#ff00aa';
-    const ammoColors = {
-      'standard': '#ffffff',
-      'thermal': '#ff6600',
-      'plasma': '#ff33ff',
-      'siphon': '#33ff33'
-    };
-    const color = proj.is_player ? (ammoColors[proj.ammo_type] || baseColor) : baseColor;
+    if (proj.is_missile) {
+      // --- DIBUJAR MISIL ---
+      const mColors = { 'missile_1': '#ffcc00', 'missile_2': '#ff6600', 'missile_3': '#ff0000' };
+      const mColor = mColors[proj.m_type] || '#ff0000';
+      
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = mColor;
+      
+      // Estela / Fuego detrás
+      const pulse = Math.sin(Date.now() / 50) * 5;
+      const grad = ctx.createLinearGradient(-30, 0, -15, 0);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(1, mColor);
+      ctx.fillStyle = grad;
+      ctx.fillRect(-40 - pulse, -6, 25 + pulse, 12);
 
-    ctx.fillStyle = color;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = color;
-    
-    // Cuerpo del rayo
-    ctx.beginPath();
-    ctx.roundRect(-20, -2.5, 40, 5, 2);
-    ctx.fill();
-    
-    // Núcleo brillante
-    ctx.fillStyle = '#fff';
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.roundRect(-18, -1, 36, 2, 1);
-    ctx.fill();
+      // Cuerpo del misil
+      ctx.fillStyle = '#333';
+      ctx.strokeStyle = mColor;
+      ctx.lineWidth = 1;
+      
+      ctx.beginPath();
+      ctx.moveTo(-15, -8);
+      ctx.lineTo(10, -8);
+      ctx.lineTo(25, 0); // Punta
+      ctx.lineTo(10, 8);
+      ctx.lineTo(-15, 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Detalles / Aletas
+      ctx.fillStyle = mColor;
+      ctx.fillRect(-18, -12, 6, 4);
+      ctx.fillRect(-18, 8, 6, 4);
+      
+    } else {
+      // --- DIBUJAR RAYO LÁSER (Existente) ---
+      const baseColor = proj.is_player ? '#00ffcc' : '#ff00aa';
+      const ammoColors = {
+        'standard': '#ffffff',
+        'thermal': '#ff6600',
+        'plasma': '#ff33ff',
+        'siphon': '#33ff33'
+      };
+      const color = proj.is_player ? (ammoColors[proj.ammo_type] || baseColor) : baseColor;
+
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = color;
+      
+      // Cuerpo del rayo
+      ctx.beginPath();
+      ctx.roundRect(-20, -2.5, 40, 5, 2);
+      ctx.fill();
+      
+      // Núcleo brillante
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.roundRect(-18, -1, 36, 2, 1);
+      ctx.fill();
+    }
     
     ctx.restore();
   });
@@ -498,6 +537,13 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
           const mColors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
           text = `📦 +${event.amount} ${mIcons[event.mineral_type] || ''}`;
           color = mColors[event.mineral_type] || "#fff";
+        } else if (event.type === 'credits') {
+          text = `💰 +${event.amount} CRÉDITOS`;
+          color = "#ffcc00";
+        } else if (event.type === 'ammo') {
+          const aIcons = { thermal: '🔥', plasma: '🔷', siphon: '🔋' };
+          text = `${aIcons[event.ammo_type] || '🚀'} +${event.amount} MUNICIÓN`;
+          color = "#00ffcc";
         } else if (event.type === 'rapid_fire') {
           text = `⚡ CADENCIA MAX!`;
           color = "#ff00aa";
@@ -505,7 +551,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
           text = `🚀 VELOCIDAD MAX!`;
           color = "#00fbff";
         } else if (event.type === "special_coin") {
-          text = `✨ +${event.amount} ESPECIAL`;
+          text = `✨ +${event.amount} URIDIUM`;
           color = '#ff00ff';
         }
 
@@ -623,6 +669,31 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.moveTo(width / 2 - 100, 50);
     ctx.lineTo(width / 2 + 100, 50);
     ctx.stroke();
+  }
+
+  // --- 8. EVENTOS DE DAÑO (NUEVO) ---
+  if (gameState.damage_events) {
+    gameState.damage_events.forEach(evt => {
+      const elapsed = (Date.now() - evt.time * 1000) / 1000;
+      if (elapsed > 1.0) return;
+      
+      const opacity = 1 - elapsed;
+      const floatY = elapsed * 80; // Sube 80 píxeles
+      
+      ctx.save();
+      ctx.font = `bold ${evt.amount > 300 ? '24px' : '16px'} Orbitron`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      
+      const screenX = evt.x - camX;
+      const screenY = evt.y - camY - floatY;
+      
+      ctx.strokeText(`-${evt.amount}`, screenX, screenY);
+      ctx.fillText(`-${evt.amount}`, screenX, screenY);
+      ctx.restore();
+    });
   }
 
   drawMinimap();
