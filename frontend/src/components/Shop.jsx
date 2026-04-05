@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, getRank } from '../utils/gameData';
+import NavigationBar from './NavigationBar';
 
 export default function Shop({ 
   credits, 
@@ -12,6 +13,7 @@ export default function Shop({
   onSellMinerals,
   level,
   uridium,
+  onNavigate,
   onBack 
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
@@ -85,26 +87,25 @@ export default function Shop({
 
   return (
     <div className="shop-view-container">
-      <header className="dashboard-header" style={{ justifyContent: 'flex-start', padding: '10px 30px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: '1px solid #334466', color: '#88aaff', padding: '8px 20px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }}>
-          ⬅ VOLVER AL MENÚ
-        </button>
-        
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
-            <span className="status-icon" style={{ color: '#ffcc00' }}>🔋</span>
-            <span className="status-value" style={{ color: '#fff' }}>{credits.toLocaleString()} CRÉDITOS</span>
+      <header className="dashboard-header" style={{ height: '80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '0 30px', width: '100%', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+             <h1 style={{ fontSize: '1.2rem', color: '#00ffcc', margin: 0 }}>CENTRO DE SUMINISTROS: EQUIPAMIENTO Y NAVES</h1>
           </div>
-          <div className="status-item" style={{ background: 'rgba(50,0,100,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #6633ff' }}>
-            <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
-            <span className="status-value" style={{ color: '#fff' }}>{uridium.toLocaleString()} URIDIUM</span>
-          </div>
-          <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
-            <span className="status-icon" style={{ color: '#00ffcc' }}>🎖️</span>
-            <span className="status-value" style={{ color: '#fff' }}>NIVEL {level}</span>
+          
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <div className="status-item">
+              <span className="status-icon">🔋</span>
+              <span className="status-value">{credits.toLocaleString()} CR</span>
+            </div>
+            <div className="status-item" style={{ borderColor: '#6633ff' }}>
+              <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
+              <span className="status-value">{uridium.toLocaleString()} URI</span>
+            </div>
           </div>
         </div>
       </header>
+      <NavigationBar currentView="shop" onNavigate={onNavigate} />
 
       {/* SUCCESS NOTIFICATION */}
       {successMessage && (

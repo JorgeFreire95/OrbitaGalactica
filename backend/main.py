@@ -111,6 +111,24 @@ async def websocket_endpoint(websocket: WebSocket):
                 
             elif data.get("type") == "jump_portal" and player_added:
                 game_state.jump_portal(client_id)
+
+            elif data.get("type") == "party_invite" and player_added:
+                target_id = data.get("target_id")
+                if target_id:
+                    game_state.invite_to_party(client_id, target_id)
+            
+            elif data.get("type") == "party_join" and player_added:
+                party_id = data.get("party_id")
+                if party_id:
+                    game_state.join_party(client_id, party_id)
+            
+            elif data.get("type") == "party_reject" and player_added:
+                leader_id = data.get("leader_id")
+                if leader_id:
+                    game_state.reject_party(client_id, leader_id)
+            
+            elif data.get("type") == "party_leave" and player_added:
+                game_state.leave_party(client_id)
                 
     except WebSocketDisconnect as e:
         logger.info(f"Client disconnected: {client_id} Code: {e.code} Reason: {e.reason}")

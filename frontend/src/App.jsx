@@ -278,9 +278,13 @@ function App() {
         <Laboratory 
           minerals={minerals}
           upgrades={upgrades}
+          credits={credits}
+          uridium={uridium}
+          level={level}
           onRefine={handleRefine}
           onSellMinerals={handleSellMinerals}
           onBack={() => setCurrentView('menu')}
+          onNavigate={setCurrentView}
           selectedShip={SHIPS.find(s => s.id === selectedShipId)}
         />
       )}

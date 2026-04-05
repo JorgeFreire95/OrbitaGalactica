@@ -474,6 +474,46 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillStyle = '#0f0';
     ctx.fillRect(-20, 41, 40 * Math.max(0, player.hp / player.max_hp), 4);
     
+    // Retícula de fijación (Lock-on) para jugadores
+    if (gameState.selectedTargetId === player.id) {
+        let dist = 0;
+        let color = '#00ffcc'; // Siempre verde/cian para aliados
+        if (me) {
+            dist = Math.hypot(player.x - me.x, player.y - me.y);
+        }
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Dibujamos brackets más anchos para naves de jugadores
+        ctx.moveTo(-35, -35); ctx.lineTo(-20, -35);
+        ctx.moveTo(-35, -35); ctx.lineTo(-35, -20);
+        
+        ctx.moveTo(35, -35); ctx.lineTo(20, -35);
+        ctx.moveTo(35, -35); ctx.lineTo(35, -20);
+        
+        ctx.moveTo(-35, 35); ctx.lineTo(-20, 35);
+        ctx.moveTo(-35, 35); ctx.lineTo(-35, 20);
+        
+        ctx.moveTo(35, 35); ctx.lineTo(20, 35);
+        ctx.moveTo(35, 35); ctx.lineTo(35, 20);
+        ctx.stroke();
+        
+        if (me) {
+            ctx.fillStyle = color;
+            ctx.font = 'bold 10px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Math.floor(dist)}m`, 0, 55);
+        }
+
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 40 + Math.sin(Date.now()/100)*5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+    
     ctx.restore();
   });
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { SHIPS, getRank } from '../utils/gameData';
+import NavigationBar from './NavigationBar';
 
 const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedShipId, equippedByShip, upgrades }) => {
   const selectedShip = SHIPS.find(s => s.id === selectedShipId) || SHIPS[0];
@@ -19,10 +20,6 @@ const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedS
 
   const handleLaunchGame = () => {
     window.open(window.location.origin + window.location.pathname + '?play=true', '_blank');
-  };
-
-  const showWIP = (feature) => {
-    alert(`La sección de "${feature}" está actualmente encriptada. Completa misiones para desbloquearla.`);
   };
 
   // Mock Leaderboard Data
@@ -56,14 +53,7 @@ const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedS
       </header>
 
       {/* NAVIGATION TABS */}
-      <nav className="dashboard-nav">
-       <div className="nav-tab active">Inicio</div>
-       <div className="nav-tab" onClick={() => onNavigate('hangar')}>Hangar</div>
-       <div className="nav-tab" onClick={() => onNavigate('shop')}>Tienda</div>
-       <div className="nav-tab" onClick={() => onNavigate('lab')}>Laboratorio</div>
-       <div className="nav-tab" onClick={() => showWIP('Clan')}>Clan</div>
-       <div className="nav-tab" onClick={() => showWIP('Subasta')}>Subasta</div>
-      </nav>
+      <NavigationBar currentView="menu" onNavigate={onNavigate} />
 
       {/* MAIN CONTENT AREA */}
       <main className="dashboard-body">

@@ -27,13 +27,20 @@
 - **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m.
 - **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Incluye posición exacta (`X, Y`), sector actual, créditos, uridium, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
 
+### 👥 Sistema de Grupo Táctico (Party System)
+- **Reclutamiento Rápido**: Fija el blanco en las naves de tus aliados haciendo clic en ellas e invítalos de forma remota a tu Grupo Táctico sin salir de la vista de combate.
+- **HUD Integrado y Estado en Vivo**: Traslúcido y siempre accesible. Monitorea desde tu propia cabina la salud, los escudos y el estado de conexión de todo tu escuadrón en tiempo real.
+- **Gestor de Invitaciones Dinámico**: Recibe solicitudes de grupo directamente en tu Interfaz (HUD). Acepta o rechaza inmediatamente mediante notificaciones emergentes in-game.
+- **Recompensas Compartidas**: Pelear en grupo tiene sus beneficios; todas las victorias conseguidas estando en el mismo sector otorgan Créditos compartidos para acelerar el desarrollo del escuadrón.
+
 ### 🛡️ Zonas Seguras y Estaciones
 - **Santuario Galáctico**: Tanto la Estación Central como los Portales Estelares cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
 - **Hangar de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
+- **Seguimiento Administrativo:** Se ha preparado el terreno para crear un apartado exclusivo enfocado en la gestión avanzada de Clanes.
 
 ### 💰 Economía y Recursos
 - **Uridium (💎)**: Moneda premium recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
-- **Créditos (🔋)**: Ganados al destruir naves enemigas.
+- **Créditos (🔋)**: Ganados al destruir naves enemigas o batallando en tu Escuadrón.
 - **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
 
 ### ⚔️ Combate y HUD Avanzado
@@ -69,6 +76,6 @@ El juego estará disponible en `http://localhost:5173`.
 ---
 
 ## 🌌 Próximos Pasos
-- Implementar clanes y escuadrones.
+- Completar la implementación asincrónica de Clanes intergalácticos con jerarquías.
 - Añadir jefes finales (Bosses) en zonas específicas del mapa.
 - Eventos dinámicos en el servidor con recompensas exclusivas.

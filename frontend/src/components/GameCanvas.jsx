@@ -26,6 +26,9 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const lastSyncRef = useRef({ credits: -1, uridium: -1, xp: -1, level: -1, minerals: '' });
+  
+  const [inviteIdText, setInviteIdText] = useState('');
+  const [showPartyMenu, setShowPartyMenu] = useState(false);
 
   // Keyboard state
   const keys = useRef({
@@ -103,6 +106,14 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
 
     const mouseX = screenX + cameraRef.current.x, mouseY = screenY + cameraRef.current.y;
     if(e.button === 0) {
+      // Check if we clicked an ally to target them
+      const hitPlayer = gameStateRef.current?.players?.find(p => !p.is_self && Math.hypot(p.x - mouseX, p.y - mouseY) < 45);
+      if (hitPlayer) {
+        keys.current.locked_target_id = hitPlayer.id;
+        keys.current.target_x = null; keys.current.target_y = null;
+        return; // Detener ejecución
+      }
+
       const hitTarget = gameStateRef.current?.enemies?.find(en => Math.hypot(en.x - mouseX, en.y - mouseY) < 45);
       if (hitTarget) {
         keys.current.locked_target_id = hitTarget.id;
@@ -145,6 +156,23 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
       return next;
     });
   }, []);
+
+  const handleInviteToParty = (targetId) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && targetId) {
+      wsRef.current.send(JSON.stringify({ type: 'party_invite', target_id: targetId }));
+      setInviteIdText('');
+    }
+  };
+  const handleJoinParty = (partyId) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'party_join', party_id: partyId }));
+    }
+  };
+  const handleLeaveParty = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'party_leave' }));
+    }
+  };
 
   const handleContextMenu = useCallback((e) => e.preventDefault(), []);
 
@@ -239,15 +267,18 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
               setShowJumpPrompt(dist < data.state.portal.radius);
             } else setShowJumpPrompt(false);
 
-            // Cleanup target if dead
-            if (keys.current.locked_target_id && data.state.enemies) {
-                if (!data.state.enemies.some(en => en.id === keys.current.locked_target_id)) {
+            // Cleanup target if dead or disconnected
+            if (keys.current.locked_target_id) {
+                const isEnemy = data.state.enemies?.some(en => en.id === keys.current.locked_target_id);
+                const isPlayer = data.state.players?.some(p => p.id === keys.current.locked_target_id);
+                if (!isEnemy && !isPlayer) {
                     keys.current.locked_target_id = null;
                     keys.current.shoot = false;
                 }
             }
           }
         }
+
       };
 
       ws.onclose = () => { if (isMounted) setTimeout(connectWs, 2000); };
@@ -297,6 +328,8 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
   }, []); // WE ONLY CONNECT ONCE
 
   const me = gameState?.players?.find(p => p.is_self);
+  const party = gameState?.party;
+  const partyInvites = gameState?.party_invites || {};
 
   return (
     <>
@@ -357,6 +390,102 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
                     <div className="status-item"><span>💥</span><span className="status-value">{me.atk}</span></div>
                 </div>
             </div>
+
+            {/* PARTY HUD IN-GAME */}
+            <div className="party-hud-overlay" style={{ position: 'fixed', top: '80px', left: '20px', zIndex: 1000, pointerEvents: 'auto' }}>
+                <button onClick={() => setShowPartyMenu(!showPartyMenu)} style={{ background: 'rgba(0, 255, 204, 0.2)', border: '1px solid #00ffcc', color: '#00ffcc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontFamily: 'Orbitron', fontWeight: 'bold' }}>
+                   👥 GRUPO TÁCTICO {Object.keys(partyInvites).length > 0 ? `(${Object.keys(partyInvites).length})` : ''}
+                </button>
+                
+                {showPartyMenu && (
+                  <div style={{ marginTop: '10px', background: 'rgba(5, 8, 16, 0.9)', backdropFilter: 'blur(5px)', border: '1px solid #00ffcc44', padding: '15px', borderRadius: '8px', width: '280px' }}>
+                    {party ? (
+                      <div>
+                        <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '10px' }}>ID GRUPO: {party.id}</div>
+                        {party.members.map(mid => {
+                          const data = party.member_data[mid];
+                          const pPlayer = gameState?.players?.find(p => p.id === mid);
+                          return (
+                            <div key={mid} style={{ marginBottom: '10px' }}>
+                              <div style={{ fontSize: '0.8rem', color: pPlayer ? 'white' : '#555', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>{data.name} {party.leader === mid ? '★' : ''}</span>
+                                {pPlayer ? <span style={{ color: '#00ffcc' }}>ACTIVO</span> : <span style={{ color: '#ff3366' }}>LEJOS</span>}
+                              </div>
+                              {pPlayer && (
+                                <div style={{ width: '100%', height: '4px', background: '#333', marginTop: '3px', borderRadius: '2px', display: 'flex' }}>
+                                  <div style={{ width: `${(pPlayer.hp / pPlayer.max_hp) * 100}%`, height: '100%', background: '#ff3366' }} />
+                                  <div style={{ width: `${(pPlayer.shield / pPlayer.max_shield) * 100}%`, height: '100%', background: '#0077ff' }} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button onClick={handleLeaveParty} style={{ marginTop: '10px', width: '100%', padding: '8px', background: '#ff3366', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer' }}>ABANDONAR GRUPO</button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '10px' }}>No estás en ningún grupo.</div>
+                        <div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}>
+                          <input type="text" value={inviteIdText} onChange={(e) => setInviteIdText(e.target.value)} placeholder="ID del Jugador" style={{ width: '100%', padding: '5px', background: '#000', border: '1px solid #333', color: 'white' }} />
+                          <button onClick={() => handleInviteToParty(inviteIdText)} style={{ padding: '5px 10px', background: '#00ffcc', border: 'none', cursor: 'pointer', color: 'black', fontWeight: 'bold' }}>INVITAR</button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {Object.keys(partyInvites).length > 0 && (
+                      <div style={{ marginTop: '15px', borderTop: '1px solid #333', paddingTop: '10px' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '10px' }}>INVITACIONES</div>
+                        {Object.entries(partyInvites).map(([lId, inv]) => (
+                          <div key={lId} style={{ display: 'flex', flexDirection: 'column', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '5px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#00ffcc' }}>De: {inv.leader_name}</span>
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                                <button onClick={() => handleJoinParty(inv.party_id)} style={{ flex: 1, background: '#00ffcc', color: 'black', fontWeight: 'bold', border: 'none', padding: '5px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.7rem' }}>ACEPTAR</button>
+                                {/* Implement Reject just as simple clearance locally for now */}
+                                <button onClick={() => {
+                                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                      // Tell backend you decline (or we can just ignore it)
+                                      wsRef.current.send(JSON.stringify({ type: 'party_reject', leader_id: lId }));
+                                    }
+                                }} style={{ flex: 1, background: '#ff3366', color: 'white', fontWeight: 'bold', border: 'none', padding: '5px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.7rem' }}>RECHAZAR</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+            </div>
+            
+            {/* IN-WORLD TARGET ACTIONS */}
+            {keys.current.locked_target_id && gameState?.players?.find(p => p.id === keys.current.locked_target_id) && (
+              (() => {
+                const targetPlayer = gameState.players.find(p => p.id === keys.current.locked_target_id);
+                // No mostrar si ya está en nuestro grupo
+                const isAlreadyInParty = party?.members.includes(targetPlayer.id);
+                // Checkear si ya le enviamos invi localmente (o simplemente desaparece el UI si enviamos invi)
+                return !isAlreadyInParty && (
+                  <div style={{ position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'auto' }}>
+                    <button 
+                      onClick={(e) => {
+                          handleInviteToParty(targetPlayer.id);
+                          // Pequeño truco visual para ocultar el botón al instante al hacer click
+                          e.currentTarget.style.display = 'none';
+                      }}
+                      style={{
+                        background: 'rgba(0, 255, 204, 0.2)', border: '2px solid #00ffcc', color: '#00ffcc',
+                        padding: '10px 20px', borderRadius: '30px', cursor: 'pointer', fontFamily: 'Orbitron',
+                        fontWeight: 'bold', backdropFilter: 'blur(5px)', boxShadow: '0 0 15px rgba(0,255,204,0.3)',
+                        transition: 'all 0.2s', textTransform: 'uppercase'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(0,255,204,0.5)'; e.currentTarget.style.color = 'white'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(0,255,204,0.2)'; e.currentTarget.style.color = '#00ffcc'; }}
+                    >
+                      📨 Reclutar al Grupo
+                    </button>
+                  </div>
+                );
+              })()
+            )}
 
             <div className="weapon-hotbar-container" style={{ position: 'fixed', left: hotbarPos.x, top: hotbarPos.y, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', pointerEvents: 'auto', userSelect: 'none', cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handleHotbarMouseDown}>
                  <div style={{ display: 'flex', gap: '8px', pointerEvents: 'none' }}>

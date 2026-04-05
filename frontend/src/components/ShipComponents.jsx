@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequip }) => (
+export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequip, isBlocked = false }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 'bold' }}>
       <span>{icon} {label}</span>
@@ -13,24 +13,25 @@ export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequi
         return (
           <div 
             key={slotKey} 
-            onClick={() => item && onUnequip && onUnequip(item.instanceId)}
-            title={item ? `${item.name} (Clic para desequipar)` : 'Vacío'}
+            onClick={() => !isBlocked && item && onUnequip && onUnequip(item.instanceId)}
+            title={isBlocked ? 'Bloqueado: No estás en zona segura' : (item ? `${item.name} (Clic para desequipar)` : 'Vacío')}
             style={{ 
               width: '22px', 
               height: '22px', 
-              backgroundColor: item ? color : 'rgba(255,255,255,0.05)', 
+              backgroundColor: item ? (isBlocked ? '#444' : color) : 'rgba(255,255,255,0.05)', 
               borderRadius: '4px',
               border: item ? 'none' : '1px dashed #444',
-              boxShadow: item ? `0 0 10px ${color}88` : 'none',
+              boxShadow: (item && !isBlocked) ? `0 0 10px ${color}88` : 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '12px',
-              cursor: item ? 'pointer' : 'default',
-              transition: 'all 0.2s'
+              cursor: (item && !isBlocked) ? 'pointer' : (isBlocked && item ? 'not-allowed' : 'default'),
+              transition: 'all 0.2s',
+              opacity: isBlocked && item ? 0.6 : 1
             }} 
-            onMouseOver={(e) => { if(item) e.currentTarget.style.transform = 'scale(1.1)'; }}
-            onMouseOut={(e) => { if(item) e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseOver={(e) => { if(item && !isBlocked) e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseOut={(e) => { if(item && !isBlocked) e.currentTarget.style.transform = 'scale(1)'; }}
           >
             {item && '✅'}
           </div>

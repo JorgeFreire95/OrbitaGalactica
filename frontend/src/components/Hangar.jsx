@@ -1,24 +1,33 @@
 import React, { useState } from 'react';
 import { SHIPS, getRank } from '../utils/gameData';
 import { SlotDisplay, StatRow } from './ShipComponents';
+import NavigationBar from './NavigationBar';
 
 export default function Hangar({ 
   selectedShipId, 
   setSelectedShipId, 
   equippedByShip, 
-  inventory,
-  onEquip,
-  onUnequip,
-  ammo,
-  level,
-  xp,
-  upgrades,
+  inventory, 
+  ammo, 
+  level, 
+  xp, 
+  onEquip, 
+  onUnequip, 
+  onBack, 
+  onNavigate,
+  onReset,
   credits,
   uridium,
-  onBack 
+  minerals,
+  upgrades,
+  onRefine,
+  inSafeZone,
+  isPlaying
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
+
+  const isBlocked = isPlaying && !inSafeZone;
 
   const viewedShip = SHIPS.find(s => s.id === viewedShipId) || SHIPS[0];
   const currentEquipped = equippedByShip[viewedShipId] || [];
@@ -36,26 +45,26 @@ export default function Hangar({
 
   return (
     <div className="hangar-view-container">
-      <header className="dashboard-header" style={{ justifyContent: 'flex-start', padding: '10px 30px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: '1px solid #334466', color: '#88aaff', padding: '8px 20px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }}>
-          ⬅ VOLVER AL MENÚ
-        </button>
-        
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
-            <span className="status-icon" style={{ color: '#ffcc00' }}>🔋</span>
-            <span className="status-value" style={{ color: '#fff' }}>{credits.toLocaleString()} CRÉDITOS</span>
+      <header className="dashboard-header" style={{ height: '80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '0 30px', width: '100%', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+             <h1 style={{ fontSize: '1.2rem', color: '#ffcc00', margin: 0 }}>CENTRO DE COMANDO: GESTIÓN DE FLOTA</h1>
           </div>
-          <div className="status-item" style={{ background: 'rgba(50,0,100,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #6633ff' }}>
-            <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
-            <span className="status-value" style={{ color: '#fff' }}>{uridium.toLocaleString()} URIDIUM</span>
-          </div>
-          <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
-            <span className="status-icon" style={{ color: '#00ffcc' }}>🎖️</span>
-            <span className="status-value" style={{ color: '#fff' }}>NIVEL {level}</span>
+          
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <div className="status-item">
+              <span className="status-icon">🔋</span>
+              <span className="status-value">{credits.toLocaleString()} CR</span>
+            </div>
+            <div className="status-item">
+              <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
+              <span className="status-value">{uridium.toLocaleString()} URI</span>
+            </div>
           </div>
         </div>
       </header>
+      
+      <NavigationBar currentView="hangar" onNavigate={onNavigate} />
 
       <main className="hangar-main-layout">
         
@@ -134,8 +143,11 @@ export default function Hangar({
                 EQUIPAR COMO ACTIVA
               </button>
             )}
-            <button className="gestionar-button" onClick={() => setEditMode(true)}>
-              GESTIONAR
+            <button 
+              className={`gestionar-button ${isBlocked ? 'blocked' : ''}`} 
+              onClick={() => setEditMode(true)}
+            >
+              {isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR'}
             </button>
           </div>
         </aside>
@@ -160,6 +172,27 @@ export default function Hangar({
               </button>
            </header>
 
+           {isBlocked && (
+             <div style={{ 
+               background: 'rgba(255, 51, 102, 0.1)', 
+               border: '1px solid #ff3366', 
+               color: '#ff3366', 
+               padding: '15px', 
+               borderRadius: '4px', 
+               marginBottom: '20px', 
+               textAlign: 'center',
+               fontWeight: 'bold',
+               letterSpacing: '1px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               gap: '10px'
+             }}>
+               <span>⚠️</span>
+               CONFIGURACIÓN BLOQUEADA: DEBES ESTAR EN UNA ZONA SEGURA (BASE O PORTAL) PARA MODIFICAR LA NAVE MIENTRAS EL JUEGO ESTÁ ACTIVO.
+             </div>
+           )}
+
            <div className="management-content">
               {/* Warehouse (Inventory) */}
               <div style={{ flex: 1, background: '#0a0f1a', border: '1px solid #1a2a4a', padding: '20px', display: 'flex', flexDirection: 'column' }}>
@@ -168,9 +201,20 @@ export default function Hangar({
                     {inventory.map((item, index) => (
                       <div 
                         key={item.instanceId} 
-                        onClick={() => onEquip(index, viewedShipId)}
-                        style={{ aspectRatio: '1/1', background: '#070b16', border: '1px solid #1a2a4a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', cursor: 'pointer' }}
-                        title={`Equipar ${item.name}`}
+                        onClick={() => !isBlocked && onEquip(index, viewedShipId)}
+                        style={{ 
+                          aspectRatio: '1/1', 
+                          background: '#070b16', 
+                          border: `1px solid ${isBlocked ? '#331122' : '#1a2a4a'}`, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          fontSize: '2rem', 
+                          cursor: isBlocked ? 'not-allowed' : 'pointer',
+                          opacity: isBlocked ? 0.4 : 1,
+                          filter: isBlocked ? 'grayscale(100%)' : 'none'
+                        }}
+                        title={isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
                       >
                         {item.icon}
                       </div>
@@ -182,11 +226,11 @@ export default function Hangar({
               {/* Ship Slots */}
               <div style={{ flex: 1.5, background: '#0a0f1a', border: '1px solid #1a2a4a', padding: '20px', display: 'flex', flexDirection: 'column' }}>
                  <div style={{ marginBottom: '15px', color: '#ffcc00', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DE RANURAS</div>
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-                    <SlotDisplay label="Sistemas Láser" count={viewedShip.slots.lasers} icon="🎯" color="#ffcc00" equipped={currentEquipped.filter(m => m.type === 'lasers')} onUnequip={(id) => onUnequip(id, viewedShipId)} />
-                    <SlotDisplay label="Escudos de Energía" count={viewedShip.slots.shields} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => onUnequip(id, viewedShipId)} />
-                    <SlotDisplay label="Motores de Impulso" count={viewedShip.slots.engines} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => onUnequip(id, viewedShipId)} />
-                    <SlotDisplay label="Módulos de Utilidad" count={viewedShip.slots.utility} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => onUnequip(id, viewedShipId)} />
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
+                    <SlotDisplay label="Sistemas Láser" count={viewedShip.slots.lasers} icon="🎯" color="#ffcc00" equipped={currentEquipped.filter(m => m.type === 'lasers')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                    <SlotDisplay label="Escudos de Energía" count={viewedShip.slots.shields} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                    <SlotDisplay label="Motores de Impulso" count={viewedShip.slots.engines} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                    <SlotDisplay label="Módulos de Utilidad" count={viewedShip.slots.utility} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
                  </div>
               </div>
            </div>

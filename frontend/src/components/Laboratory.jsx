@@ -1,6 +1,7 @@
 import React from 'react';
+import NavigationBar from './NavigationBar';
 
-const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, selectedShip }) => {
+const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNavigate, selectedShip, credits, uridium, level }) => {
   const currentCargo = Object.values(minerals).reduce((a, b) => a + b, 0);
   const maxCargo = selectedShip?.cargo_capacity || 50;
 
@@ -12,12 +13,32 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, sele
 
   return (
     <div className="lab-container">
-      <div className="lab-header">
-        <h1 style={{ color: '#00ffcc', margin: 0, letterSpacing: '2px' }}>🔬 LABORATORIO ESTRATÉGICO</h1>
-        <button className="back-btn" onClick={onBack}>VOLVER AL MENÚ</button>
-      </div>
+      <header className="dashboard-header" style={{ height: '80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '0 30px', width: '100%', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+             <h1 style={{ fontSize: '1.2rem', color: '#00ffcc', margin: 0, letterSpacing: '2px' }}>🔬 LABORATORIO ESTRATÉGICO</h1>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '20px' }}>
+             <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
+               <span className="status-icon" style={{ color: '#ffcc00' }}>🔋</span>
+               <span className="status-value" style={{ color: '#fff' }}>{credits.toLocaleString()} CRÉDITOS</span>
+             </div>
+             <div className="status-item" style={{ background: 'rgba(50,0,100,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #6633ff' }}>
+               <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
+               <span className="status-value" style={{ color: '#fff' }}>{uridium.toLocaleString()} URIDIUM</span>
+             </div>
+             <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
+               <span className="status-icon" style={{ color: '#00ffcc' }}>🎖️</span>
+               <span className="status-value" style={{ color: '#fff' }}>NIVEL {level}</span>
+             </div>
+          </div>
+        </div>
+      </header>
 
-      <div style={{ display: 'flex', gap: '30px', flex: 1 }}>
+      <NavigationBar currentView="lab" onNavigate={onNavigate} />
+
+      <div style={{ display: 'flex', gap: '30px', flex: 1, padding: '20px' }}>
         {/* Left: Storage Status */}
         <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', borderRadius: '20px', padding: '30px', border: '1px solid #333' }}>
           <h2 style={{ fontSize: '1.2rem', color: '#888', marginBottom: '20px' }}>ESTADO DE LA BODEGA</h2>
@@ -46,7 +67,7 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, sele
         </div>
 
         {/* Right: Mineral Processing */}
-        <div style={{ flex: 2, display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+        <div style={{ flex: 2, display: 'grid', gridTemplateColumns: '1fr', gap: '20px', overflowY: 'auto' }}>
           {mineralTypes.map(min => (
             <div key={min.id} style={{ 
               background: 'rgba(255,255,255,0.02)', 

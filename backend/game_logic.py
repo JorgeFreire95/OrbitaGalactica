@@ -41,6 +41,10 @@ class GameState:
         # --- PERSISTENCIA DE SESIÓN ---
         self.player_persistence = {} # { user_id: {x, y} }
         
+        # --- SISTEMA DE GRUPOS (PARTY) ---
+        self.parties = {} # { party_id: { leader: id, members: [ids] } }
+        self.party_invites = {} # { invited_id: { leader_id: time } }
+        
         # --- INICIALIZAR CAJAS ESPECIALES (5 por mapa) ---
         for map_id in self.MAPS:
             for _ in range(5):
@@ -170,6 +174,7 @@ class GameState:
             player["uridium"] = initial_uridium
             print(f"Nueva sesión (o servidor reiniciado) para {user_id}: Usando valores del cliente ({initial_credits} C, {initial_uridium} U).")
         
+        player["party_id"] = None
         self.players[client_id] = player
 
         # Apply initial modules if provided
@@ -578,6 +583,24 @@ class GameState:
                                         "spawn_time": now,
                                         "map_id": e["map_id"]
                                     })
+                            
+                            # RECOMPENSAS COMPARTIDAS EN GRUPO (Duplicar para el resto de miembros)
+                            if player.get("party_id") and player["party_id"] in self.parties:
+                                party = self.parties[player["party_id"]]
+                                for member_id in party["members"]:
+                                    if member_id == player["id"]: continue
+                                    if member_id in self.players:
+                                        m = self.players[member_id]
+                                        if m["current_map"] == e["map_id"]:
+                                            m["credits"] += 250
+                                            self.gain_xp(m, 100)
+                                            # Evento visual para el compañero
+                                            self.kill_events.append({
+                                                "id": str(random.random()),
+                                                "x": e["x"], "y": e["y"],
+                                                "xp": 100, "credits": 250,
+                                                "time": now, "owner_id": member_id, "is_party_share": True
+                                            })
                         break
                 # Check contra jugadores
                 for pid, target in self.players.items():
@@ -868,7 +891,9 @@ class GameState:
                 "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS} if m_id == "galaxy_1" else None,
                 "portal": {"x": px, "y": py, "radius": self.PORTAL_RADIUS, "target": "galaxy_2" if m_id == "galaxy_1" else "galaxy_1"},
                 "current_map_name": self.MAPS[m_id]["name"],
-                "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id]
+                "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id],
+                "party": self.parties.get(me.get("party_id")) if me.get("party_id") else None,
+                "party_invites": self.party_invites.get(client_id, {})
             }
 
         return {
@@ -880,5 +905,77 @@ class GameState:
             "loot_events": self.loot_events,
             "damage_events": self.damage_events,
             "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS},
-            "portal": {"x": self.PORTAL_X, "y": self.PORTAL_Y, "radius": self.PORTAL_RADIUS}
+            "portal": {"x": self.PORTAL_ALFA_X, "y": self.PORTAL_ALFA_Y, "radius": self.PORTAL_RADIUS}
         }
+
+    # --- PARTY METHODS ---
+    def create_party(self, client_id):
+        if client_id not in self.players: return
+        p = self.players[client_id]
+        if p.get("party_id"): return
+        
+        party_id = f"party_{str(random.random())[2:8]}"
+        self.parties[party_id] = {
+            "id": party_id,
+            "leader": client_id,
+            "members": [client_id],
+            "member_data": {client_id: {"name": p.get("user_id", "Piloto")}}
+        }
+        p["party_id"] = party_id
+        return party_id
+
+    def invite_to_party(self, leader_id, guest_id):
+        if leader_id not in self.players or guest_id not in self.players: return
+        p_leader = self.players[leader_id]
+        if not p_leader.get("party_id"):
+            self.create_party(leader_id)
+        
+        party_id = p_leader["party_id"]
+        if guest_id not in self.party_invites:
+            self.party_invites[guest_id] = {}
+        
+        self.party_invites[guest_id][leader_id] = {
+            "party_id": party_id,
+            "leader_name": p_leader.get("user_id", "Líder"),
+            "time": time.time()
+        }
+
+    def join_party(self, client_id, party_id):
+        if client_id not in self.players: return
+        p = self.players[client_id]
+        if p.get("party_id"): return
+        if party_id not in self.parties: return
+        
+        party = self.parties[party_id]
+        if len(party["members"]) >= 8: return # Max limit
+        
+        party["members"].append(client_id)
+        party["member_data"][client_id] = {"name": p.get("user_id", "Piloto")}
+        p["party_id"] = party_id
+        
+        # Clean up invites for this player
+        if client_id in self.party_invites:
+            del self.party_invites[client_id]
+
+    def reject_party(self, client_id, leader_id):
+        if client_id in self.party_invites and leader_id in self.party_invites[client_id]:
+            del self.party_invites[client_id][leader_id]
+            if not self.party_invites[client_id]:
+                del self.party_invites[client_id]
+
+    def leave_party(self, client_id):
+        if client_id not in self.players: return
+        p = self.players[client_id]
+        party_id = p.get("party_id")
+        if not party_id or party_id not in self.parties: return
+        
+        party = self.parties[party_id]
+        party["members"].remove(client_id)
+        if client_id in party["member_data"]:
+            del party["member_data"][client_id]
+        p["party_id"] = None
+        
+        if not party["members"]:
+            del self.parties[party_id]
+        elif party["leader"] == client_id:
+            party["leader"] = party["members"][0]
