@@ -36,7 +36,12 @@
 ### 🛡️ Zonas Seguras y Estaciones
 - **Santuario Galáctico**: Tanto la Estación Central como los Portales Estelares cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
 - **Hangar de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
-- **Seguimiento Administrativo:** Se ha preparado el terreno para crear un apartado exclusivo enfocado en la gestión avanzada de Clanes.
+
+### 🏴 Gabinete de Alianzas (Sistema de Clanes)
+- **Fundación y Gestión**: Crea o únete a un Clan. Los líderes tienen control absoluto para subir un logo de la alianza, editar la biografía, escribir un bloque táctico de Novedades (reglas/logs) y exhibir la sigla de la corporación públicamente.
+- **Tripulación y Rangos**: Panel dedicado para revisar estadísticas en tiempo real (XP aportada por cada jugador) y asignar roles jerárquicos interactivos (Líder, Oficial, Piloto, Recluta).
+- **Tesorería y Economía Interna**: Fija una **Tasa de Impuestos (0% al 5%)** que recauda créditos automáticamente de tus reclutas. Visualiza detalladamente cuánto aporta cada piloto y el estado de cuenta total en la bóveda de la alianza.
+- **Transmisiones (Correos)**: Incluye un sistema asincrónico interno de mensajes (Bandeja de entrada y Enviados). Permite orquestar la alianza mandando un correo privado a un miembro o lanzar transmisiones masivas a "Todos los Miembros".
 
 ### 💰 Economía y Recursos
 - **Uridium (💎)**: Moneda premium recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
@@ -76,6 +81,6 @@ El juego estará disponible en `http://localhost:5173`.
 ---
 
 ## 🌌 Próximos Pasos
-- Completar la implementación asincrónica de Clanes intergalácticos con jerarquías.
-- Añadir jefes finales (Bosses) en zonas específicas del mapa.
-- Eventos dinámicos en el servidor con recompensas exclusivas.
+- Completar las opciones de Diplomacia del Clan (alianzas/guerras formales) y Módulos de Estación.
+- Añadir jefes finales (Bosses) en zonas específicas del mapa con botín de élite.
+- Eventos dinámicos en el servidor con recompensas exclusivas y chat de voz de escuadrón.

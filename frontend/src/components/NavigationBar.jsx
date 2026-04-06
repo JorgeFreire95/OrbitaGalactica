@@ -6,7 +6,7 @@ const NavigationBar = ({ currentView, onNavigate }) => {
     { id: 'hangar', label: 'Hangar' },
     { id: 'shop', label: 'Tienda' },
     { id: 'lab', label: 'Laboratorio' },
-    { id: 'clan', label: 'Clan', wip: true },
+    { id: 'clan', label: 'Clan' },
     { id: 'subasta', label: 'Subasta', wip: true },
   ];
 

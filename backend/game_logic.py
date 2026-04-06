@@ -50,7 +50,7 @@ class GameState:
             for _ in range(5):
                 self.spawn_special_chest(map_id)
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_uridium=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_uridium=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, clan=None):
         self.clients[client_id] = websocket
         
         # Stats and Slot profiles
@@ -124,7 +124,8 @@ class GameState:
             "max_cargo": prof.get("cargo_capacity", 50),
             "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0},
             "current_map": "galaxy_1",
-            "uridium": 0
+            "uridium": 0,
+            "clan": clan
         }
         
         # Apply permanent upgrades to base stats

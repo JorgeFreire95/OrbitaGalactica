@@ -91,8 +91,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 initial_uridium = data.get("initialUridium", 0)
                 initial_minerals = data.get("minerals", None)
                 initial_upgrades = data.get("upgrades", None)
+                clan = data.get("clan", None)
                 
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_uridium, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id)
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_uridium, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, clan=clan)
                 player_added = True
                 logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
                 

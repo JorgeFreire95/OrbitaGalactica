@@ -4,6 +4,7 @@ import Hangar from './components/Hangar'
 import Shop from './components/Shop'
 import MainMenu from './components/MainMenu'
 import Laboratory from './components/Laboratory'
+import Clan from './components/Clan'
 import { SHIPS } from './utils/gameData'
 import './index.css'
 
@@ -63,6 +64,11 @@ function App() {
     return parseInt(localStorage.getItem('game_uridium')) || 0;
   });
 
+  const [clan, setClan] = useState(() => {
+    const saved = localStorage.getItem('game_clan');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   // Auto-lanzamiento si se abre en pestaña nueva con ?play=true
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -110,6 +116,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('game_uridium', uridium);
   }, [uridium]);
+
+  useEffect(() => {
+    localStorage.setItem('game_clan', JSON.stringify(clan));
+  }, [clan]);
 
   const handleBuyAmmo = (ammoId, count, cost) => {
     if (credits < cost) return alert('No tienes suficientes créditos');
@@ -246,6 +256,7 @@ function App() {
           onEquip={handleEquip}
           onUnequip={handleUnequip}
           onBack={() => setCurrentView('menu')}
+          onNavigate={setCurrentView}
           onReset={handleReset}
           credits={credits}
           uridium={uridium}
@@ -271,6 +282,7 @@ function App() {
           level={level}
           uridium={uridium}
           onBack={() => setCurrentView('menu')}
+          onNavigate={setCurrentView}
         />
       )}
 
@@ -289,6 +301,20 @@ function App() {
         />
       )}
       
+      {currentView === 'clan' && (
+        <Clan 
+          credits={credits}
+          uridium={uridium}
+          level={level}
+          xp={xp}
+          setCredits={setCredits}
+          clan={clan}
+          setClan={setClan}
+          onBack={() => setCurrentView('menu')}
+          onNavigate={setCurrentView}
+        />
+      )}
+      
       {currentView === 'game' && (
         <>
           <h1 className="game-title">Órbita Galáctica</h1>
@@ -302,6 +328,7 @@ function App() {
             initialUridium={uridium}
             initialMinerals={minerals}
             initialUpgrades={upgrades}
+            initialClan={clan}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}
             onUpdateProgress={handleUpdateProgress}
             onUpdateCredits={(newCredits) => setCredits(newCredits)}

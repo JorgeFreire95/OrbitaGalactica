@@ -4,7 +4,7 @@ import { getRank } from '../utils/gameData';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
+export default function GameCanvas({ selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -179,13 +179,13 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
   // --- STABLE PROPS REF ---
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
-    selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades,
+    selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
     onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
   });
   
   useEffect(() => {
     propsRef.current = {
-      selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades,
+      selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
       onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
     };
   });
@@ -219,7 +219,8 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
           modules: p.initialModules, initial_ammo: p.initialAmmo,
           level: p.initialLevel, xp: p.initialXp, credits: p.initialCredits,
           initialUridium: propsRef.current.initialUridium,
-          minerals: p.initialMinerals, upgrades: p.initialUpgrades
+          minerals: p.initialMinerals, upgrades: p.initialUpgrades,
+          clan: p.initialClan
         }));
       };
 
