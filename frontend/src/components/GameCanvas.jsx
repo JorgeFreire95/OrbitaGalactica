@@ -4,7 +4,7 @@ import { getRank } from '../utils/gameData';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -179,13 +179,13 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
   // --- STABLE PROPS REF ---
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
-    selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
+    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
     onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
   });
   
   useEffect(() => {
     propsRef.current = {
-      selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
+      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
       onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
     };
   });
@@ -210,7 +210,7 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
       
       ws.onopen = () => {
         if (!isMounted) return ws.close();
-        let userId = localStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
+        let userId = propsRef.current.user?.username || localStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
         localStorage.setItem('orbita_galactica_user_id', userId);
         
         const p = propsRef.current;
@@ -260,7 +260,14 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
                     last.minerals = minStr;
                 }
             }
-            if (p.onUpdateAmmo) p.onUpdateAmmo({ ...me.ammo, ...me.missiles }); 
+            if (p.onUpdateAmmo) {
+                const combinedAmmo = { ...me.ammo, ...me.missiles };
+                const ammoStr = JSON.stringify(combinedAmmo);
+                if (ammoStr !== last.ammo) {
+                    p.onUpdateAmmo(combinedAmmo);
+                    last.ammo = ammoStr;
+                }
+            }
             
             // Check portal prompt
             if (data.state.portal) {
@@ -501,10 +508,10 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
                       {isUiLocked ? '🔒' : '🔓'}
                     </div>
                     {[
-                        { id: 'standard', type: 'laser', icon: '⚪', key: '1' },
-                        { id: 'thermal', type: 'laser', icon: '🔥', key: '2' },
-                        { id: 'plasma', type: 'laser', icon: '🔷', key: '3' },
-                        { id: 'siphon', type: 'laser', icon: '🔋', key: '4' },
+                        { id: 'standard', type: 'laser', icon: '⚪', image: '/std_ammo.jpg', key: '1' },
+                        { id: 'thermal', type: 'laser', icon: '🔥', image: '/thermal_ammo.jpg', key: '2' },
+                        { id: 'plasma', type: 'laser', icon: '🔷', image: '/plasma_ammo.jpg', key: '3' },
+                        { id: 'siphon', type: 'laser', icon: '🔋', image: '/siphon_ammo.png', key: '4' },
                         { id: 'missile_1', type: 'missile', icon: '🚀', key: '5' },
                         { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
                         { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
@@ -517,7 +524,9 @@ export default function GameCanvas({ selectedShip, initialModules, initialAmmo, 
                         return (
                             <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} onClick={() => !slot.disabled && wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }))}>
                                 <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: isActive ? '100%' : '20%', opacity: isActive ? 1 : 0.3 }} /></div>
-                                <div className="slot-icon">{slot.icon}</div>
+                                <div className="slot-icon" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                    {slot.image ? <img src={slot.image} alt="ammo icon" style={{ width: '80%', height: '80%', objectFit: 'contain' }} /> : slot.icon}
+                                </div>
                                 {count !== null && <div className="slot-count">{count}</div>}
                                 <div className="slot-key">{slot.key}</div>
                             </div>

@@ -458,7 +458,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillStyle = '#fff';
     ctx.font = '12px Orbitron';
     ctx.textAlign = 'center';
-    let displayName = player.id.substring(0,6);
+    let displayName = player.user_id || player.id.substring(0,6);
     if (player.clan && player.clan.tag) {
       displayName = `[${player.clan.tag}] ` + displayName;
       ctx.fillStyle = '#00ffcc'; // Resaltar el nombre con clan

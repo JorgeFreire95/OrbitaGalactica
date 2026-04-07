@@ -2,7 +2,7 @@ import React from 'react';
 import { SHIPS, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 
-const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedShipId, equippedByShip, upgrades }) => {
+const MainMenu = ({ user, onNavigate, onLogout, credits, uridium, xp, level, minerals, selectedShipId, equippedByShip, upgrades }) => {
   const selectedShip = SHIPS.find(s => s.id === selectedShipId) || SHIPS[0];
   const currentEquipped = equippedByShip[selectedShipId] || [];
   
@@ -32,29 +32,6 @@ const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedS
 
   return (
     <div className="dashboard-container">
-      {/* HEADER: PLAYER DATA (CLEAN VERSION) */}
-      <header className="dashboard-header" style={{ justifyContent: 'flex-end', padding: '10px 30px' }}>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
-            <span className="status-icon" style={{ color: '#ffcc00' }}>🔋</span>
-            <span className="status-value" style={{ color: '#fff' }}>{credits.toLocaleString()} CRÉDITOS</span>
-          </div>
-          <div className="status-item" style={{ background: 'rgba(50,0,100,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #6633ff' }}>
-            <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
-            <span className="status-value" style={{ color: '#fff' }}>{uridium.toLocaleString()} URIDIUM</span>
-          </div>
-          <div className="status-item" style={{ background: 'rgba(0,0,0,0.4)', padding: '5px 15px', borderRadius: '4px', border: '1px solid #333' }}>
-            <span className="status-icon" style={{ color: '#00ffcc' }}>🎖️</span>
-            <span className="status-value" style={{ color: '#fff' }}>NIVEL {level}</span>
-          </div>
-          <button onClick={() => window.location.reload()} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>⚙️</button>
-          <button style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>❓</button>
-        </div>
-      </header>
-
-      {/* NAVIGATION TABS */}
-      <NavigationBar currentView="menu" onNavigate={onNavigate} />
-
       {/* MAIN CONTENT AREA */}
       <main className="dashboard-body">
         
@@ -66,7 +43,7 @@ const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedS
               <div className="pilot-profile">
                 <div className="pilot-avatar">👨‍🚀</div>
                 <div className="pilot-stats">
-                  <div className="pilot-name">PILOTO_ESTELAR</div>
+                  <div className="pilot-name">{user ? user.username : 'PILOTO_ESTELAR'}</div>
                   <div className="pilot-rank">{getRank(level)}</div>
                 </div>
               </div>
@@ -119,6 +96,12 @@ const MainMenu = ({ onNavigate, credits, uridium, xp, level, minerals, selectedS
           <button className="launch-action-button" onClick={handleLaunchGame}>
             🚀 DESPEGAR
           </button>
+
+          {user && user.is_admin && (
+            <button className="nav-button" onClick={() => onNavigate('admin')} style={{ marginTop: '15px', width: '100%', background: 'linear-gradient(90deg, #ff0000, #990000)', borderColor: '#ff3333', color: '#fff', textShadow: '0 0 5px #fff', fontWeight: 'bold' }}>
+              🔧 PANEL DE ADMINISTRADOR
+            </button>
+          )}
         </section>
 
         {/* RIGHT COLUMN: EVENTS & NEWS */}

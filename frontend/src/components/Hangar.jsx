@@ -45,27 +45,6 @@ export default function Hangar({
 
   return (
     <div className="hangar-view-container">
-      <header className="dashboard-header" style={{ height: '80px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '0 30px', width: '100%', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-             <h1 style={{ fontSize: '1.2rem', color: '#ffcc00', margin: 0 }}>CENTRO DE COMANDO: GESTIÓN DE FLOTA</h1>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <div className="status-item">
-              <span className="status-icon">🔋</span>
-              <span className="status-value">{credits.toLocaleString()} CR</span>
-            </div>
-            <div className="status-item">
-              <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
-              <span className="status-value">{uridium.toLocaleString()} URI</span>
-            </div>
-          </div>
-        </div>
-      </header>
-      
-      <NavigationBar currentView="hangar" onNavigate={onNavigate} />
-
       <main className="hangar-main-layout">
         
         {/* SHIP GRID */}
@@ -216,7 +195,7 @@ export default function Hangar({
                         }}
                         title={isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
                       >
-                        {item.icon}
+                        {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', objectFit: 'contain' }} /> : item.icon}
                       </div>
                     ))}
                     {inventory.length === 0 && <div style={{ gridColumn: 'span 5', color: '#555', textAlign: 'center', padding: '20px' }}>No hay módulos disponibles en el almacén.</div>}

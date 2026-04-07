@@ -67,9 +67,9 @@ export const SHIPS = [
 ];
 
 export const MODULES_CATALOG = [
-  { id: 'laser_1', type: 'lasers',  name: 'Láser Básico',     cost: 300,  atk: 5,   icon: '🎯' },
-  { id: 'laser_2', type: 'lasers',  name: 'Láser Plus',       cost: 800,  atk: 12,  icon: '🎯' },
-  { id: 'laser_3', type: 'lasers',  name: 'Cañón Pesado',     cost: 2000, atk: 30,  icon: '🎯' },
+  { id: 'laser_1', type: 'lasers',  name: 'Láser Básico',     cost: 300,  atk: 5,   icon: '🎯', image: '/basic_laser.png' },
+  { id: 'laser_2', type: 'lasers',  name: 'Láser Plus',       cost: 800,  atk: 12,  icon: '🎯', image: '/plus_laser.png' },
+  { id: 'laser_3', type: 'lasers',  name: 'Cañón Pesado',     cost: 2000, atk: 30,  icon: '🎯', image: '/heavy_laser.jpg' },
   
   { id: 'shield_1', type: 'shields', name: 'Escudo Liviano',   cost: 250,  shld: 20, icon: '🛡️' },
   { id: 'shield_2', type: 'shields', name: 'Escudo Reforzado', cost: 700,  shld: 50, icon: '🛡️' },
@@ -82,10 +82,10 @@ export const MODULES_CATALOG = [
 ];
 
 export const AMMO_CATALOG = [
-  { id: 'standard', name: 'Estándar',  damage: 1.0, cost: 50,    count: 1000, icon: '⚪', color: '#ffffff' },
-  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 500,  count: 50,   icon: '🔥', color: '#ff6600' },
-  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 1200, count: 25,   icon: '🔷', color: '#ff33ff' },
-  { id: 'siphon',   name: 'Sifón',     damage: 1.0, cost: 800,  count: 30,   icon: '🔋', color: '#33ff33', effect: 'shield_steal' },
+  { id: 'standard', name: 'Estándar',  damage: 1.0, cost: 50,    count: 1000, icon: '⚪', color: '#ffffff', image: '/std_ammo.jpg' },
+  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 500,  count: 50,   icon: '🔥', color: '#ff6600', image: '/thermal_ammo.jpg' },
+  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 1200, count: 25,   icon: '🔷', color: '#ff33ff', image: '/plasma_ammo.jpg' },
+  { id: 'siphon',   name: 'Sifón',     damage: 1.0, cost: 800,  count: 30,   icon: '🔋', color: '#33ff33', effect: 'shield_steal', image: '/siphon_ammo.png' },
 ];
 
 export const MISSILE_CATALOG = [

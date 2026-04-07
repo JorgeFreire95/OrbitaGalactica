@@ -87,25 +87,6 @@ export default function Shop({
 
   return (
     <div className="shop-view-container">
-      <header className="dashboard-header" style={{ height: '80px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '0 30px', width: '100%', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-             <h1 style={{ fontSize: '1.2rem', color: '#00ffcc', margin: 0 }}>CENTRO DE SUMINISTROS: EQUIPAMIENTO Y NAVES</h1>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <div className="status-item">
-              <span className="status-icon">🔋</span>
-              <span className="status-value">{credits.toLocaleString()} CR</span>
-            </div>
-            <div className="status-item" style={{ borderColor: '#6633ff' }}>
-              <span className="status-icon" style={{ color: '#cc33ff' }}>💎</span>
-              <span className="status-value">{uridium.toLocaleString()} URI</span>
-            </div>
-          </div>
-        </div>
-      </header>
-      <NavigationBar currentView="shop" onNavigate={onNavigate} />
 
       {/* SUCCESS NOTIFICATION */}
       {successMessage && (
@@ -169,7 +150,9 @@ export default function Shop({
               className={`shop-item-card ${selectedItem?.id === item.id ? 'selected' : ''}`}
               onClick={() => handleItemClick(item)}
             >
-              <div style={{ fontSize: '2.5rem' }}>{item.icon}</div>
+              <div style={{ fontSize: '2.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50px' }}>
+                {item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'contain' }} /> : item.icon}
+              </div>
               <div className="shop-item-name">{item.name}</div>
               <div className="shop-item-price">
                 {item.cost ? `${item.cost} Cr` : `${item.sellPrice} Cr/u`}
@@ -182,8 +165,10 @@ export default function Shop({
         <aside className="shop-preview-panel">
           {selectedItem ? (
             <>
-              <div className="preview-top">
-                <div style={{ fontSize: '8rem' }}>{selectedItem.icon}</div>
+              <div className="preview-top" style={{ display: 'flex', justifyContent: 'center', minHeight: '150px', alignItems: 'center' }}>
+                <div style={{ fontSize: '8rem' }}>
+                  {selectedItem.image ? <img src={selectedItem.image} alt={selectedItem.name} style={{ width: '120px', height: '120px', objectFit: 'contain' }} /> : selectedItem.icon}
+                </div>
               </div>
 
               <div className="preview-info">

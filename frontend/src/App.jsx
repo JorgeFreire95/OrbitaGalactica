@@ -5,18 +5,32 @@ import Shop from './components/Shop'
 import MainMenu from './components/MainMenu'
 import Laboratory from './components/Laboratory'
 import Clan from './components/Clan'
+import Auth from './components/Auth'
+import FactionSelect from './components/FactionSelect'
+import AdminPanel from './components/AdminPanel'
+import TopBar from './components/TopBar'
+import NavigationBar from './components/NavigationBar'
 import { SHIPS } from './utils/gameData'
 import './index.css'
 
 function App() {
-  const [currentView, setCurrentView] = useState('menu')
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('game_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [currentView, setCurrentView] = useState(() => {
+    const savedUser = localStorage.getItem('game_user');
+    return savedUser ? 'menu' : 'auth';
+  });
   const [selectedShipId, setSelectedShipId] = useState(() => {
     return localStorage.getItem('selected_ship_id') || 'tank';
   });
   
   // Persistent Global State
   const [credits, setCredits] = useState(() => {
-    return parseInt(localStorage.getItem('game_credits')) || 2000;
+    const val = localStorage.getItem('game_credits');
+    return val !== null ? parseInt(val) : 50000;
   });
   
   const [equippedByShip, setEquippedByShip] = useState(() => {
@@ -43,11 +57,13 @@ function App() {
   });
   
   const [level, setLevel] = useState(() => {
-    return parseInt(localStorage.getItem('game_level')) || 1;
+    const val = localStorage.getItem('game_level');
+    return val !== null ? parseInt(val) : 0;
   });
 
   const [xp, setXp] = useState(() => {
-    return parseInt(localStorage.getItem('game_xp')) || 0;
+    const val = localStorage.getItem('game_xp');
+    return val !== null ? parseInt(val) : 0;
   });
 
   const [minerals, setMinerals] = useState(() => {
@@ -75,6 +91,24 @@ function App() {
     if (params.get('play') === 'true') {
       setCurrentView('game');
     }
+  }, []);
+
+  // Synchronize dynamic updates coming from the Game Canvas window
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      switch (e.key) {
+        case 'game_credits': setCredits(parseInt(e.newValue) || 0); break;
+        case 'game_uridium': setUridium(parseInt(e.newValue) || 0); break;
+        case 'game_level': setLevel(parseInt(e.newValue) || 0); break;
+        case 'game_xp': setXp(parseInt(e.newValue) || 0); break;
+        case 'game_minerals': if (e.newValue) setMinerals(JSON.parse(e.newValue)); break;
+        case 'game_ammo': if (e.newValue) setAmmo(JSON.parse(e.newValue)); break;
+        case 'game_inventory': if (e.newValue) setInventory(JSON.parse(e.newValue)); break;
+        case 'equipped_modules': if (e.newValue) setEquippedByShip(JSON.parse(e.newValue)); break;
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   useEffect(() => {
@@ -120,6 +154,116 @@ function App() {
   useEffect(() => {
     localStorage.setItem('game_clan', JSON.stringify(clan));
   }, [clan]);
+
+  useEffect(() => {
+    if (user && user.faction) {
+        localStorage.setItem('game_user', JSON.stringify(user));
+    }
+  }, [user]);
+
+  const API_URL = 'http://localhost:8000/api';
+
+  const handleLogin = async (username, password) => {
+    try {
+      const resp = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (!resp.ok) {
+        const error = await resp.json();
+        alert(error.detail || 'Error al iniciar sesión');
+        return;
+      }
+      const data = await resp.json();
+      setUser(data);
+      if (data.clan) {
+        setClan(data.clan);
+      }
+      if (!data.faction) {
+        setCurrentView('faction_select');
+      } else {
+        localStorage.setItem('game_user', JSON.stringify(data));
+        setCurrentView('menu');
+      }
+    } catch (e) {
+      alert('Error de conexión con el servidor principal.');
+    }
+  };
+
+  const handleRegister = async (regData) => {
+    try {
+      const resp = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: regData.username, email: regData.email, password: regData.password })
+      });
+      if (!resp.ok) {
+        const error = await resp.json();
+        alert(error.detail || 'Error al registrarse');
+        return;
+      }
+      setUser({ username: regData.username, email: regData.email, faction: null });
+      setCurrentView('faction_select');
+    } catch (e) {
+      alert('Error de conexión con el servidor principal.');
+    }
+  };
+
+  const handleSelectFaction = async (factionId) => {
+    try {
+      const resp = await fetch(`${API_URL}/set_faction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, faction: factionId })
+      });
+      if (!resp.ok) {
+         alert('Error al establecer tu alineación.');
+         return;
+      }
+      const updatedUser = { ...user, faction: factionId };
+      setUser(updatedUser);
+      localStorage.setItem('game_user', JSON.stringify(updatedUser)); 
+
+      // Wipe current local stats and set standard fresh-start stats
+      setCredits(50000);
+      setUridium(0);
+      setLevel(0);
+      setXp(0);
+      setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
+      setInventory([]);
+      setEquippedByShip({});
+      setAmmo({ 
+        'standard': 1000, 'thermal': 0, 'plasma': 0, 'siphon': 0,
+        'missile_1': 0, 'missile_2': 0, 'missile_3': 0
+      });
+      setUpgrades({ atk: 0, shld: 0, spd: 0 });
+
+      setCurrentView('menu');
+    } catch (e) {
+      alert('Error de conexión con el servidor principal.');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('game_user');
+    localStorage.removeItem('game_credits');
+    localStorage.removeItem('game_uridium');
+    localStorage.removeItem('game_level');
+    localStorage.removeItem('game_xp');
+    localStorage.removeItem('game_minerals');
+    localStorage.removeItem('game_inventory');
+    localStorage.removeItem('game_equipped');
+    localStorage.removeItem('game_ammo');
+    localStorage.removeItem('game_upgrades');
+    localStorage.removeItem('game_clan');
+    localStorage.removeItem('orbita_galactica_user_id');
+    
+    setUser(null);
+    setCurrentView('auth');
+    // Forzar recarga para resetear estados de React de forma limpia
+    window.location.reload(); 
+  };
 
   const handleBuyAmmo = (ammoId, count, cost) => {
     if (credits < cost) return alert('No tienes suficientes créditos');
@@ -228,11 +372,37 @@ function App() {
 
   const currentEquippedModules = equippedByShip[selectedShipId] || [];
 
+  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin'].includes(currentView);
+
   return (
     <div className="app-container">
+      {isDashboardView && (
+        <>
+          <TopBar 
+            credits={credits} 
+            uridium={uridium} 
+            level={level} 
+            user={user} 
+            onLogout={handleLogout} 
+            onNavigate={setCurrentView} 
+          />
+          <NavigationBar currentView={currentView} onNavigate={setCurrentView} />
+        </>
+      )}
+
+      {currentView === 'auth' && (
+        <Auth onLogin={handleLogin} onRegister={handleRegister} />
+      )}
+
+      {currentView === 'faction_select' && (
+        <FactionSelect onSelectFaction={handleSelectFaction} />
+      )}
+
       {currentView === 'menu' && (
         <MainMenu 
+          user={user}
           onNavigate={(view) => setCurrentView(view)} 
+          onLogout={handleLogout}
           credits={credits}
           uridium={uridium}
           xp={xp}
@@ -310,15 +480,21 @@ function App() {
           setCredits={setCredits}
           clan={clan}
           setClan={setClan}
+          user={user}
           onBack={() => setCurrentView('menu')}
           onNavigate={setCurrentView}
         />
+      )}
+      
+      {currentView === 'admin' && (
+        <AdminPanel onBack={() => setCurrentView('menu')} />
       )}
       
       {currentView === 'game' && (
         <>
           <h1 className="game-title">Órbita Galáctica</h1>
           <GameCanvas 
+            user={user}
             selectedShip={selectedShipId} 
             initialModules={currentEquippedModules}
             initialAmmo={ammo}

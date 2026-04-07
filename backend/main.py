@@ -1,5 +1,6 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import asyncio
 import json
 import traceback
@@ -7,6 +8,41 @@ import logging
 from contextlib import asynccontextmanager
 
 from game_logic import GameState
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class SetFactionRequest(BaseModel):
+    username: str
+    faction: str
+
+class AdminUpdateRequest(BaseModel):
+    username: str
+    email: str
+    faction: str
+
+class ClanCreateRequest(BaseModel):
+    tag: str
+    name: str
+    leader: str
+
+class ClanJoinRequest(BaseModel):
+    username: str
+    clan_tag: str
+
+class ClanLeaveRequest(BaseModel):
+    username: str
+
+class ClanKickRequest(BaseModel):
+    username: str
+    target_username: str
 
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
@@ -43,6 +79,8 @@ async def game_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("Inicializando Base de Datos...")
+    init_db()
     print("Iniciando bucle de juego...")
     global game_loop_task
     game_loop_task = asyncio.create_task(game_loop())
@@ -58,6 +96,112 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.post("/api/register")
+async def api_register(req: RegisterRequest):
+    result = register_user(req.username, req.email, req.password)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Registro completado exitosamente."}
+
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, create_clan_db, get_available_clans, join_clan_db, get_user_clan_data
+
+@app.post("/api/login")
+async def api_login(req: LoginRequest):
+    result = login_user(req.username, req.password)
+    if not result["success"]:
+        raise HTTPException(status_code=401, detail=result["error"])
+    
+    # Get extra clan data
+    clan_data = get_user_clan_data(req.username)
+    
+    return {
+        "username": result["username"], 
+        "faction": result["faction"], 
+        "is_admin": result.get("is_admin", False),
+        "clan": clan_data
+    }
+
+@app.get("/api/clan/my")
+async def api_get_my_clan(username: str):
+    clan_data = get_user_clan_data(username)
+    return {"clan": clan_data}
+
+@app.get("/api/clans")
+async def api_get_clans(search: str = None):
+    clans = get_available_clans(search)
+    return {"clans": clans}
+
+@app.post("/api/clans")
+async def api_create_clan(req: ClanCreateRequest):
+    result = create_clan_db(req.tag, req.name, req.leader)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Clan fundado exitosamente."}
+
+@app.post("/api/clans/join")
+async def api_join_clan(req: ClanJoinRequest):
+    result = join_clan_db(req.username, req.clan_tag)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    # Return updated clan data
+    updated_clan = get_user_clan_data(req.username)
+    return {"message": "Te has unido al clan exitosamente.", "clan": updated_clan}
+
+@app.post("/api/clans/leave")
+async def api_leave_clan(req: ClanLeaveRequest):
+    result = leave_clan_db(req.username)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": result.get("message", "Has abandonado el clan.")}
+
+@app.post("/api/clans/kick")
+async def api_kick_member(req: ClanKickRequest):
+    result = kick_member_db(req.username, req.target_username)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Miembro expulsado exitosamente."}
+
+@app.post("/api/set_faction")
+async def api_set_faction(req: SetFactionRequest):
+    updated = set_user_faction(req.username, req.faction)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    return {"message": "Facción actualizada exitosamente."}
+
+@app.get("/api/messages")
+async def api_get_messages(username: str):
+    msgs = get_user_messages_db(username)
+    return {"messages": msgs}
+
+@app.post("/api/messages/read/{msg_id}")
+async def api_mark_message_read(msg_id: int):
+    success = mark_message_read_db(msg_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado.")
+    return {"message": "Mensaje marcado como leído."}
+
+# --- RUTAS DE ADMINISTRACIÓN ---
+
+@app.get("/api/admin/users")
+async def api_admin_get_users():
+    users = get_all_users()
+    return {"users": users}
+
+@app.put("/api/admin/users/{username}")
+async def api_admin_update_user(username: str, req: AdminUpdateRequest):
+    result = update_user(username, req.username, req.email, req.faction)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error", "Error actualizando el usuario"))
+    return {"message": "Usuario actualizado"}
+
+@app.delete("/api/admin/users/{username}")
+async def api_admin_delete_user(username: str):
+    success = delete_user(username)
+    if not success:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return {"message": "Usuario eliminado"}
 
 import traceback
 import logging
