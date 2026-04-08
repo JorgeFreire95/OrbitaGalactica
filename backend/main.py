@@ -5,10 +5,12 @@ import asyncio
 import json
 import traceback
 import logging
+import secrets
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db
 
 class RegisterRequest(BaseModel):
     username: str
@@ -30,15 +32,16 @@ class AdminUpdateRequest(BaseModel):
     level: int = None
     xp: int = None
     credits: int = None
-    uridium: int = None
+    paladio: int = None
     is_admin: bool = None
+    is_super_admin: bool = None
 
 class SyncRequest(BaseModel):
     username: str
     level: int
     xp: int
     credits: int
-    uridium: int
+    paladio: int
 
 class ClanCreateRequest(BaseModel):
     tag: str
@@ -64,6 +67,13 @@ class ClanDonateRequest(BaseModel):
     clan_tag: str
     target_username: str
     amount: int
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
 
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
@@ -162,10 +172,11 @@ async def api_login(req: LoginRequest):
         "username": result["username"], 
         "faction": result["faction"], 
         "is_admin": result.get("is_admin", False),
+        "is_super_admin": result.get("is_super_admin", False),
         "level": result.get("level", 1),
         "xp": result.get("xp", 0),
         "credits": result.get("credits", 2000),
-        "uridium": result.get("uridium", 0),
+        "paladio": result.get("paladio", 0),
         "clan": clan_data
     }
 
@@ -253,10 +264,52 @@ async def api_get_user_stats(username: str):
 
 @app.post("/api/user/sync")
 async def api_user_sync(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.uridium)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar datos.")
     return {"message": "Sincronización exitosa."}
+@app.post("/api/forgot-password")
+async def api_forgot_password(req: ForgotPasswordRequest):
+    username = get_user_by_email_db(req.email)
+    if not username:
+        # Por seguridad no indicamos si el correo existe o no
+        return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+    
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.now() + timedelta(hours=1)
+    set_reset_token_db(username, token, expiry.isoformat())
+    
+    # Simulación de envío de correo
+    reset_link = f"http://localhost:5173/?token={token}"
+    print(f"\n[EMAIL SIMULATION] Para: {req.email}")
+    print(f"[EMAIL SIMULATION] Enlace: {reset_link}\n")
+    logger.info(f"Password reset requested for {username}. Token generated.")
+    
+    return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+
+@app.post("/api/reset-password")
+async def api_reset_password(req: ResetPasswordRequest):
+    row = get_user_by_token_db(req.token)
+    if not row:
+        raise HTTPException(status_code=400, detail="Token inválido o expirado.")
+    
+    username, expiry_str = row
+    expiry = datetime.fromisoformat(expiry_str)
+    
+    if datetime.now() > expiry:
+        raise HTTPException(status_code=400, detail="El token ha expirado.")
+    
+    hashed, salt = hash_password(req.password)
+    update_password_by_token_db(req.token, hashed, salt)
+    
+    logger.info(f"Password successfully reset for {username}.")
+    return {"message": "Tu contraseña ha sido actualizada correctamente."}
+
+@app.get("/api/leaderboard")
+async def api_get_leaderboard():
+    leaderboard = get_leaderboard_db()
+    return {"leaderboard": leaderboard}
+
 async def api_mark_message_read(msg_id: int):
     success = mark_message_read_db(msg_id)
     if not success:
@@ -274,8 +327,8 @@ async def api_admin_get_users():
 async def api_admin_update_user(username: str, req: AdminUpdateRequest):
     result = update_user(
         username, req.username, req.email, req.faction,
-        level=req.level, xp=req.xp, credits=req.credits, uridium=req.uridium,
-        is_admin=req.is_admin
+        level=req.level, xp=req.xp, credits=req.credits, paladio=req.paladio,
+        is_admin=req.is_admin, is_super_admin=req.is_super_admin
     )
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result.get("error", "Error actualizando el usuario"))
@@ -317,12 +370,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 initial_level = data.get("level", 1)
                 initial_xp = data.get("xp", 0)
                 initial_credits = data.get("credits", 2000)
-                initial_uridium = data.get("initialUridium", 0)
+                initial_paladio = data.get("initialPaladio", data.get("initialUridium", 0))
                 initial_minerals = data.get("minerals", None)
                 initial_upgrades = data.get("upgrades", None)
-                clan = data.get("clan", None)
+                clan = data.get("clan", "MARS") # Is Faction
+                clan_tag = data.get("clanTag", None) # Is Actual Clan
                 
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_uridium, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, clan=clan)
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag)
                 player_added = True
                 logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
                 
@@ -341,6 +395,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 
             elif data.get("type") == "jump_portal" and player_added:
                 game_state.jump_portal(client_id)
+
+            elif data.get("type") == "chat" and player_added:
+                text = data.get("text")
+                channel = data.get("channel", "global")
+                if text:
+                    game_state.handle_chat(client_id, text, channel)
 
             elif data.get("type") == "party_invite" and player_added:
                 target_id = data.get("target_id")

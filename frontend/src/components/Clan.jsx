@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import NavigationBar from './NavigationBar';
 
-const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, onBack, onNavigate }) => {
+const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, onBack, onNavigate }) => {
   const [tag, setTag] = useState('');
   const [name, setName] = useState('');
   const [activeTab, setActiveTab] = useState('summary');
@@ -309,18 +309,18 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
             </div>
 
             {/* Right Content */}
-            <div className="dashboard-panel" style={{ flex: 1, border: 'none', borderRadius: 0 }}>
+            <div className="dashboard-panel" style={{ flex: 1, border: 'none', borderRadius: 0, overflow: 'hidden' }}>
               <div className="panel-header">PANEL DEL CLAN</div>
-              <div className="panel-content">
+              <div className="panel-content" style={{ overflowY: 'auto' }}>
                 
                 {activeTab === 'summary' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div className="clan-summary-wrapper">
                     
                     {/* Top Row: Info Table and Logo */}
-                    <div style={{ display: 'flex', gap: '20px' }}>
+                    <div className="clan-info-row">
                       
                       {/* Info Table */}
-                      <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a' }}>
+                      <div className="clan-info-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334466', paddingBottom: '10px', marginBottom: '10px' }}>
                           <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Información del clan</span>
                           {canEdit && (
@@ -370,7 +370,7 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                       </div>
                       
                       {/* Logo Box */}
-                      <div style={{ width: '150px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div className="clan-logo-card">
                         <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334466', paddingBottom: '10px', marginBottom: '10px' }}>
                           <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.8rem' }}>Logo</span>
                           {canEdit && (
@@ -395,7 +395,7 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                     </div>
 
                     {/* Text Box 1 */}
-                    <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a' }}>
+                    <div className="clan-text-box">
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334466', paddingBottom: '10px', marginBottom: '10px' }}>
                         <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Texto del clan</span>
                         {canEdit && (
@@ -420,7 +420,7 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                     </div>
 
                     {/* Text Box 2 */}
-                    <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a' }}>
+                    <div className="clan-text-box">
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334466', paddingBottom: '10px', marginBottom: '10px' }}>
                         <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Novedades / Información</span>
                         {canEdit && (
@@ -459,7 +459,7 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                 )}
 
                 {activeTab === 'members' && (
-                  <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a' }}>
+                  <div className="clan-members-view">
                     <h3 style={{ color: '#00ffcc', marginBottom: '15px' }}>Tripulación del Clan</h3>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>

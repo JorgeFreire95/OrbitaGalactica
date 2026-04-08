@@ -12,7 +12,7 @@ export default function Shop({
   minerals,
   onSellMinerals,
   level,
-  uridium,
+  paladio,
   onNavigate,
   onBack 
 }) {

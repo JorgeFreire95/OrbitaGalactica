@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const AdminPanel = ({ onBack }) => {
+const AdminPanel = ({ user: currentUser, onBack }) => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -8,8 +8,9 @@ const AdminPanel = ({ onBack }) => {
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ 
     username: '', email: '', faction: '', 
-    level: 1, xp: 0, credits: 0, uridium: 0,
-    is_admin: false
+    level: 1, xp: 0, credits: 0, paladio: 0,
+    is_admin: false,
+    is_super_admin: false
   });
 
   const API_URL = 'http://localhost:8000/api';
@@ -52,8 +53,9 @@ const AdminPanel = ({ onBack }) => {
       level: user.level || 1,
       xp: user.xp || 0,
       credits: user.credits || 0,
-      uridium: user.uridium || 0,
-      is_admin: user.is_admin || false
+      paladio: user.paladio || 0,
+      is_admin: user.is_admin || false,
+      is_super_admin: user.is_super_admin || false
     });
     setEditingUser(user.username);
   };
@@ -147,7 +149,8 @@ const AdminPanel = ({ onBack }) => {
                     <div className="user-info-text">
                       <h3 style={{ display: 'flex', alignItems: 'center' }}>
                         {u.username} 
-                        {u.is_admin && <span style={{ fontSize: '0.5rem', background: '#ffcc00', color: '#000', padding: '2px 5px', borderRadius: '3px', marginLeft: '8px' }}>ADMIN</span>}
+                        {u.is_super_admin && <span style={{ fontSize: '0.5rem', background: '#ff00ff', color: '#fff', padding: '2px 5px', borderRadius: '3px', marginLeft: '8px' }}>SUPERADMIN</span>}
+                        {u.is_admin && !u.is_super_admin && <span style={{ fontSize: '0.5rem', background: '#ffcc00', color: '#000', padding: '2px 5px', borderRadius: '3px', marginLeft: '8px' }}>ADMIN</span>}
                       </h3>
                       <p>{u.email}</p>
                       <p style={{ color: u.faction === 'MARS' ? '#ff3333' : u.faction === 'MOON' ? '#3366ff' : u.faction === 'PLUTO' ? '#9933ff' : '#aaa', fontWeight: 'bold', marginTop: '3px', fontSize: '0.7rem' }}>
@@ -176,8 +179,8 @@ const AdminPanel = ({ onBack }) => {
                     <span className="stat-pill-value" style={{ color: '#ffcc00' }}>🔋 {u.credits?.toLocaleString()}</span>
                   </div>
                   <div className="stat-pill">
-                    <span className="stat-pill-label">Uridium</span>
-                    <span className="stat-pill-value" style={{ color: '#aa88ff' }}>💎 {u.uridium?.toLocaleString()}</span>
+                    <span className="stat-pill-label">Paladio</span>
+                    <span className="stat-pill-value" style={{ color: '#aa88ff' }}>🪐 {u.paladio?.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -193,11 +196,18 @@ const AdminPanel = ({ onBack }) => {
 
                 <button 
                   className="gestionar-button" 
-                  style={{ margin: 0, marginTop: '10px', fontSize: '0.7rem', padding: '10px', opacity: u.is_admin ? 0.5 : 1 }}
+                  style={{ 
+                    margin: 0, 
+                    marginTop: '10px', 
+                    fontSize: '0.7rem', 
+                    padding: '10px', 
+                    opacity: (u.is_admin && !currentUser?.is_super_admin) ? 0.5 : 1,
+                    background: u.is_super_admin ? 'linear-gradient(45deg, #ff00ff, #aa00ff)' : undefined
+                  }}
                   onClick={() => startEdit(u)}
-                  disabled={u.is_admin}
+                  disabled={u.is_admin && !currentUser?.is_super_admin}
                 >
-                  {u.is_admin ? "ARCHIVO PROTEGIDO" : "RECONFIGURAR DATOS"}
+                  {(u.is_admin && !currentUser?.is_super_admin) ? "ARCHIVO PROTEGIDO" : u.is_super_admin ? "GIGANTE DEL SISTEMA" : "RECONFIGURAR DATOS"}
                 </button>
               </div>
             ))
@@ -250,8 +260,8 @@ const AdminPanel = ({ onBack }) => {
                   <input type="number" value={editForm.credits} onChange={e => setEditForm({...editForm, credits: parseInt(e.target.value)})} />
                 </div>
                 <div className="input-field">
-                  <label>Uridium disponible</label>
-                  <input type="number" value={editForm.uridium} onChange={e => setEditForm({...editForm, uridium: parseInt(e.target.value)})} />
+                  <label>Paladio disponible</label>
+                  <input type="number" value={editForm.paladio} onChange={e => setEditForm({...editForm, paladio: parseInt(e.target.value)})} />
                 </div>
                 <div className="input-field" style={{ gridColumn: 'span 2', flexDirection: 'row', alignItems: 'center', gap: '15px', background: 'rgba(255,204,0,0.05)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(255,204,0,0.2)' }}>
                   <input 
@@ -262,9 +272,24 @@ const AdminPanel = ({ onBack }) => {
                     style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                   />
                   <label htmlFor="is_admin_check" style={{ color: '#ffcc00', fontWeight: 'bold', cursor: 'pointer', margin: 0 }}>
-                    OTORGAR PRIVILEGIOS DE ADMINISTRADOR (PRECAUCIÓN)
+                    OTORGAR PRIVILEGIOS DE ADMINISTRADOR (NIVEL 1)
                   </label>
                 </div>
+
+                {currentUser?.is_super_admin && (
+                  <div className="input-field" style={{ gridColumn: 'span 2', flexDirection: 'row', alignItems: 'center', gap: '15px', background: 'rgba(255,0,255,0.05)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(255,0,255,0.2)', marginTop: '10px' }}>
+                    <input 
+                      type="checkbox" 
+                      id="is_super_admin_check"
+                      checked={editForm.is_super_admin} 
+                      onChange={e => setEditForm({...editForm, is_super_admin: e.target.checked})} 
+                      style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="is_super_admin_check" style={{ color: '#ff00ff', fontWeight: 'bold', cursor: 'pointer', margin: 0 }}>
+                      OTORGAR RANGO DE SUPERADMINISTRADOR (NIVEL SUPREMO)
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="submit" className="btn-primary" style={{ flex: 1, height: '50px' }}>CONFIRMAR RECONFIGURACIÓN</button>

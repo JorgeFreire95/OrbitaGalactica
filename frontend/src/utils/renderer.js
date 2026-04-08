@@ -16,15 +16,26 @@ supportImg.src = '/helix_support.png';
 export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   const { width, height } = ctx.canvas;
   
+  // 1. Determinar Estilo de Mapa
+  const style = gameState.current_map_style || 'space';
+  const isMars = style.startsWith('mars');
+  const isMoon = style.startsWith('moon');
+  const isPluto = style.startsWith('pluto');
+  
   // 1. Limpiar canvas (Fondo fijo)
-  ctx.fillStyle = '#0d0d1a';
+  if (isMars) ctx.fillStyle = '#1a0500';
+  else if (isMoon) ctx.fillStyle = '#050a1a';
+  else if (isPluto) ctx.fillStyle = '#0b041a';
+  else ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, width, height);
   
   const me = gameState.players?.find(p => p.is_self);
 
   // 2. Dibujar cuadrícula Galáctica (Efecto Parallax Infinito)
-  // Dibujamos la cuadrícula desplazada por el módulo para que parezca infinita
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  if (isMars) ctx.strokeStyle = 'rgba(255, 100, 0, 0.08)';
+  else if (isMoon) ctx.strokeStyle = 'rgba(0, 200, 255, 0.08)';
+  else if (isPluto) ctx.strokeStyle = 'rgba(100, 100, 255, 0.08)';
+  else ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
   ctx.lineWidth = 1;
   
   const gridSize = 100;
@@ -40,16 +51,22 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   }
   ctx.stroke();
 
-  // 3. Dibujar Bordes del Mundo (2000x1500)
+  // 3. Dibujar Bordes del Mundo (10000x8000)
   ctx.save();
   ctx.translate(-camX, -camY);
-  ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
+  if (isMars) ctx.strokeStyle = 'rgba(255, 50, 0, 0.3)';
+  else if (isMoon) ctx.strokeStyle = 'rgba(0, 200, 255, 0.3)';
+  else if (isPluto) ctx.strokeStyle = 'rgba(100, 100, 255, 0.3)';
+  else ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
   ctx.lineWidth = 4;
   ctx.strokeRect(0, 0, 10000, 8000);
   
   // Resplandor en los bordes
   ctx.shadowBlur = 20;
-  ctx.shadowColor = 'cyan';
+  if (isMars) ctx.shadowColor = 'red';
+  else if (isMoon) ctx.shadowColor = '#00ffff';
+  else if (isPluto) ctx.shadowColor = '#4444ff';
+  else ctx.shadowColor = 'cyan';
   ctx.strokeRect(0, 0, 10000, 8000);
   ctx.restore();
 
@@ -114,57 +131,173 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillText("ESTACIÓN CENTRAL", x, y - radius - 20);
   }
 
-  // --- DIBUJAR PORTAL DE SALTO (AGUJERO DE GUSANO) ---
-  if (gameState.portal) {
-    const { x, y, radius } = gameState.portal;
-    ctx.save();
-    ctx.translate(x, y);
-    
-    // Efecto de distorsión pulsante
-    const time = Date.now() / 1000;
-    const pulse = Math.sin(time * 3) * 10;
-    
-    // Capas del Agujero de Gusano
-    for(let i=0; i<3; i++) {
+  // --- DIBUJAR PORTALES DE SALTO ---
+  if (gameState.portals && gameState.portals.length > 0) {
+    gameState.portals.forEach(portal => {
+        const { x, y, label } = portal;
+        const radius = 150; // self.PORTAL_RADIUS
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // Efecto de distorsión pulsante
+        const time = Date.now() / 1000;
+        const pulse = Math.sin(time * 3) * 10;
+        
+        // Colores según el destino
+        const isMarsPortal = portal.target.startsWith('mars');
+        const isMoonPortal = portal.target.startsWith('moon');
+        const isPlutoPortal = portal.target.startsWith('pluto');
+        let pColor = '#ffffff';
+        let pColor2 = '#cccccc';
+        let pColor3 = '#999999';
+
+        if (isMarsPortal) {
+            pColor = '#ff6600'; pColor2 = '#ff3300'; pColor3 = '#990000';
+        } else if (isMoonPortal) {
+            pColor = '#00ffff'; pColor2 = '#00ccff'; pColor3 = '#0088ff';
+        } else if (isPlutoPortal) {
+            pColor = '#6666ff'; pColor2 = '#3333ff'; pColor3 = '#000099';
+        } else {
+            pColor = '#00ffff'; pColor2 = '#0088ff'; pColor3 = '#0044ff';
+        }
+
+        // Capas del Agujero de Gusano
+        for(let i=0; i<3; i++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius - (i * 20) + pulse, 0, Math.PI * 2);
+            ctx.strokeStyle = i === 0 ? pColor : (i === 1 ? pColor2 : pColor3);
+            ctx.lineWidth = 5 - i;
+            ctx.globalAlpha = 0.6 - (i * 0.2);
+            ctx.setLineDash([20, 15]);
+            ctx.lineDashOffset = (i % 2 === 0 ? 1 : -1) * time * 100;
+            ctx.stroke();
+        }
+        
+        // Núcleo brillante
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = pColor;
+        ctx.fillStyle = pColor + '33';
         ctx.beginPath();
-        ctx.arc(0, 0, radius - (i * 20) + pulse, 0, Math.PI * 2);
-        ctx.strokeStyle = i === 0 ? '#00ffff' : (i === 1 ? '#0088ff' : '#0044ff');
-        ctx.lineWidth = 5 - i;
-        ctx.globalAlpha = 0.6 - (i * 0.2);
-        ctx.setLineDash([20, 15]);
-        ctx.lineDashOffset = (i % 2 === 0 ? 1 : -1) * time * 100;
+        ctx.arc(0, 0, 30 + pulse/2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Etiqueta del Portal
+        ctx.fillStyle = pColor;
+        ctx.font = 'bold 24px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.fillText("PORTAL DE SALTO", 0, -radius - 30);
+        ctx.font = '14px Orbitron';
+        ctx.fillText("Hacia: " + label, 0, -radius - 10);
+        
+        // Indicador de Zona Segura
+        ctx.beginPath();
+        ctx.arc(0, 0, 350, 0, Math.PI * 2); 
+        ctx.strokeStyle = pColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([10, 10]);
+        ctx.globalAlpha = 0.3;
         ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1.0;
+        
+        ctx.restore();
+    });
+  }
+
+  // --- EFECTOS AMBIENTALES (NUEVO: TORMENTA / NIEBLA) ---
+  if (style === 'mars_storm') {
+    // Partículas de tormenta de arena
+    ctx.save();
+    const time = Date.now() / 1000;
+    ctx.fillStyle = 'rgba(255, 100, 0, 0.15)';
+    ctx.globalCompositeOperation = 'screen';
+    for(let i=0; i<100; i++) {
+        const px = (i * 777 + time * 1500) % 10000;
+        const py = (i * 333 + time * 200) % 8000;
+        ctx.fillRect(px, py, 200, 2);
     }
-    
-    // Núcleo brillante
-    ctx.globalAlpha = 1.0;
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = 'cyan';
-    ctx.fillStyle = '#00ffff33';
-    ctx.beginPath();
-    ctx.arc(0, 0, 30 + pulse/2, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Etiqueta del Portal
-    ctx.fillStyle = '#00ffff';
-    ctx.font = 'bold 24px Orbitron';
-    ctx.textAlign = 'center';
-    ctx.fillText("PORTAL DE SALTO", 0, -radius - 30);
-    ctx.font = '14px Orbitron';
-    const targetName = gameState.portal.target === "galaxy_1" ? "Sector Alfa" : "Sector Beta";
-    ctx.fillText("Hacia: " + targetName, 0, -radius - 10);
-    
-    // --- NUEVO: INDICADOR DE ZONA SEGURA DEL PORTAL ---
-    ctx.beginPath();
-    ctx.arc(0, 0, 350, 0, Math.PI * 2); // 350 is the PORTAL_SAFE_ZONE_RADIUS
-    ctx.strokeStyle = '#00ffff';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([10, 10]);
+    ctx.restore();
+  }
+
+  if (style === 'moon_crystal') {
+    const crystalPulse = Math.sin(Date.now() / 800) * 0.3 + 0.6;
+    ctx.save();
+    ctx.shadowBlur = 50;
+    ctx.shadowColor = '#00ffff';
+    ctx.globalAlpha = crystalPulse * 0.4;
+    ctx.fillStyle = 'white';
+    for(let i=0; i<20; i++) {
+        const cx = (i * 2345) % 10000;
+        const cy = (i * 6789) % 8000;
+        ctx.beginPath();
+        const sides = 6;
+        const size = 150 + Math.sin(Date.now()/500 + i)*30;
+        for(let j=0; j<=sides; j++) {
+            const angle = (j / sides) * Math.PI * 2;
+            const x = cx + Math.cos(angle) * size;
+            const y = cy + Math.sin(angle) * size;
+            if(j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.fill();
+    }
+    ctx.restore();
+  }
+
+
+  if (isPluto && style.includes('ice')) {
+    // Partículas de escarcha / hielo
+    ctx.save();
+    const time = Date.now() / 2000;
+    ctx.fillStyle = 'white';
     ctx.globalAlpha = 0.3;
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1.0;
-    
+    for(let i=0; i<100; i++) {
+        const px = (i * 1234 + time * 100) % 10000;
+        const py = (i * 5678 + time * 50) % 8000;
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, Math.PI*2);
+        ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  if (style === 'pluto_nebula') {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    // Nébula de Cobalto: Capa de color
+    const grad = ctx.createRadialGradient(5000, 4000, 0, 5000, 4000, 6000);
+    grad.addColorStop(0, 'rgba(0, 50, 200, 0.15)');
+    grad.addColorStop(1, 'rgba(0, 0, 50, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 10000, 8000);
+    ctx.restore();
+  }
+
+  if (style === 'pluto_vortex') {
+    ctx.save();
+    ctx.translate(5000, 4000); // Centro del mapa: Vórtice Sombrío
+    ctx.shadowBlur = 100;
+    ctx.shadowColor = '#4400ff';
+    const rot = Date.now() / 1500;
+    ctx.rotate(rot);
+    for(let i=0; i<6; i++) {
+        ctx.rotate(Math.PI * 2 / 6);
+        const g = ctx.createLinearGradient(0, 0, 3000, 0);
+        g.addColorStop(0, 'rgba(100, 0, 255, 0.4)');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(3000, -300);
+        ctx.lineTo(3000, 300);
+        ctx.closePath();
+        ctx.fill();
+    }
+    // Centro del agujero negro
+    ctx.beginPath();
+    ctx.arc(0, 0, 200, 0, Math.PI*2);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
     ctx.restore();
   }
 
@@ -596,7 +729,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
           text = `🚀 VELOCIDAD MAX!`;
           color = "#00fbff";
         } else if (event.type === "special_coin") {
-          text = `✨ +${event.amount} URIDIUM`;
+          text = `✨ +${event.amount} PALADIO`;
           color = '#ff00ff';
         }
 
@@ -664,15 +797,18 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.globalAlpha = 1.0;
     });
 
-    // Dibujar Portal en Minimapa
-    if (gameState.portal) {
-      ctx.strokeStyle = '#00ffff';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(mmX + gameState.portal.x * scaleX, mmY + gameState.portal.y * scaleY, 6, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = '#00ffff22';
-      ctx.fill();
+    // Dibujar Portales en Minimapa
+    if (gameState.portals) {
+      gameState.portals.forEach(portal => {
+        const isMarsPortal = portal.target.startsWith('mars');
+        ctx.strokeStyle = isMarsPortal ? '#ff6600' : '#00ffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(mmX + portal.x * scaleX, mmY + portal.y * scaleY, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = (isMarsPortal ? '#ff6600' : '#00ffff') + '22';
+        ctx.fill();
+      });
     }
 
     // --- NUEVO: DIBUJAR COFRES ESPECIALES EN MINIMAPA (CON RANGO) ---

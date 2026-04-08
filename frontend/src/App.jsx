@@ -11,23 +11,29 @@ import AdminPanel from './components/AdminPanel'
 import TopBar from './components/TopBar'
 import NavigationBar from './components/NavigationBar'
 import { SHIPS } from './utils/gameData'
+import Ranking from './components/Ranking'
 import './index.css'
 
 function App() {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('game_user');
+    const saved = sessionStorage.getItem('game_user');
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [isGameActive, setIsGameActive] = useState(() => {
+    return localStorage.getItem('og_game_running') === 'true';
+  });
+
   const [currentView, setCurrentView] = useState(() => {
-    const savedUser = localStorage.getItem('game_user');
+    const savedUser = sessionStorage.getItem('game_user');
     return savedUser ? 'menu' : 'auth';
   });
   const [selectedShipId, setSelectedShipId] = useState(() => {
-    return localStorage.getItem('selected_ship_id') || 'tank';
+    return sessionStorage.getItem('selected_ship_id') || 'tank';
   });
+  const [leaderboard, setLeaderboard] = useState([]);
   
-  // Persistent Global State
+  // Persistent Global State - Usamos localStorage para sincronizar entre el Menú y el Juego (Nueva Pestaña)
   const [credits, setCredits] = useState(() => {
     const val = localStorage.getItem('game_credits');
     return val !== null ? parseInt(val) : 50000;
@@ -76,12 +82,12 @@ function App() {
     return saved ? JSON.parse(saved) : { atk: 0, shld: 0, spd: 0 };
   });
 
-  const [uridium, setUridium] = useState(() => {
-    return parseInt(localStorage.getItem('game_uridium')) || 0;
+  const [paladio, setPaladio] = useState(() => {
+    return parseInt(localStorage.getItem('game_paladio')) || 0;
   });
 
   const [clan, setClan] = useState(() => {
-    const saved = localStorage.getItem('game_clan');
+    const saved = sessionStorage.getItem('game_clan');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -90,15 +96,53 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('play') === 'true') {
       setCurrentView('game');
+      // Marcar el juego como activo solo si estamos en la vista de juego
+      localStorage.setItem('og_game_running', 'true');
     }
+    const token = params.get('token');
+    if (token) {
+      setCurrentView('reset_password');
+    }
+    fetchLeaderboard();
+
+    // Sincronización de Sesión de Juego entre pestañas
+    const syncGameSession = (e) => {
+      if (e.key === 'og_game_running') {
+        setIsGameActive(e.newValue === 'true');
+      }
+    };
+
+    const handleWindowClose = () => {
+      if (window.location.search.includes('play=true')) {
+        localStorage.removeItem('og_game_running');
+      }
+    };
+
+    window.addEventListener('storage', syncGameSession);
+    window.addEventListener('beforeunload', handleWindowClose);
+
+    return () => {
+      window.removeEventListener('storage', syncGameSession);
+      window.removeEventListener('beforeunload', handleWindowClose);
+    };
   }, []);
+
+  const fetchLeaderboard = async () => {
+    try {
+      const resp = await fetch(`${API_URL}/leaderboard`);
+      const data = await resp.json();
+      if (data.leaderboard) setLeaderboard(data.leaderboard);
+    } catch (e) {
+      console.error("Error fetching leaderboard:", e);
+    }
+  };
 
   // Synchronize dynamic updates coming from the Game Canvas window
   useEffect(() => {
     const handleStorageChange = (e) => {
       switch (e.key) {
         case 'game_credits': setCredits(parseInt(e.newValue) || 0); break;
-        case 'game_uridium': setUridium(parseInt(e.newValue) || 0); break;
+        case 'game_paladio': setPaladio(parseInt(e.newValue) || 0); break;
         case 'game_level': setLevel(parseInt(e.newValue) || 0); break;
         case 'game_xp': setXp(parseInt(e.newValue) || 0); break;
         case 'game_minerals': if (e.newValue) setMinerals(JSON.parse(e.newValue)); break;
@@ -116,7 +160,7 @@ function App() {
   }, [credits]);
 
   useEffect(() => {
-    localStorage.setItem('selected_ship_id', selectedShipId);
+    sessionStorage.setItem('selected_ship_id', selectedShipId);
   }, [selectedShipId]);
 
   useEffect(() => {
@@ -148,8 +192,8 @@ function App() {
   }, [upgrades]);
 
   useEffect(() => {
-    localStorage.setItem('game_uridium', uridium);
-  }, [uridium]);
+    localStorage.setItem('game_paladio', paladio);
+  }, [paladio]);
 
   useEffect(() => {
     localStorage.setItem('game_clan', JSON.stringify(clan));
@@ -167,7 +211,7 @@ function App() {
           level,
           xp,
           credits,
-          uridium
+          paladio
         })
       });
     } catch (e) {
@@ -183,7 +227,7 @@ function App() {
         const data = await resp.json();
         // Solo actualizamos si hay cambios externos y no estamos en medio de una acción crítica
         if (data.credits !== credits) setCredits(data.credits);
-        if (data.uridium !== uridium) setUridium(data.uridium);
+        if (data.paladio !== paladio) setPaladio(data.paladio);
         if (data.level !== level) setLevel(data.level);
         if (data.xp !== xp) setXp(data.xp);
       }
@@ -197,7 +241,7 @@ function App() {
     if (!user) return;
     const interval = setInterval(refreshStats, 30000); // Cada 30 segundos
     return () => clearInterval(interval);
-  }, [user, credits, uridium, level, xp]);
+  }, [user, credits, paladio, level, xp]);
 
   // Sync on every relevant change (Transaction-based as requested)
   useEffect(() => {
@@ -205,11 +249,11 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, uridium, xp, level]);
+  }, [credits, paladio, xp, level]);
 
   useEffect(() => {
     if (user && user.faction) {
-        localStorage.setItem('game_user', JSON.stringify(user));
+        sessionStorage.setItem('game_user', JSON.stringify(user));
     }
   }, [user]);
 
@@ -235,14 +279,14 @@ function App() {
       
       // Initialize stats from database
       if (data.credits !== undefined) setCredits(data.credits);
-      if (data.uridium !== undefined) setUridium(data.uridium);
+      if (data.paladio !== undefined) setPaladio(data.paladio);
       if (data.level !== undefined) setLevel(data.level);
       if (data.xp !== undefined) setXp(data.xp);
 
       if (!data.faction) {
         setCurrentView('faction_select');
       } else {
-        localStorage.setItem('game_user', JSON.stringify(data));
+        sessionStorage.setItem('game_user', JSON.stringify(data));
         setCurrentView('menu');
       }
     } catch (e) {
@@ -282,11 +326,11 @@ function App() {
       }
       const updatedUser = { ...user, faction: factionId };
       setUser(updatedUser);
-      localStorage.setItem('game_user', JSON.stringify(updatedUser)); 
+      sessionStorage.setItem('game_user', JSON.stringify(updatedUser)); 
 
       // Wipe current local stats and set standard fresh-start stats
       setCredits(50000);
-      setUridium(0);
+      setPaladio(0);
       setLevel(0);
       setXp(0);
       setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
@@ -304,19 +348,57 @@ function App() {
     }
   };
 
+  const handleForgotPassword = async (email) => {
+    try {
+      const resp = await fetch(`${API_URL}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await resp.json();
+      alert(data.message);
+    } catch (e) {
+      alert('Error al procesar la solicitud.');
+    }
+  };
+
+  const handleResetPassword = async (newPassword) => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) return alert('Token no encontrado en la URL.');
+
+    try {
+      const resp = await fetch(`${API_URL}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password: newPassword })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        alert(data.message);
+        window.history.replaceState({}, document.title, "/"); // Limpiar URL
+        setCurrentView('auth');
+      } else {
+        alert(data.detail || 'Error al restablecer contraseña.');
+      }
+    } catch (e) {
+      alert('Error de conexión.');
+    }
+  };
+
   const handleLogout = () => {
-    localStorage.removeItem('game_user');
-    localStorage.removeItem('game_credits');
-    localStorage.removeItem('game_uridium');
-    localStorage.removeItem('game_level');
-    localStorage.removeItem('game_xp');
-    localStorage.removeItem('game_minerals');
-    localStorage.removeItem('game_inventory');
-    localStorage.removeItem('game_equipped');
-    localStorage.removeItem('game_ammo');
-    localStorage.removeItem('game_upgrades');
-    localStorage.removeItem('game_clan');
-    localStorage.removeItem('orbita_galactica_user_id');
+    sessionStorage.removeItem('game_user');
+    sessionStorage.removeItem('game_credits');
+    sessionStorage.removeItem('game_paladio');
+    sessionStorage.removeItem('game_level');
+    sessionStorage.removeItem('game_xp');
+    sessionStorage.removeItem('game_minerals');
+    sessionStorage.removeItem('game_inventory');
+    sessionStorage.removeItem('game_equipped');
+    sessionStorage.removeItem('game_ammo');
+    sessionStorage.removeItem('game_upgrades');
+    sessionStorage.removeItem('game_clan');
+    sessionStorage.removeItem('orbita_galactica_user_id');
     
     setUser(null);
     setCurrentView('auth');
@@ -416,8 +498,8 @@ function App() {
     setCredits(prev => prev + totalCredits);
   };
 
-  const handleUpdateUridium = (newUridium) => {
-    setUridium(newUridium);
+  const handleUpdatePaladio = (newUridium) => {
+    setPaladio(newUridium);
   };
 
   const handleUpdateProgress = (newLvl, newXp) => {
@@ -439,7 +521,7 @@ function App() {
         <>
           <TopBar 
             credits={credits} 
-            uridium={uridium} 
+            paladio={paladio} 
             level={level} 
             user={user} 
             onLogout={handleLogout} 
@@ -450,7 +532,39 @@ function App() {
       )}
 
       {currentView === 'auth' && (
-        <Auth onLogin={handleLogin} onRegister={handleRegister} />
+        <Auth onLogin={handleLogin} onRegister={handleRegister} onForgotPassword={handleForgotPassword} />
+      )}
+
+      {currentView === 'reset_password' && (
+        <div className="auth-wrapper">
+          <div className="auth-page-content" style={{ maxWidth: '400px' }}>
+            <h2 style={{ color: '#00ffff', fontFamily: 'Orbitron', marginBottom: '20px' }}>NUEVA CONTRASEÑA</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const p = e.target.pass.value;
+              const cp = e.target.conf.value;
+              if (p !== cp) return alert('Las contraseñas no coinciden.');
+              if (p.length < 4) return alert('La contraseña es muy corta.');
+              handleResetPassword(p);
+            }} className="register-form-vertical">
+              <div className="reg-input-group">
+                <label>NUEVA CONTRASEÑA</label>
+                <input name="pass" type="password" required placeholder="Escribe tu nueva clave" />
+              </div>
+              <div className="reg-input-group">
+                <label>CONFIRMAR CONTRASEÑA</label>
+                <input name="conf" type="password" required placeholder="Repite la clave" />
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn-primary" style={{ flex: 1 }}>ACTUALIZAR</button>
+                <button type="button" className="btn-link" onClick={() => {
+                   window.history.replaceState({}, document.title, "/");
+                   setCurrentView('auth');
+                }} style={{ flex: 1 }}>CANCELAR</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {currentView === 'faction_select' && (
@@ -463,13 +577,15 @@ function App() {
           onNavigate={(view) => setCurrentView(view)} 
           onLogout={handleLogout}
           credits={credits}
-          uridium={uridium}
+          paladio={paladio}
           xp={xp}
           level={level}
           minerals={minerals}
           selectedShipId={selectedShipId}
           equippedByShip={equippedByShip}
           upgrades={upgrades}
+          leaderboard={leaderboard}
+          isGameActive={isGameActive}
         />
       )}
 
@@ -488,7 +604,7 @@ function App() {
           onNavigate={setCurrentView}
           onReset={handleReset}
           credits={credits}
-          uridium={uridium}
+          paladio={paladio}
           minerals={minerals}
           upgrades={upgrades}
           onRefine={handleRefine}
@@ -509,7 +625,7 @@ function App() {
           onSellMinerals={handleSellMinerals}
           upgrades={upgrades}
           level={level}
-          uridium={uridium}
+          paladio={paladio}
           onBack={() => setCurrentView('menu')}
           onNavigate={setCurrentView}
         />
@@ -520,7 +636,7 @@ function App() {
           minerals={minerals}
           upgrades={upgrades}
           credits={credits}
-          uridium={uridium}
+          paladio={paladio}
           level={level}
           onRefine={handleRefine}
           onSellMinerals={handleSellMinerals}
@@ -533,7 +649,7 @@ function App() {
       {currentView === 'clan' && (
         <Clan 
           credits={credits}
-          uridium={uridium}
+          paladio={paladio}
           level={level}
           xp={xp}
           setCredits={setCredits}
@@ -546,7 +662,11 @@ function App() {
       )}
       
       {currentView === 'admin' && (
-        <AdminPanel onBack={() => setCurrentView('menu')} />
+        <AdminPanel user={user} onBack={() => setCurrentView('menu')} />
+      )}
+
+      {currentView === 'ranking' && (
+        <Ranking leaderboard={leaderboard} onBack={() => setCurrentView('menu')} />
       )}
       
       {currentView === 'game' && (
@@ -554,20 +674,22 @@ function App() {
           <h1 className="game-title">Órbita Galáctica</h1>
           <GameCanvas 
             user={user}
+            isGameActive={isGameActive}
             selectedShip={selectedShipId} 
             initialModules={currentEquippedModules}
             initialAmmo={ammo}
             initialLevel={level}
             initialXp={xp}
             initialCredits={credits}
-            initialUridium={uridium}
+            initialPaladio={paladio}
             initialMinerals={minerals}
             initialUpgrades={upgrades}
             initialClan={clan}
+            initialClanTag={clan?.tag}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}
             onUpdateProgress={handleUpdateProgress}
             onUpdateCredits={(newCredits) => setCredits(newCredits)}
-            onUpdateUridium={handleUpdateUridium}
+            onUpdatePaladio={handleUpdatePaladio}
             onUpdateMinerals={handleUpdateMinerals}
           />
         </>

@@ -1,6 +1,6 @@
 import React from 'react';
 
-const TopBar = ({ credits, uridium, level, user, onLogout, onNavigate }) => {
+const TopBar = ({ credits, paladio, level, user, onLogout, onNavigate }) => {
   return (
     <header className="dashboard-header" style={{ justifyContent: 'flex-end', padding: '10px 30px', height: 'auto', minHeight: '60px' }}>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -11,10 +11,10 @@ const TopBar = ({ credits, uridium, level, user, onLogout, onNavigate }) => {
           <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '1px' }}>{credits.toLocaleString()} CRÉDITOS</span>
         </div>
 
-        {/* URIDIUM */}
+        {/* PALADIO */}
         <div className="status-item" style={{ background: 'rgba(20,0,50,0.6)', padding: '8px 18px', borderRadius: '6px', border: '1px solid #6633ff', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 0 10px rgba(102, 51, 255, 0.2)' }}>
-          <span style={{ fontSize: '1.2rem' }}>💎</span>
-          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '1px' }}>{uridium.toLocaleString()} URIDIUM</span>
+          <span style={{ fontSize: '1.2rem' }}>🪐</span>
+          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '1px' }}>{paladio.toLocaleString()} PALADIO</span>
         </div>
 
         {/* NIVEL */}

@@ -1,7 +1,7 @@
 import React from 'react';
 import NavigationBar from './NavigationBar';
 
-const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNavigate, selectedShip, credits, uridium, level }) => {
+const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNavigate, selectedShip, credits, paladio, level }) => {
   const currentCargo = Object.values(minerals).reduce((a, b) => a + b, 0);
   const maxCargo = selectedShip?.cargo_capacity || 50;
 

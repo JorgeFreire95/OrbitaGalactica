@@ -24,7 +24,7 @@ def init_db():
             level INTEGER DEFAULT 1,
             xp INTEGER DEFAULT 0,
             credits INTEGER DEFAULT 2000,
-            uridium INTEGER DEFAULT 0,
+            paladio INTEGER DEFAULT 0,
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
@@ -89,7 +89,11 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
-        c.execute("ALTER TABLE users ADD COLUMN uridium INTEGER DEFAULT 0")
+        c.execute("ALTER TABLE users ADD COLUMN paladio INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN is_super_admin BOOLEAN DEFAULT 0")
     except sqlite3.OperationalError:
         pass
     try:
@@ -112,6 +116,16 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE clans ADD COLUMN credits INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    # Migraciones para Recuperación de Contraseña
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT")
     except sqlite3.OperationalError:
         pass
         
@@ -140,7 +154,7 @@ def register_user(username, email, password):
     hashed, salt = hash_password(password)
     try:
         c.execute('''
-            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, uridium) 
+            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (username, email, hashed, salt, 1, 0, 2000, 0))
         conn.commit()
@@ -160,7 +174,7 @@ def get_user_stats_db(username):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('SELECT level, xp, credits, uridium FROM users WHERE username = ?', (username,))
+        c.execute('SELECT level, xp, credits, paladio FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -168,7 +182,7 @@ def get_user_stats_db(username):
             "level": row[0],
             "xp": row[1],
             "credits": row[2],
-            "uridium": row[3]
+            "paladio": row[3]
         }
     finally:
         conn.close()
@@ -176,14 +190,14 @@ def get_user_stats_db(username):
 def login_user(username, password):
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT username, faction, is_admin, level, xp, credits, uridium, password_hash, salt FROM users WHERE username = ?', (username,))
+    c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt FROM users WHERE username = ?', (username,))
     row = c.fetchone()
     conn.close()
     
     if not row:
         return {"success": False, "error": "Credenciales incorrectas"}
     
-    db_username, faction, is_admin, level, xp, credits, uridium, db_hash, salt = row
+    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt = row
     test_hash, _ = hash_password(password, salt)
     
     if test_hash == db_hash:
@@ -192,10 +206,11 @@ def login_user(username, password):
             "username": db_username, 
             "faction": faction, 
             "is_admin": bool(is_admin),
+            "is_super_admin": bool(is_super_admin),
             "level": level,
             "xp": xp,
             "credits": credits,
-            "uridium": uridium
+            "paladio": paladio
         }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
@@ -213,7 +228,7 @@ def set_user_faction(username, faction):
 def get_all_users():
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT username, email, faction, is_admin, clan_tag, clan_role, level, xp, credits, uridium FROM users')
+    c.execute('SELECT username, email, faction, is_admin, is_super_admin, clan_tag, clan_role, level, xp, credits, paladio FROM users')
     rows = c.fetchall()
     conn.close()
     return [{
@@ -221,12 +236,13 @@ def get_all_users():
         "email": r[1], 
         "faction": r[2], 
         "is_admin": bool(r[3]), 
-        "clan_tag": r[4], 
-        "clan_role": r[5],
-        "level": r[6],
-        "xp": r[7],
-        "credits": r[8],
-        "uridium": r[9]
+        "is_super_admin": bool(r[4]),
+        "clan_tag": r[5], 
+        "clan_role": r[6],
+        "level": r[7],
+        "xp": r[8],
+        "credits": r[9],
+        "paladio": r[10]
     } for r in rows]
 
 def delete_user(username):
@@ -238,7 +254,7 @@ def delete_user(username):
     conn.close()
     return deleted
 
-def update_user(target_username, new_username, new_email, new_faction, level=None, xp=None, credits=None, uridium=None, is_admin=None):
+def update_user(target_username, new_username, new_email, new_faction, level=None, xp=None, credits=None, paladio=None, is_admin=None, **kwargs):
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -255,12 +271,16 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
         if credits is not None:
             fields.append("credits = ?")
             params.append(credits)
-        if uridium is not None:
-            fields.append("uridium = ?")
-            params.append(uridium)
+        if paladio is not None:
+            fields.append("paladio = ?")
+            params.append(paladio)
         if is_admin is not None:
             fields.append("is_admin = ?")
             params.append(1 if is_admin else 0)
+        
+        if kwargs.get("is_super_admin") is not None:
+            fields.append("is_super_admin = ?")
+            params.append(1 if kwargs["is_super_admin"] else 0)
             
         params.append(target_username)
         query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"
@@ -274,15 +294,15 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
     finally:
         conn.close()
 
-def sync_user_stats(username, level, xp, credits, uridium):
+def sync_user_stats(username, level, xp, credits, paladio):
     conn = get_connection()
     c = conn.cursor()
     try:
         c.execute('''
             UPDATE users 
-            SET level = ?, xp = ?, credits = ?, uridium = ?
+            SET level = ?, xp = ?, credits = ?, paladio = ?
             WHERE username = ?
-        ''', (level, xp, credits, uridium, username))
+        ''', (level, xp, credits, paladio, username))
         conn.commit()
         return True
     except Exception:
@@ -673,3 +693,55 @@ def mark_message_read_db(msg_id):
         return False
     finally:
         conn.close()
+def get_user_by_email_db(email):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('SELECT username FROM users WHERE email = ?', (email,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def set_reset_token_db(username, token, expiry_str):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE username = ?', (token, expiry_str, username))
+    conn.commit()
+    conn.close()
+
+def get_user_by_token_db(token):
+    conn = get_connection()
+    c = conn.cursor()
+    # Compararemos cadenas de fecha directamente en ISO format
+    c.execute('SELECT username, reset_token_expiry FROM users WHERE reset_token = ?', (token,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
+def update_password_by_token_db(token, hashed, salt):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute('''
+        UPDATE users 
+        SET password_hash = ?, salt = ?, reset_token = NULL, reset_token_expiry = NULL 
+        WHERE reset_token = ?
+    ''', (hashed, salt, token))
+    conn.commit()
+    conn.close()
+
+def get_leaderboard_db():
+    conn = get_connection()
+    c = conn.cursor()
+    # Obtenemos usuarios ordenados por XP de forma descendente
+    c.execute('SELECT username, level, xp FROM users ORDER BY xp DESC')
+    rows = c.fetchall()
+    conn.close()
+    
+    leaderboard = []
+    for i, row in enumerate(rows):
+        leaderboard.append({
+            "rank": i + 1,
+            "username": row[0],
+            "level": row[1],
+            "xp": row[2]
+        })
+    return leaderboard

@@ -17,7 +17,7 @@ export default function Hangar({
   onNavigate,
   onReset,
   credits,
-  uridium,
+  paladio,
   minerals,
   upgrades,
   onRefine,

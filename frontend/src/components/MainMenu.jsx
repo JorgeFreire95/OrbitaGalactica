@@ -2,10 +2,13 @@ import React from 'react';
 import { SHIPS, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 
-const MainMenu = ({ user, onNavigate, onLogout, credits, uridium, xp, level, minerals, selectedShipId, equippedByShip, upgrades }) => {
+const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, minerals, selectedShipId, equippedByShip, upgrades, leaderboard = [] }) => {
   const selectedShip = SHIPS.find(s => s.id === selectedShipId) || SHIPS[0];
   const currentEquipped = equippedByShip[selectedShipId] || [];
   
+  // Get top 10 for the quick view
+  const TOP_PILOTS = leaderboard.slice(0, 10);
+
   // Calculate Ship Stats including Bonuses
   const shipStats = {
     hp: selectedShip.hp + currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0),
@@ -22,14 +25,6 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, uridium, xp, level, min
     window.open(window.location.origin + window.location.pathname + '?play=true', '_blank');
   };
 
-  // Mock Leaderboard Data
-  const TOP_PILOTS = [
-    { name: '-=Σиκi=-', rank: 1, level: 42, score: '2.506.932.185' },
-    { name: 'Иαтε Đíαʑツ', rank: 2, level: 38, score: '1.973.381.430' },
-    { name: 'Molusco', rank: 4, level: 35, score: '1.599.097.737' },
-    { name: 'ΔDONG-*300*Δ', rank: 5, level: 32, score: '1.598.652.270' },
-  ];
-
   return (
     <div className="dashboard-container">
       {/* MAIN CONTENT AREA */}
@@ -45,6 +40,9 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, uridium, xp, level, min
                 <div className="pilot-stats">
                   <div className="pilot-name">{user ? user.username : 'PILOTO_ESTELAR'}</div>
                   <div className="pilot-rank">{getRank(level)}</div>
+                  <div style={{ color: user?.faction === 'MARS' ? '#ff3333' : user?.faction === 'MOON' ? '#33ccff' : '#cc33ff', fontSize: '0.75rem', fontWeight: 'bold', marginTop: '4px' }}>
+                    {user?.faction || 'Sin Empresa'}
+                  </div>
                 </div>
               </div>
               <div style={{ fontSize: '0.8rem', color: '#888', display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
@@ -52,7 +50,7 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, uridium, xp, level, min
                 <span style={{ color: '#00ffcc' }}>{xp} XP</span>
               </div>
               <div className="xp-bar-container">
-                <div className="xp-bar-fill" style={{ width: `${Math.min(100, (xp / (level * 1000)) * 100)}%` }}></div>
+                <div className="xp-bar-fill" style={{ width: `${Math.min(100, (xp / (level * 1000 + 1000)) * 100)}%` }}></div>
               </div>
             </div>
           </div>
@@ -60,18 +58,22 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, uridium, xp, level, min
           <div className="dashboard-panel" style={{ flex: 1 }}>
             <div className="panel-header">CLASIFICACIÓN GLOBAL</div>
             <div className="panel-content" style={{ padding: '0' }}>
-              {TOP_PILOTS.map((p, i) => (
-                <div key={i} className="leaderboard-item" style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <span style={{ color: i < 3 ? '#ffcc00' : '#555', width: '20px' }}>{p.rank}</span>
-                    <span className="leaderboard-name">{p.name}</span>
+              {TOP_PILOTS.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#555', fontSize: '0.8rem' }}>Cargando datos de inteligencia...</div>
+              ) : (
+                TOP_PILOTS.map((p, i) => (
+                  <div key={i} className="leaderboard-item" style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <span style={{ color: i < 3 ? '#ffcc00' : '#555', width: '20px' }}>{p.rank}</span>
+                      <span className="leaderboard-name">{p.username}</span>
+                    </div>
+                    <span className="leaderboard-level">{p.xp.toLocaleString()} XP</span>
                   </div>
-                  <span className="leaderboard-level">Lvl {p.level}</span>
-                </div>
-              ))}
+                ))
+              )}
               <div style={{ padding: '15px', textAlign: 'center' }}>
                 <button 
-                  onClick={() => showWIP('Ranking Completo')}
+                  onClick={() => onNavigate('ranking')}
                   style={{ background: 'none', border: '1px solid #334466', color: '#88aaff', padding: '5px 15px', fontSize: '0.7rem', cursor: 'pointer', borderRadius: '4px' }}
                 >
                   VER SALÓN DE LA FAMA

@@ -8,21 +8,41 @@ body {
   background-color: #0d0d1a;
   color: white;
   font-family: 'Orbitron', 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050810;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a2a4a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00ffcc;
+  box-shadow: 0 0 10px #00ffcc;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1a2a4a #050810;
 }
 
 /* --- INDUSTRIAL HANGAR STYLES (FLEET COMMAND) --- */
 .hangar-view-container {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: #02050a;
   color: white;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .hangar-main-layout {
@@ -214,7 +234,7 @@ body {
 
 .status-display-container.hud-mode {
   position: absolute;
-  top: 0;
+  top: 15px;
   left: 0;
   right: 0;
   height: 60px;
@@ -222,7 +242,7 @@ body {
   border-bottom: 1px solid rgba(255, 204, 0, 0.1);
   display: flex;
   justify-content: space-between; /* Spread blocks to edges */
-  padding: 0 30px;
+  padding: 0 50px;
   z-index: 500;
   pointer-events: none;
 }
@@ -363,13 +383,13 @@ body {
 
 /* --- INDUSTRIAL SHOP STYLES (DARK ORBIT INSPIRED) --- */
 .shop-view-container {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: #02050a;
   color: white;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .shop-header {
@@ -675,13 +695,13 @@ canvas {
 
 /* --- DASHBOARD MODE STYLES (DARK ORBIT INSPIRED) --- */
 .dashboard-container {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: #050810;
   color: white;
-  overflow: hidden;
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -1522,4 +1542,119 @@ canvas {
 .input-field input:focus {
   border-color: #00ffcc;
   outline: none;
+}
+
+/* --- CLAN VIEW SPECIFIC CLASSES --- */
+.clan-summary-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.clan-info-row {
+  display: flex;
+  gap: 20px;
+}
+.clan-info-card {
+  flex: 1;
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #1a2a4a;
+}
+.clan-logo-card {
+  width: 150px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #1a2a4a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.clan-text-box {
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #1a2a4a;
+}
+.clan-members-view {
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #1a2a4a;
+  overflow-x: auto;
+}
+
+/* --- RESPONSIVE ADJUSTMENTS --- */
+@media (max-width: 1300px) {
+  .dashboard-body {
+    grid-template-columns: 350px 1fr;
+  }
+  .dashboard-body > section:last-child {
+    grid-column: span 2;
+    flex-direction: row !important;
+  }
+}
+
+@media (max-width: 1000px) {
+  .dashboard-body {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+  .dashboard-body > section:last-child {
+    flex-direction: column !important;
+  }
+  .management-content {
+    flex-direction: column;
+    align-items: center;
+  }
+  .management-content > div {
+    width: 100% !important;
+  }
+  .shop-main-layout {
+    flex-direction: column;
+  }
+  .shop-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    min-height: 60px;
+  }
+  .shop-preview-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #1a2a4a;
+  }
+  .clan-info-row {
+    flex-direction: column;
+  }
+  .clan-logo-card {
+    width: 100%;
+    align-items: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .user-card-grid {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+  .factions-container {
+    flex-direction: column;
+  }
+  .login-form-horizontal {
+    flex-direction: column;
+  }
+  .login-inputs {
+    width: 100%;
+    flex-direction: column;
+  }
+  .modal-body {
+    grid-template-columns: 1fr;
+  }
+  .modal-body .input-field {
+    grid-column: span 1 !important;
+  }
 }

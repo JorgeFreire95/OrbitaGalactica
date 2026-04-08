@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { drawGame } from '../utils/renderer';
 import { getRank } from '../utils/gameData';
+import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -25,7 +26,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
-  const lastSyncRef = useRef({ credits: -1, uridium: -1, xp: -1, level: -1, minerals: '' });
+  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '' });
   
   const [inviteIdText, setInviteIdText] = useState('');
   const [showPartyMenu, setShowPartyMenu] = useState(false);
@@ -52,6 +53,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
 
   // --- INPUT HANDLERS ---
   const handleKeyDown = useCallback((e) => {
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
@@ -81,6 +83,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   }, [handleJump]);
 
   const handleKeyUp = useCallback((e) => {
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
     const k = e.key.toLowerCase();
     if (k === 'w' || k === 'arrowup') keys.current.up = false;
     if (k === 's' || k === 'arrowdown') keys.current.down = false;
@@ -179,14 +182,14 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   // --- STABLE PROPS REF ---
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
-    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
-    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
+    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag,
+    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals
   });
   
   useEffect(() => {
     propsRef.current = {
-      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialMinerals, initialUpgrades, initialClan,
-      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdateMinerals
+      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag,
+      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals
     };
   });
 
@@ -210,17 +213,17 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       
       ws.onopen = () => {
         if (!isMounted) return ws.close();
-        let userId = propsRef.current.user?.username || localStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
-        localStorage.setItem('orbita_galactica_user_id', userId);
+        let userId = propsRef.current.user?.username || sessionStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
+        sessionStorage.setItem('orbita_galactica_user_id', userId);
         
         const p = propsRef.current;
         ws.send(JSON.stringify({ 
           type: 'join', userId, ship_type: p.selectedShip,
           modules: p.initialModules, initial_ammo: p.initialAmmo,
           level: p.initialLevel, xp: p.initialXp, credits: p.initialCredits,
-          initialUridium: propsRef.current.initialUridium,
+          initialPaladio: propsRef.current.initialPaladio,
           minerals: p.initialMinerals, upgrades: p.initialUpgrades,
-          clan: p.initialClan
+          clan: p.initialClan, clanTag: p.initialClanTag
         }));
       };
 
@@ -244,9 +247,9 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 p.onUpdateCredits(me.credits);
                 last.credits = me.credits;
             }
-            if (p.onUpdateUridium && me.uridium !== last.uridium) {
-                p.onUpdateUridium(me.uridium);
-                last.uridium = me.uridium;
+            if (p.onUpdatePaladio && me.paladio !== last.paladio) {
+                p.onUpdatePaladio(me.paladio);
+                last.paladio = me.paladio;
             }
             if (p.onUpdateProgress && (me.level !== last.level || me.xp !== last.xp)) {
                 p.onUpdateProgress(me.level, me.xp);
@@ -295,6 +298,15 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     const renderLoop = () => {
       const now = Date.now();
       if (wsRef.current?.readyState === WebSocket.OPEN && now - lastInputTime > 50) {
+        // --- CLEAN ARRIVAL: Limpieza de destino si ya llegamos ---
+        const me = gameStateRef.current?.players?.find(p => p.is_self);
+        if (me && keys.current.target_x !== null && keys.current.target_y !== null) {
+          const distToTarget = Math.hypot(me.x - keys.current.target_x, me.y - keys.current.target_y);
+          if (distToTarget < 10) {
+            keys.current.target_x = null;
+            keys.current.target_y = null;
+          }
+        }
         wsRef.current.send(JSON.stringify({ type: 'input', keys: keys.current }));
         lastInputTime = now;
       }
@@ -386,10 +398,9 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     <div className="status-item"><span style={{ color: '#ffcc00' }}>🔋</span><span className="status-value">{me.credits.toLocaleString()} CR</span></div>
                     <div className="status-item"><span style={{ color: '#00ffcc' }}>🎖️</span><span className="status-value">Lvl {me.level}</span></div>
                     <div className="status-item" style={{ background: 'rgba(100,0,200,0.1)', borderLeft: '2px solid #cc33ff' }}>
-                        <span style={{ color: '#cc33ff' }}>💎</span>
-                        <span className="status-value">{me.uridium.toLocaleString()} URI</span>
+                        <span style={{ color: '#cc33ff' }}>🪐</span>
+                        <span className="status-value">{me.paladio.toLocaleString()} PAL</span>
                     </div>
-                    <div className="status-item"><span>🎯</span><span className="status-value">{me.score.toLocaleString()} PTS</span></div>
                 </div>
                 <div className="status-block hud-variant">
                     <div className="status-item"><span>❤️</span><span className="status-value">{Math.floor(me.hp).toLocaleString()}</span></div>
@@ -499,7 +510,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                  <div style={{ display: 'flex', gap: '8px', pointerEvents: 'none' }}>
                   {me.minerals && Object.entries(me.minerals).map(([type, amount]) => amount > 0 && (
                     <div key={type} className="hud-item" style={{ fontSize: '0.65rem', padding: '1px 6px', background: 'rgba(0,0,0,0.6)' }}>
-                      {type === 'titanium' ? '💎' : type === 'plutonium' ? '🏮' : '💾'} {amount}
+                      {type === 'titanium' ? '🪐' : type === 'plutonium' ? '🏮' : '💾'} {amount}
                     </div>
                   ))}
                 </div>
@@ -537,6 +548,12 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           </>
         )}
       </div>
+      <ChatBox 
+        socket={wsRef.current} 
+        user={user} 
+        playerFaction={initialClan} 
+        clanTag={initialClanTag} 
+      />
     </>
   );
 }

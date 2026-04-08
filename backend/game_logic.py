@@ -1,6 +1,7 @@
 import math
 import random
 import time
+from database import sync_user_stats
 
 class GameState:
     def __init__(self):
@@ -26,16 +27,188 @@ class GameState:
         self.GAME_WIDTH = 10000
         self.GAME_HEIGHT = 8000
         
-        # --- PORTALES Y MAPAS ---
-        self.PORTAL_ALFA_X = 9000
-        self.PORTAL_ALFA_Y = 7000
-        self.PORTAL_BETA_X = 1000
-        self.PORTAL_BETA_Y = 1000
+        # --- PORTALES Y MAPAS (SISTEMA DINÁMICO) ---
         self.PORTAL_RADIUS = 150
         self.PORTAL_SAFE_ZONE_RADIUS = 350
+        
+        # Coordenadas Estándar para Portales (Esquinas Diagonales)
+        # Portal A: Superior Izquierda (Entrada/Retorno)
+        # Portal B: Inferior Derecha (Avance)
+        PA_X, PA_Y = 500, 500
+        PB_X, PB_Y = 9500, 7500
+
         self.MAPS = {
-            "galaxy_1": {"name": "Sector Alfa", "level": 1},
-            "galaxy_2": {"name": "Sector Beta", "level": 2}
+            # --- FACCIÓN MARS (Mapa Inicial: Sector de Hierro) ---
+            "mars_1": {
+                "name": "Sector de Hierro", "level": 1, "style": "mars",
+                "portals": [
+                    {"x": PB_X, "y": PB_Y, "target": "mars_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cañón del Óxido"},
+                    {"x": 1000, "y": 7000, "target": "moon_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Bahía de Selene"},
+                    {"x": 1000, "y": 1000, "target": "pluto_1",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Abismo de Caronte"}
+                ]
+            },
+            "mars_2": {
+                "name": "Cañón del Óxido", "level": 2, "style": "mars",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_1", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Sector de Hierro"},
+                    {"x": PB_X, "y": PB_Y, "target": "mars_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Fundición Ares"}
+                ]
+            },
+            "mars_3": {
+                "name": "Fundición Ares", "level": 3, "style": "mars",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_2", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cañón del Óxido"},
+                    {"x": PB_X, "y": PB_Y, "target": "mars_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Valles de Magma"}
+                ]
+            },
+            "mars_4": {
+                "name": "Valles de Magma", "level": 4, "style": "mars_hazard",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Fundición Ares"},
+                    {"x": PB_X, "y": PB_Y, "target": "mars_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Base Dust-Storm"}
+                ]
+            },
+            "mars_5": {
+                "name": "Base Dust-Storm", "level": 5, "style": "mars_storm",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Valles de Magma"},
+                    {"x": PB_X, "y": PB_Y, "target": "mars_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cantera Olympus"}
+                ]
+            },
+            "mars_6": {
+                "name": "Cantera Olympus", "level": 6, "style": "mars",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_5", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Base Dust-Storm"},
+                    {"x": PB_X, "y": PB_Y, "target": "mars_7", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Puesto Phobos"}
+                ]
+            },
+            "mars_7": {
+                "name": "Puesto de Avanzada Phobos", "level": 7, "style": "mars",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_6", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cantera Olympus"},
+                    {"x": PB_X, "y": PB_Y, "target": "mars_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Plataforma Asedio"}
+                ]
+            },
+            "mars_8": {
+                "name": "Plataforma de Asedio", "level": 8, "style": "mars_industrial",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "mars_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Puesto Phobos"}
+                ]
+            },
+            # --- FACCIÓN MOON (Mapa Inicial: Bahía de Selene) ---
+            "moon_1": {
+                "name": "Bahía de Selene", "level": 1, "style": "moon",
+                "portals": [
+                    {"x": PB_X, "y": PB_Y, "target": "moon_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cráter de Cristal"},
+                    {"x": 1000, "y": 7000, "target": "mars_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Sector de Hierro"},
+                    {"x": 1000, "y": 1000, "target": "pluto_1",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Abismo de Caronte"}
+                ]
+            },
+            "moon_2": {
+                "name": "Cráter de Cristal", "level": 2, "style": "moon_crystal",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_1", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Bahía de Selene"},
+                    {"x": PB_X, "y": PB_Y, "target": "moon_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Estación Zenit"}
+                ]
+            },
+            "moon_3": {
+                "name": "Estación de Relevo Zenit", "level": 3, "style": "moon_tech",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_2", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cráter de Cristal"},
+                    {"x": PB_X, "y": PB_Y, "target": "moon_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Mar de la Tranquilidad"}
+                ]
+            },
+            "moon_4": {
+                "name": "Mar de la Tranquilidad", "level": 4, "style": "moon_minimal",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Zenit"},
+                    {"x": PB_X, "y": PB_Y, "target": "moon_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Observatorio L-1"}
+                ]
+            },
+            "moon_5": {
+                "name": "Observatorio L-1", "level": 5, "style": "moon_space",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Mar de la Tranquilidad"},
+                    {"x": PB_X, "y": PB_Y, "target": "moon_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Domos de Biodiversidad"}
+                ]
+            },
+            "moon_6": {
+                "name": "Domos de Biodiversidad", "level": 6, "style": "moon_biodome",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_5", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Observatorio L-1"},
+                    {"x": PB_X, "y": PB_Y, "target": "moon_7", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Refinería Helio-3"}
+                ]
+            },
+            "moon_7": {
+                "name": "Refinería de Helio-3", "level": 7, "style": "moon_industrial",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_6", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Domos de Biodiversidad"},
+                    {"x": PB_X, "y": PB_Y, "target": "moon_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Anillo de Plata"}
+                ]
+            },
+            "moon_8": {
+                "name": "Anillo de Plata", "level": 8, "style": "moon_racing",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "moon_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Refinería Helio-3"}
+                ]
+            },
+            # --- FACCIÓN PLUTO (Mapa Inicial: Abismo de Caronte) ---
+            "pluto_1": {
+                "name": "Abismo de Caronte", "level": 1, "style": "pluto",
+                "portals": [
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_2",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Glaciar Eterno"},
+                    {"x": 1000, "y": 7000, "target": "mars_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Sector de Hierro"},
+                    {"x": 1000, "y": 1000, "target": "moon_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Bahía de Selene"}
+                ]
+            },
+            "pluto_2": {
+                "name": "Glaciar Eterno", "level": 2, "style": "pluto_ice",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_1", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Abismo Caronte"},
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Nébula Cobalto"}
+                ]
+            },
+            "pluto_3": {
+                "name": "Nébula de Cobalto", "level": 3, "style": "pluto_nebula",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_2", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Glaciar Eterno"},
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Punta Horizonte"}
+                ]
+            },
+            "pluto_4": {
+                "name": "Punta del Horizonte", "level": 4, "style": "pluto_void",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Nébula Cobalto"},
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cripta Escarcha"}
+                ]
+            },
+            "pluto_5": {
+                "name": "Cripta de Escarcha", "level": 5, "style": "pluto_ancient",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Punta Horizonte"},
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Vórtice Sombrío"}
+                ]
+            },
+            "pluto_6": {
+                "name": "Vórtice Sombrío", "level": 6, "style": "pluto_vortex",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_5", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cripta Escarcha"},
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_7", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Estación Exilio"}
+                ]
+            },
+            "pluto_7": {
+                "name": "Estación Exilio", "level": 7, "style": "pluto_prison",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_6", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Vórtice Sombrío"},
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Resplandor Hielo"}
+                ]
+            },
+            "pluto_8": {
+                "name": "Resplandor de Hielo", "level": 8, "style": "pluto_glow",
+                "portals": [
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Exilio"}
+                ]
+            }
         }
         
         # --- PERSISTENCIA DE SESIÓN ---
@@ -50,7 +223,7 @@ class GameState:
             for _ in range(5):
                 self.spawn_special_chest(map_id)
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_uridium=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, clan=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None):
         self.clients[client_id] = websocket
         
         # Stats and Slot profiles
@@ -105,6 +278,10 @@ class GameState:
             "atk": prof["atk"],
             "spd": prof["spd"],
             "color": prof["color"],
+            "x": 1600, # Posición inicial segura
+            "y": 1050,
+            "target_x": None,
+            "target_y": None,
             "score": 0,
             "credits": initial_credits, 
             "last_shot": 0,
@@ -123,9 +300,10 @@ class GameState:
             "minerals": initial_minerals if initial_minerals else {"titanium": 0, "plutonium": 0, "silicon": 0},
             "max_cargo": prof.get("cargo_capacity", 50),
             "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0},
-            "current_map": "galaxy_1",
-            "uridium": 0,
-            "clan": clan
+            "current_map": "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"),
+            "paladio": initial_paladio,
+            "faction": faction, # Mars, Moon, Pluto
+            "clan_tag": clan_tag  # User created clan (e.g. [ABC])
         }
         
         # Apply permanent upgrades to base stats
@@ -149,31 +327,35 @@ class GameState:
             saved = self.player_persistence[user_id]
             player["x"] = saved.get("x", 1600)
             player["y"] = saved.get("y", 1050)
-            player["current_map"] = saved.get("current_map", "galaxy_1")
+            player["current_map"] = saved.get("current_map", "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"))
+            
+            # Use provided faction/clan if they are fresh, else use saved
+            player["faction"] = faction
+            player["clan_tag"] = clan_tag
             
             # Sincronización inteligente de Monedas:
-            # Si el frontend envía menos créditos/uridium que los guardados, 
+            # Si el frontend envía menos créditos/paladio que los guardados, 
             # asumimos que acaba de comprar algo en la tienda (offline) y usamos el valor del frontend.
             if initial_credits < saved.get("credits", initial_credits):
                 player["credits"] = initial_credits
             else:
                 player["credits"] = saved.get("credits", initial_credits)
             
-            if initial_uridium < saved.get("uridium", initial_uridium):
-                player["uridium"] = initial_uridium
+            if initial_paladio < saved.get("paladio", initial_paladio):
+                player["paladio"] = initial_paladio
             else:
-                player["uridium"] = saved.get("uridium", initial_uridium)
+                player["paladio"] = saved.get("paladio", initial_paladio)
             
             # Restaurar XP/Nivel si existen (Preferimos el backend si no hay discrepancia masiva)
             player["xp"] = saved.get("xp", initial_xp)
             player["level"] = saved.get("level", initial_level)
             
-            print(f"Restaurando Sesión para {user_id}: Map={player['current_map']}, Credits={player['credits']}, Uridium={player['uridium']}")
+            print(f"Restaurando Sesión para {user_id}: Map={player['current_map']}, Credits={player['credits']}, Paladio={player['paladio']}")
         else:
             # Si no hay persistencia en memoria del servidor, usamos los valores iniciales del cliente
             player["credits"] = initial_credits
-            player["uridium"] = initial_uridium
-            print(f"Nueva sesión (o servidor reiniciado) para {user_id}: Usando valores del cliente ({initial_credits} C, {initial_uridium} U).")
+            player["paladio"] = initial_paladio
+            print(f"Nueva sesión (o servidor reiniciado) para {user_id}: Usando valores del cliente ({initial_credits} C, {initial_paladio} U).")
         
         player["party_id"] = None
         self.players[client_id] = player
@@ -191,8 +373,8 @@ class GameState:
                 self.player_persistence[user_id] = {
                     "x": player["x"],
                     "y": player["y"],
-                    "current_map": player.get("current_map", "galaxy_1"),
-                    "uridium": player.get("uridium", 0),
+                    "current_map": player.get("current_map", "pluto_1" if player.get("clan") == "PLUTO" else ("moon_1" if player.get("clan") == "MOON" else "mars_1")),
+                    "paladio": player.get("paladio", 0),
                     "credits": player.get("credits", 0),
                     "xp": player.get("xp", 0),
                     "level": player.get("level", 1),
@@ -202,6 +384,8 @@ class GameState:
                     "last_save": time.time()
                 }
                 print(f"Guardando persistencia para {user_id}: Credits={player['credits']}, Map={player['current_map']}")
+                # Persistencia en BD real
+                sync_user_stats(user_id, player["level"], player["xp"], player["credits"], player.get("paladio", 0))
                 
             del self.players[client_id]
             
@@ -222,6 +406,14 @@ class GameState:
             target_y = None
             player["target_x"] = None # Persistencia en el objeto player si existiera
             player["target_y"] = None
+        
+        # Sincronización de destino de mouse persistente
+        if "target_x" in keys: player["target_x"] = keys["target_x"]
+        if "target_y" in keys: player["target_y"] = keys["target_y"]
+        
+        # Usar los valores persistentes del objeto player para la navegación
+        nav_x = player.get("target_x")
+        nav_y = player.get("target_y")
 
         # PERSISTENCIA MEJORADA: Solo actualizar si la clave está presente
         if "locked_target_id" in keys:
@@ -230,34 +422,20 @@ class GameState:
         locked_id = player.get("locked_target_id")
         MAX_COMBAT_RANGE = 700
         player["in_range"] = True
+        target_enemy = None
 
         if locked_id:
-            # Si hay un objetivo fijado, buscarlo
-            target_enemy = next((e for e in self.enemies if e["id"] == locked_id), None)
+            # Si hay un objetivo fijado, buscarlo (EN EL MISMO MAPA)
+            target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
             if target_enemy:
                 # Calcular distancia al objetivo
                 dist = math.hypot(target_enemy["x"] - player["x"], target_enemy["y"] - player["y"])
                 if dist > MAX_COMBAT_RANGE:
                     player["in_range"] = False
-                
-                # Si estamos disparando y EN RANGO, apuntar al objetivo automáticamente
-                if keys.get("shoot") and player["in_range"]:
-                    dx = target_enemy["x"] - player["x"]
-                    dy = target_enemy["y"] - player["y"]
-                    # Suavizado de rotación (opcional, por ahora directo)
-                    player["heading"] = math.atan2(dy, dx)
             else:
                 # El objetivo murió o desapareció
                 player["locked_target_id"] = None
         
-        # Si NO hay objetivo fijado pero sí destino de movimiento, apuntar al destino
-        if not locked_id and target_x is not None and target_y is not None:
-            dx = target_x - player["x"]
-            dy = target_y - player["y"]
-            dist_sq = dx*dx + dy*dy
-            if dist_sq > 25:
-                player["heading"] = math.atan2(dy, dx)
-
         # Shooting Toggle / Logic
         is_shooting = keys.get("shoot", False)
         
@@ -270,9 +448,33 @@ class GameState:
         
         # Override: si el target murió o está FUERA DE RANGO, obligar a que shoot_active sea False
         if locked_id:
-            target_exists = next((e for e in self.enemies if e["id"] == locked_id), None)
+            target_exists = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
             if not target_exists or not player.get("in_range", True):
                 player["shoot_active"] = False
+
+        # --- LÓGICA DE ORIENTACIÓN (HEADING) ---
+        new_heading = None
+
+        # Prioridad 1: Mirar al Objetivo si disparo activamente (SOLO SI HAY TARGET Y ESTÁ EN RANGO)
+        # IMPORTANTE: Usar el estado de disparo actualizado para este frame (Sincronización Crítica)
+        if player.get("shoot_active") and target_enemy:
+            dx = target_enemy["x"] - player["x"]
+            dy = target_enemy["y"] - player["y"]
+            new_heading = math.atan2(dy, dx)
+        
+        # Prioridad 2: Mirar hacia donde me muevo (Mouse o WASD)
+        elif nav_x is not None and nav_y is not None:
+            dx = nav_x - player["x"]
+            dy = nav_y - player["y"]
+            if dx*dx + dy*dy > 25:
+                new_heading = math.atan2(dy, dx)
+            else:
+                # Llegamos al destino: limpiar navegación
+                player["target_x"] = None
+                player["target_y"] = None
+        
+        if new_heading is not None:
+            player["heading"] = new_heading
 
         # Movement Calculation
         vx = 0
@@ -281,10 +483,10 @@ class GameState:
         if player["powerup"] == "speed":
             speed *= 1.5
 
-        if target_x is not None and target_y is not None:
+        if nav_x is not None and nav_y is not None:
             # Mouse point-and-click movement
-            dx = target_x - player["x"]
-            dy = target_y - player["y"]
+            dx = nav_x - player["x"]
+            dy = nav_y - player["y"]
             dist = math.sqrt(dx*dx + dy*dy)
             
             if dist > 5.0: # Threshold to stop exactly at target
@@ -293,6 +495,8 @@ class GameState:
             else:
                 vx = 0
                 vy = 0
+                player["target_x"] = None
+                player["target_y"] = None
         else:
             # WASD movement
             if keys.get("up"): vy -= speed
@@ -306,7 +510,8 @@ class GameState:
                 vx = (vx/norm) * speed
                 vy = (vy/norm) * speed
                 # --- ACTUALIZAR HEADING CON TECLADO ---
-                if not locked_id:
+                # Prioridad sobre el mouse si estamos usando teclas, pero cede si disparamos a un target
+                if not (player.get("shoot_active") and player.get("locked_target_id")):
                     player["heading"] = math.atan2(vy, vx)
             
         player["vx"] = vx
@@ -386,9 +591,9 @@ class GameState:
                     "missile_3": {"dmg": atk * 35.0, "spd": 500}  # Equiv a 3500 si atk=100
                 }
                 conf = m_config.get(m_type)
-                # Determinar dirección del misil: al objetivo o al frente
+                # Determinar dirección del misil: al objetivo o al frente (SOLO SI EL OBJETIVO ESTÁ EN EL MISMO MAPA)
                 locked_id = player.get("locked_target_id")
-                target_enemy = next((e for e in self.enemies if e["id"] == locked_id), None) if locked_id else None
+                target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None) if locked_id else None
                 
                 if target_enemy:
                     dx = target_enemy["x"] - player["x"]
@@ -419,7 +624,8 @@ class GameState:
         if now - self.last_alien_spawn > self.alien_spawn_rate:
             for map_id in self.MAPS:
                 map_enemies = [e for e in self.enemies if e.get("map_id") == map_id]
-                if len(map_enemies) < self.max_enemies // 2: # Repartir límite entre mapas
+                # Límite dinámico para evitar LAG en universo de 24 mapas
+                if len(map_enemies) < 6: 
                     self.spawn_alien(map_id)
             # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
             self.last_alien_spawn = now
@@ -453,18 +659,40 @@ class GameState:
                 p["powerup"] = None
                 
             # --- DETECCIÓN DE ZONA SEGURA (BASE Y PORTAL) ---
-            # La base solo existe en el Sector Alfa (Mapa 1)
+            # La base existe en Sector de Hierro, Bahía de Selene y Abismo de Caronte
             in_base_safety = False
-            if p["current_map"] == "galaxy_1":
+            if p["current_map"] in ["mars_1", "moon_1", "pluto_1"]:
                 dist_to_base = math.hypot(p["x"] - self.BASE_X, p["y"] - self.BASE_Y)
                 in_base_safety = dist_to_base < self.SAFE_ZONE_RADIUS
             
-            # Localizar el portal del mapa actual
-            px = self.PORTAL_ALFA_X if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_X
-            py = self.PORTAL_ALFA_Y if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_Y
-            dist_to_portal = math.hypot(p["x"] - px, p["y"] - py)
+            # Localizar portales del mapa actual
+            map_cfg = self.MAPS.get(p["current_map"], {})
+            in_portal_safety = False
+            for portal in map_cfg.get("portals", []):
+                dist_to_portal = math.hypot(p["x"] - portal["x"], p["y"] - portal["y"])
+                if dist_to_portal < self.PORTAL_SAFE_ZONE_RADIUS:
+                    in_portal_safety = True
+                    break
             
-            p["in_safe_zone"] = in_base_safety or dist_to_portal < self.PORTAL_SAFE_ZONE_RADIUS
+            p["in_safe_zone"] = in_base_safety or in_portal_safety
+
+            # --- DAÑO AMBIENTAL DESACTIVADO (Lava eliminada por feedback de visibilidad) ---
+            # if map_cfg.get("style") == "mars_hazard" and not p["in_safe_zone"]:
+            #     if random.random() < 0.1:
+            #         dmg = 10 * (map_cfg.get("level", 1) / 2)
+            #         p["last_dmg_time"] = now
+            #         if p["shld"] >= dmg:
+            #             p["shld"] -= dmg
+            #         else:
+            #             rem = dmg - p["shld"]
+            #             p["shld"] = 0
+            #             p["hp"] -= rem
+            #         self.damage_events.append({
+            #             "id": f"lava_{random.random()}",
+            #             "x": p["x"] + random.randint(-20, 20),
+            #             "y": p["y"] + random.randint(-20, 20),
+            #             "amount": int(dmg), "time": now, "owner_id": pid
+            #         })
                 
             if p.get("locked_target_id"):
                 target_exists = any(en["id"] == p["locked_target_id"] for en in self.enemies)
@@ -511,6 +739,7 @@ class GameState:
             if p["is_player"]:
                 # Check contra aliens
                 for e in self.enemies:
+                    if p.get("map_id") != e.get("map_id"): continue
                     dist = math.hypot(p["x"] - e["x"], p["y"] - e["y"])
                     if dist < 20 or (p.get("is_missile") and dist < 45): # Radio colisión mayor para misiles
                         # Solo aplicar daño si NO es munición Sifón
@@ -607,6 +836,8 @@ class GameState:
                 for pid, target in self.players.items():
                     if p["owner_id"] == pid: continue # No friendly fire
                     if target["hp"] <= 0: continue
+                    if p.get("map_id") != target.get("current_map"): continue # FIX: Map check
+
                     dist = math.hypot(p["x"] - target["x"], p["y"] - target["y"])
                     if dist < 20:
                         damage = p["damage"]
@@ -640,6 +871,7 @@ class GameState:
                 
             for pid, player in self.players.items():
                 if player["hp"] <= 0: continue
+                if box.get("map_id") != player.get("current_map"): continue # FIX: Map check
                 dist = math.hypot(box["x"] - player["x"], box["y"] - player["y"])
                 if dist < 30: # 15 box width + 15 player size
                     taken = True
@@ -667,7 +899,7 @@ class GameState:
                         else:
                             taken = False # No pudo recoger nada porque está lleno
                     elif box["type"] == "special_coin":
-                        # --- RECOMPENSA ALEATORIA URIDIUM/CRÉDITOS/MUNICIÓN ---
+                        # --- RECOMPENSA ALEATORIA PALADIO/CRÉDITOS/MUNICIÓN ---
                         rand = random.random()
                         if rand < 0.40: # 40% Créditos
                             amt = random.randint(1000, 5000)
@@ -688,9 +920,9 @@ class GameState:
                                 "type": "ammo", "ammo_type": ammo_id, "amount": amt,
                                 "time": now, "owner_id": pid
                             })
-                        else: # 20% Uridium
+                        else: # 20% Paladio
                             amt = random.randint(2, 10)
-                            player["uridium"] = player.get("uridium", 0) + amt
+                            player["paladio"] = player.get("paladio", 0) + amt
                             self.loot_events.append({
                                 "id": str(random.random()),
                                 "x": box["x"], "y": box["y"],
@@ -717,6 +949,9 @@ class GameState:
         for e in self.enemies:
             for pid, p in self.players.items():
                 if p["hp"] <= 0 or p.get("in_safe_zone", False): continue
+                # FIX: Solo colisionar si están en el mismo mapa
+                if e.get("map_id") != p["current_map"]: continue
+                
                 dist = math.hypot(e["x"] - p["x"], e["y"] - p["y"])
                 if dist < 25:
                     damage = 10
@@ -731,27 +966,38 @@ class GameState:
                     e["hp"] -= 50 # El alien también sufre daño
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
-    def spawn_alien(self, map_id="galaxy_1"):
-        is_beta = map_id == "galaxy_2"
+    def spawn_alien(self, map_id="mars_1"):
+        # Escalamiento de dificultad basado en el nivel del mapa
+        map_info = self.MAPS.get(map_id, {"level": 1})
+        lvl = map_info["level"]
+        level_mult = 1.0 + (lvl - 1) * 0.35 # +35% por nivel extra (más agresivo)
+        speed_mult = 1.0 + (lvl - 1) * 0.15 # Los aliens son más rápidos en niveles altos
         
-        hp = 150 if is_beta else 50
-        shield = 100 if is_beta else 30
+        alien_id = str(random.random())
+        # Más chance de aliens "Hard" a medida que sube el nivel del mapa
+        is_hard = map_id not in ["mars_1", "moon_1", "pluto_1"] and random.random() < (0.20 + (lvl * 0.08))
+        
+        # Base stats
+        base_hp = 120 * level_mult
+        base_shld = 60 * level_mult
+        base_atk = 18 * level_mult
         
         self.enemies.append({
-            "id": str(random.random()),
+            "id": alien_id,
             "x": random.randint(100, self.GAME_WIDTH - 100),
             "y": random.randint(100, self.GAME_HEIGHT - 100),
-            "vx": random.uniform(-60, 60),
-            "vy": random.uniform(-60, 60),
-            "hp": hp,
-            "max_hp": hp,
-            "shield": shield,
-            "max_shield": shield,
+            "hp": int(base_hp * (2.8 if is_hard else 1.0)),
+            "max_hp": int(base_hp * (2.8 if is_hard else 1.0)),
+            "shield": int(base_shld * (3.5 if is_hard else 1.0)),
+            "max_shield": int(base_shld * (3.5 if is_hard else 1.0)),
+            "atk": int(base_atk * (2.2 if is_hard else 1.0)),
+            "vx": random.uniform(-60, 60) * speed_mult,
+            "vy": random.uniform(-60, 60) * speed_mult,
             "map_id": map_id,
-            "is_elite": is_beta
+            "is_hard": is_hard
         })
 
-    def spawn_special_chest(self, map_id="galaxy_1"):
+    def spawn_special_chest(self, map_id="mars_1"):
         # Spawnear un cofre en una posición totalmente aleatoria
         self.loot_boxes.append({
             "id": "special_" + str(random.random()),
@@ -842,32 +1088,28 @@ class GameState:
             return
         
         p = self.players[client_id]
-        # Localizar el portal del mapa actual
-        px = self.PORTAL_ALFA_X if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_X
-        py = self.PORTAL_ALFA_Y if p["current_map"] == "galaxy_1" else self.PORTAL_BETA_Y
-        dist_to_portal = math.hypot(p["x"] - px, p["y"] - py)
-        
-        # Debe estar dentro del radio del portal para activarlo
-        if dist_to_portal < self.PORTAL_RADIUS:
-            if p["current_map"] == "galaxy_1":
-                p["current_map"] = "galaxy_2"
-                # Aparecer cerca del portal de retorno en Beta
-                p["x"] = self.PORTAL_BETA_X + 220
-                p["y"] = self.PORTAL_BETA_Y + 220
-            else:
-                p["current_map"] = "galaxy_1"
-                # Volver cerca del portal en el Sector Alfa
-                p["x"] = self.PORTAL_ALFA_X - 220
-                p["y"] = self.PORTAL_ALFA_Y - 220
+        map_info = self.MAPS.get(p["current_map"])
+        if not map_info or "portals" not in map_info:
+            return False
             
-            # --- RESETEO DE MOVIMIENTO Y BLOQUEO TEMPORAL ---
-            p["vx"] = 0
-            p["vy"] = 0
-            p["target_x"] = None
-            p["target_y"] = None
-            p["last_jump_time"] = time.time()
-            
-            return True
+        # Revisar si colisiona con cualquier portal del mapa actual
+        for portal in map_info["portals"]:
+            dist = math.hypot(p["x"] - portal["x"], p["y"] - portal["y"])
+            if dist < self.PORTAL_RADIUS:
+                # Realizar el JUMP
+                p["current_map"] = portal["target"]
+                p["x"] = portal["tx"]
+                p["y"] = portal["ty"]
+                
+                # Reset movement and target
+                p["vx"] = 0
+                p["vy"] = 0
+                p["target_x"] = None
+                p["target_y"] = None
+                p["locked_target_id"] = None
+                p["shoot_active"] = False
+                p["last_jump_time"] = time.time()
+                return True
         return False
 
     def get_state(self, client_id=None):
@@ -877,10 +1119,10 @@ class GameState:
         if client_id and client_id in self.players:
             me = self.players[client_id]
             m_id = me["current_map"]
+            map_info = self.MAPS.get(m_id, {"name": "Espacio", "level": 1})
             
-            # Portal dinámico según el mapa
-            px = self.PORTAL_ALFA_X if m_id == "galaxy_1" else self.PORTAL_BETA_X
-            py = self.PORTAL_ALFA_Y if m_id == "galaxy_1" else self.PORTAL_BETA_Y
+            # Portales dinámicos según el mapa
+            portals = map_info.get("portals", [])
 
             return {
                 "players": [{**p, "is_self": p["id"] == client_id} for p in players_list if p["current_map"] == m_id],
@@ -889,9 +1131,10 @@ class GameState:
                 "loot_boxes": [b for b in self.loot_boxes if b.get("map_id") == m_id],
                 "kill_events": [e for e in self.kill_events if e.get("owner_id") == client_id],
                 "loot_events": [e for e in self.loot_events if e.get("owner_id") == client_id],
-                "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS} if m_id == "galaxy_1" else None,
-                "portal": {"x": px, "y": py, "radius": self.PORTAL_RADIUS, "target": "galaxy_2" if m_id == "galaxy_1" else "galaxy_1"},
-                "current_map_name": self.MAPS[m_id]["name"],
+                "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS} if m_id in ["mars_1", "moon_1", "pluto_1"] else None,
+                "portals": portals,
+                "current_map_name": map_info["name"],
+                "current_map_style": map_info.get("style", "space"),
                 "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id],
                 "party": self.parties.get(me.get("party_id")) if me.get("party_id") else None,
                 "party_invites": self.party_invites.get(client_id, {})
@@ -905,8 +1148,7 @@ class GameState:
             "kill_events": self.kill_events,
             "loot_events": self.loot_events,
             "damage_events": self.damage_events,
-            "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS},
-            "portal": {"x": self.PORTAL_ALFA_X, "y": self.PORTAL_ALFA_Y, "radius": self.PORTAL_RADIUS}
+            "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS}
         }
 
     # --- PARTY METHODS ---
@@ -980,3 +1222,52 @@ class GameState:
             del self.parties[party_id]
         elif party["leader"] == client_id:
             party["leader"] = party["members"][0]
+    def handle_chat(self, sender_id, text, channel="global"):
+        if sender_id not in self.players:
+            return
+            
+        sender = self.players[sender_id]
+        sender_name = sender.get("user_id", "Desconocido")
+        # Si tiene clan_tag, mostrarlo: [TAG] Nombre
+        display_name = f"[{sender['clan_tag']}] {sender_name}" if sender.get("clan_tag") else sender_name
+        
+        chat_msg = {
+            "type": "chat_update",
+            "message": {
+                "id": str(random.random()),
+                "sender": sender_name,
+                "display_name": display_name,
+                "text": text,
+                "channel": channel,
+                "faction": sender["faction"],
+                "time": time.time()
+            }
+        }
+        
+        # Broadcast logic
+        import json
+        msg_str = json.dumps(chat_msg)
+        
+        # Use a separate thread or non-blocking way if possible, 
+        # but since we are in the main loop context, we use the websockets directly.
+        for pid, ws in list(self.clients.items()):
+            target_p = self.players.get(pid)
+            if not target_p: continue
+            
+            should_send = False
+            if channel == "global":
+                should_send = True
+            elif channel == "company" and target_p["faction"] == sender["faction"]:
+                should_send = True
+            elif channel == "clan" and sender.get("clan_tag") and target_p.get("clan_tag") == sender["clan_tag"]:
+                should_send = True
+                
+            if should_send:
+                try:
+                    import asyncio
+                    # Use the current event loop to schedule sending
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        loop.create_task(ws.send_text(msg_str))
+                except Exception as e:
+                    print(f"Error sending chat: {e}")
