@@ -1291,3 +1291,235 @@ canvas {
   from { opacity: 0; transform: translateY(-20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+/* --- TACTICAL ADMIN DASHBOARD --- */
+.admin-view-container {
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at 50% 0%, #1a1a3a 0%, #02050a 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  overflow: hidden;
+  position: relative;
+}
+
+.admin-glass-panel {
+  flex: 1;
+  background: rgba(13, 20, 36, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.admin-toolbar {
+  padding: 20px 30px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-search-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #334466;
+  border-radius: 8px;
+  padding: 10px 20px;
+  color: white;
+  width: 300px;
+  font-family: inherit;
+  transition: all 0.3s;
+}
+
+.admin-search-input:focus {
+  border-color: #00ffcc;
+  box-shadow: 0 0 15px rgba(0,255,204,0.2);
+  outline: none;
+}
+
+.user-card-grid {
+  flex: 1;
+  padding: 30px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.admin-user-card {
+  background: rgba(26, 42, 74, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.admin-user-card:hover {
+  border-color: #00ffcc;
+  background: rgba(26, 42, 74, 0.8);
+  transform: translateY(-5px);
+  box-shadow: 0 5px 20px rgba(0,255,204,0.1);
+}
+
+.admin-user-card.is-admin {
+  border-color: #ffcc0044;
+}
+
+.user-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.user-card-main {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.user-avatar-circle {
+  width: 50px;
+  height: 50px;
+  background: #000;
+  border: 1px solid #334466;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #00ffcc;
+  text-transform: uppercase;
+}
+
+.user-info-text h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.user-info-text p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.card-stats-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stat-pill {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  padding: 8px;
+  border-radius: 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-pill-label { font-size: 0.6rem; color: #555; text-transform: uppercase; }
+.stat-pill-value { font-size: 0.85rem; font-weight: bold; }
+
+.xp-progress-container {
+  width: 100%;
+  padding: 10px 0;
+}
+
+.xp-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  margin-bottom: 5px;
+  color: #aaa;
+}
+
+/* MODAL STYLES */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-modal-content {
+  background: #0d1424;
+  border: 1px solid #00ffcc;
+  width: 100%;
+  max-width: 600px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,255,204,0.2);
+  animation: modalScale 0.3s ease-out;
+}
+
+@keyframes modalScale {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  background: linear-gradient(to right, #1a253a, #0d1424);
+  padding: 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.modal-body {
+  padding: 30px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.modal-footer {
+  padding: 20px 30px;
+  background: rgba(0,0,0,0.2);
+  display: flex;
+  gap: 15px;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.input-field label {
+  font-size: 0.7rem;
+  color: #88aaff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.input-field input, .input-field select {
+  background: #050810;
+  border: 1px solid #1a2a4a;
+  border-radius: 6px;
+  padding: 12px;
+  color: white;
+  font-family: inherit;
+}
+
+.input-field input:focus {
+  border-color: #00ffcc;
+  outline: none;
+}

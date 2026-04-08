@@ -155,6 +155,58 @@ function App() {
     localStorage.setItem('game_clan', JSON.stringify(clan));
   }, [clan]);
 
+  // SYNC STATS WITH BACKEND
+  const syncStats = async () => {
+    if (!user || currentView === 'auth') return;
+    try {
+      await fetch(`${API_URL}/user/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: user.username,
+          level,
+          xp,
+          credits,
+          uridium
+        })
+      });
+    } catch (e) {
+      console.log("Sync error:", e);
+    }
+  };
+
+  const refreshStats = async () => {
+    if (!user || user.faction === null || currentView === 'auth') return;
+    try {
+      const resp = await fetch(`${API_URL}/user/stats?username=${user.username}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        // Solo actualizamos si hay cambios externos y no estamos en medio de una acción crítica
+        if (data.credits !== credits) setCredits(data.credits);
+        if (data.uridium !== uridium) setUridium(data.uridium);
+        if (data.level !== level) setLevel(data.level);
+        if (data.xp !== xp) setXp(data.xp);
+      }
+    } catch (e) {
+      console.error("Error refreshing stats:", e);
+    }
+  };
+
+  // Polling for external updates (donations, taxes, admin edits)
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(refreshStats, 30000); // Cada 30 segundos
+    return () => clearInterval(interval);
+  }, [user, credits, uridium, level, xp]);
+
+  // Sync on every relevant change (Transaction-based as requested)
+  useEffect(() => {
+    // We only sync if we are already logged in and not in the auth/faction screen
+    if (user && user.faction) {
+      syncStats();
+    }
+  }, [credits, uridium, xp, level]);
+
   useEffect(() => {
     if (user && user.faction) {
         localStorage.setItem('game_user', JSON.stringify(user));
@@ -180,6 +232,13 @@ function App() {
       if (data.clan) {
         setClan(data.clan);
       }
+      
+      // Initialize stats from database
+      if (data.credits !== undefined) setCredits(data.credits);
+      if (data.uridium !== undefined) setUridium(data.uridium);
+      if (data.level !== undefined) setLevel(data.level);
+      if (data.xp !== undefined) setXp(data.xp);
+
       if (!data.faction) {
         setCurrentView('faction_select');
       } else {

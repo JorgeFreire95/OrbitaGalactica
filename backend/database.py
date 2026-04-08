@@ -21,6 +21,10 @@ def init_db():
             salt TEXT NOT NULL,
             faction TEXT,
             is_admin BOOLEAN DEFAULT 0,
+            level INTEGER DEFAULT 1,
+            xp INTEGER DEFAULT 0,
+            credits INTEGER DEFAULT 2000,
+            uridium INTEGER DEFAULT 0,
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
@@ -36,7 +40,21 @@ def init_db():
             description TEXT,
             logo_url TEXT,
             members_count INTEGER DEFAULT 1,
+            tax_rate REAL DEFAULT 0.0,
+            credits INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS clan_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            clan_tag TEXT,
+            type TEXT,
+            description TEXT,
+            amount INTEGER,
+            username TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -59,6 +77,22 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
+        c.execute("ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN xp INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN credits INTEGER DEFAULT 2000")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN uridium INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
         c.execute("ALTER TABLE users ADD COLUMN clan_tag TEXT")
     except sqlite3.OperationalError:
         pass
@@ -68,6 +102,16 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE users ADD COLUMN clan_joined_at TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass
+        
+    # Migraciones Clanes
+    try:
+        c.execute("ALTER TABLE clans ADD COLUMN tax_rate REAL DEFAULT 0.0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE clans ADD COLUMN credits INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
         
@@ -96,9 +140,9 @@ def register_user(username, email, password):
     hashed, salt = hash_password(password)
     try:
         c.execute('''
-            INSERT INTO users (username, email, password_hash, salt) 
-            VALUES (?, ?, ?, ?)
-        ''', (username, email, hashed, salt))
+            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, uridium) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (username, email, hashed, salt, 1, 0, 2000, 0))
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError as e:
@@ -112,21 +156,47 @@ def register_user(username, email, password):
     finally:
         conn.close()
 
+def get_user_stats_db(username):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT level, xp, credits, uridium FROM users WHERE username = ?', (username,))
+        row = c.fetchone()
+        if not row:
+            return None
+        return {
+            "level": row[0],
+            "xp": row[1],
+            "credits": row[2],
+            "uridium": row[3]
+        }
+    finally:
+        conn.close()
+
 def login_user(username, password):
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT username, password_hash, salt, faction, is_admin FROM users WHERE username = ?', (username,))
+    c.execute('SELECT username, faction, is_admin, level, xp, credits, uridium, password_hash, salt FROM users WHERE username = ?', (username,))
     row = c.fetchone()
     conn.close()
     
     if not row:
         return {"success": False, "error": "Credenciales incorrectas"}
     
-    db_username, db_hash, salt, faction, is_admin = row
+    db_username, faction, is_admin, level, xp, credits, uridium, db_hash, salt = row
     test_hash, _ = hash_password(password, salt)
     
     if test_hash == db_hash:
-        return {"success": True, "username": db_username, "faction": faction, "is_admin": bool(is_admin)}
+        return {
+            "success": True, 
+            "username": db_username, 
+            "faction": faction, 
+            "is_admin": bool(is_admin),
+            "level": level,
+            "xp": xp,
+            "credits": credits,
+            "uridium": uridium
+        }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
 
@@ -143,10 +213,21 @@ def set_user_faction(username, faction):
 def get_all_users():
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT username, email, faction, is_admin, clan_tag, clan_role FROM users')
+    c.execute('SELECT username, email, faction, is_admin, clan_tag, clan_role, level, xp, credits, uridium FROM users')
     rows = c.fetchall()
     conn.close()
-    return [{"username": r[0], "email": r[1], "faction": r[2], "is_admin": bool(r[3]), "clan_tag": r[4], "clan_role": r[5]} for r in rows]
+    return [{
+        "username": r[0], 
+        "email": r[1], 
+        "faction": r[2], 
+        "is_admin": bool(r[3]), 
+        "clan_tag": r[4], 
+        "clan_role": r[5],
+        "level": r[6],
+        "xp": r[7],
+        "credits": r[8],
+        "uridium": r[9]
+    } for r in rows]
 
 def delete_user(username):
     conn = get_connection()
@@ -157,20 +238,114 @@ def delete_user(username):
     conn.close()
     return deleted
 
-def update_user(target_username, new_username, new_email, new_faction):
+def update_user(target_username, new_username, new_email, new_faction, level=None, xp=None, credits=None, uridium=None, is_admin=None):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('''
-            UPDATE users 
-            SET username = ?, email = ?, faction = ? 
-            WHERE username = ?
-        ''', (new_username, new_email, new_faction, target_username))
+        # Build dynamic query
+        fields = ["username = ?", "email = ?", "faction = ?"]
+        params = [new_username, new_email, new_faction]
+        
+        if level is not None:
+            fields.append("level = ?")
+            params.append(level)
+        if xp is not None:
+            fields.append("xp = ?")
+            params.append(xp)
+        if credits is not None:
+            fields.append("credits = ?")
+            params.append(credits)
+        if uridium is not None:
+            fields.append("uridium = ?")
+            params.append(uridium)
+        if is_admin is not None:
+            fields.append("is_admin = ?")
+            params.append(1 if is_admin else 0)
+            
+        params.append(target_username)
+        query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"
+        
+        c.execute(query, params)
         updated = c.rowcount > 0
         conn.commit()
         return {"success": updated}
     except sqlite3.IntegrityError:
         return {"success": False, "error": "Username o email ya en uso"}
+    finally:
+        conn.close()
+
+def sync_user_stats(username, level, xp, credits, uridium):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            UPDATE users 
+            SET level = ?, xp = ?, credits = ?, uridium = ?
+            WHERE username = ?
+        ''', (level, xp, credits, uridium, username))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+def update_clan_tax_db(clan_tag, tax_rate):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('UPDATE clans SET tax_rate = ? WHERE tag = ?', (tax_rate, clan_tag))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+def collect_all_taxes():
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # 1. Obtener todos los clanes con tasa mayor a 0
+        c.execute('SELECT tag, tax_rate FROM clans WHERE tax_rate > 0')
+        clans = c.fetchall()
+        
+        for tag, rate in clans:
+            # 2. Buscar todos los miembros de este clan
+            c.execute('SELECT username, credits FROM users WHERE clan_tag = ?', (tag,))
+            members = c.fetchall()
+            
+            total_tax_collected = 0
+            for username, player_credits in members:
+                if player_credits > 0:
+                    tax_amount = int(player_credits * (rate / 100))
+                    if tax_amount > 0:
+                        # 3. Descontar al jugador
+                        c.execute('UPDATE users SET credits = credits - ? WHERE username = ?', (tax_amount, username))
+                        total_tax_collected += tax_amount
+                        
+                        # 4. Enviar notificación (opcional, pero útil)
+                        send_system_message_db(
+                            username, 
+                            "Cobro de Impuestos", 
+                            f"Se ha descontado {tax_amount:,} créditos de tu banco por concepto de impuestos del clan ({rate}%)."
+                        )
+            
+            # 5. Sumar a la tesorería del clan
+            if total_tax_collected > 0:
+                c.execute('UPDATE clans SET credits = credits + ? WHERE tag = ?', (total_tax_collected, tag))
+                # 6. Registrar en el historial del clan
+                c.execute('''
+                    INSERT INTO clan_logs (clan_tag, type, description, amount, username)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (tag, 'IMPUESTO', f"Recaudación diaria de {rate}%", total_tax_collected, "SYSTEM"))
+        
+        conn.commit()
+        print(f"Impuestos recaudados exitosamente.")
+        return True
+    except Exception as e:
+        print(f"Error en recaudación: {e}")
+        return False
     finally:
         conn.close()
 
@@ -199,18 +374,76 @@ def create_clan_db(tag, name, leader):
     finally:
         conn.close()
 
+def donate_from_clan_db(clan_tag, target_username, amount):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # 1. Verificar fondos del clan
+        c.execute('SELECT credits FROM clans WHERE tag = ?', (clan_tag,))
+        row = c.fetchone()
+        if not row or row[0] < amount:
+            return {"success": False, "error": "Fondos insuficientes en el clan."}
+        
+        # 2. Descontar del clan
+        c.execute('UPDATE clans SET credits = credits - ? WHERE tag = ?', (amount, clan_tag))
+        
+        # 3. Sumar al usuario
+        c.execute('UPDATE users SET credits = credits + ? WHERE username = ?', (amount, target_username))
+        
+        # 3.5 Registrar en el historial
+        c.execute('''
+            INSERT INTO clan_logs (clan_tag, type, description, amount, username)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (clan_tag, 'DONACION', "Donación de mando", amount, target_username))
+        
+        # 4. Enviar notificación al receptor
+        send_system_message_db(
+            target_username, 
+            "Transferencia de Clan", 
+            f"El mando de tu clan [{clan_tag}] te ha transferido {amount:,} créditos desde la tesorería."
+        )
+        
+        conn.commit()
+        return {"success": True, "new_clan_credits": row[0] - amount}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_clan_logs_db(clan_tag):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            SELECT type, description, amount, username, timestamp 
+            FROM clan_logs 
+            WHERE clan_tag = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 50
+        ''', (clan_tag,))
+        rows = c.fetchall()
+        return [{
+            "type": r[0],
+            "description": r[1],
+            "amount": r[2],
+            "username": r[3],
+            "timestamp": r[4]
+        } for r in rows]
+    finally:
+        conn.close()
+
 def get_available_clans(search=None):
     conn = get_connection()
     c = conn.cursor()
     if search:
         query = "%" + search.upper() + "%"
-        c.execute('SELECT tag, name, leader, members_count FROM clans WHERE tag LIKE ? OR name LIKE ?', (query, query))
+        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits FROM clans WHERE tag LIKE ? OR name LIKE ?', (query, query))
     else:
-        c.execute('SELECT tag, name, leader, members_count FROM clans LIMIT 50')
+        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits FROM clans LIMIT 50')
     
     rows = c.fetchall()
     conn.close()
-    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3]} for r in rows]
+    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5]} for r in rows]
 
 def join_clan_db(username, clan_tag):
     conn = get_connection()
@@ -250,18 +483,15 @@ def get_user_clan_data(username):
     clan_tag = res[0]
     
     # Obtener metadata del clan
-    c.execute('SELECT tag, name, leader, members_count, description, created_at FROM clans WHERE tag = ?', (clan_tag,))
+    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits FROM clans WHERE tag = ?', (clan_tag,))
     clan = c.fetchone()
     if not clan:
         conn.close()
         return None
         
     # Obtener lista de miembros
-    # Intentamos obtener XP de alguna columna? El esquema de users no tiene XP explícito, 
-    # pero el frontend lo maneja. Supone que está en algún lado o es mock por ahora.
-    # Pero para que el listado sea real, buscaremos todos los usuarios con ese clan_tag.
     c.execute('''
-        SELECT username, clan_role, clan_joined_at 
+        SELECT username, clan_role, clan_joined_at, credits, xp 
         FROM users 
         WHERE clan_tag = ?
     ''', (clan_tag,))
@@ -274,7 +504,8 @@ def get_user_clan_data(username):
             "name": m[0],
             "role": m[1] or "Miembro",
             "joined": m[2] or "Recientemente",
-            "xp": 0 # Mock XP por ahora si no hay columna, el frontend lo puede estimar o le pasamos 0
+            "credits": m[3],
+            "xp": m[4] or 0
         })
     
     return {
@@ -284,6 +515,8 @@ def get_user_clan_data(username):
         "members_count": len(members_list), # Usamos el conteo real de la tabla usuarios
         "description": clan[4],
         "created_at": clan[5],
+        "tax_rate": clan[6],
+        "credits": clan[7],
         "members": members_list
     }
 

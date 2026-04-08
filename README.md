@@ -38,10 +38,12 @@
 - **Hangar de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
 
 ### 🏴 Gabinete de Alianzas (Sistema de Clanes)
-- **Fundación y Gestión**: Crea o únete a un Clan. Los líderes tienen control absoluto para subir un logo de la alianza, editar la biografía, escribir un bloque táctico de Novedades (reglas/logs) y exhibir la sigla de la corporación públicamente.
-- **Tripulación y Rangos**: Panel dedicado para revisar estadísticas en tiempo real (XP aportada por cada jugador) y asignar roles jerárquicos interactivos (Líder, Oficial, Piloto, Recluta).
-- **Tesorería y Economía Interna**: Fija una **Tasa de Impuestos (0% al 5%)** que recauda créditos automáticamente de tus reclutas. Visualiza detalladamente cuánto aporta cada piloto y el estado de cuenta total en la bóveda de la alianza.
-- **Transmisiones (Correos)**: Incluye un sistema asincrónico interno de mensajes (Bandeja de entrada y Enviados). Permite orquestar la alianza mandando un correo privado a un miembro o lanzar transmisiones masivas a "Todos los Miembros".
+- **Fundación y Gestión**: Crea o únete a un Clan. Los líderes tienen control absoluto para subir un logo de la alianza, editar la biografía, escribir un bloque táctico de Novedades y exhibir la sigla de la corporación públicamente.
+- **Tripulación y Rangos**: Panel dedicado para revisar estadísticas en tiempo real (XP aportada por cada piloto) y asignar roles jerárquicos interactivos (Líder, Oficial, Piloto, Recluta).
+- **Tesorería y Economía Interna**: Fija una **Tasa de Impuestos (0% al 5%)** con recaudación automática cada día a las **00:00 horas**.
+- **Reparto de Fondos y Donaciones**: Los líderes pueden donar créditos desde la tesorería del clan directamente a las cuentas de cualquier miembro. El sistema verifica fondos y notifica al piloto mediante mensajes de sistema.
+- **Auditoría Galáctica (Logs)**: Historial completo de movimientos de créditos. Registra cada impuesto cobrado y cada donación realizada con fecha, descripción y piloto involucrado.
+- **Transmisiones (Correos)**: Sistema interno de mensajes con bandeja de entrada y enviados. Permite orquestar la alianza mandando correos privados o transmisiones masivas a toda la tripulación.
 
 ### 💰 Economía y Recursos
 - **Uridium (💎)**: Moneda premium recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
@@ -50,9 +52,12 @@
 
 ### ⚔️ Combate y HUD Avanzado
 - **Munición Finita**: Todas las municiones, incluida la **Estándar**, son limitadas y deben ser gestionadas. Puedes reabastecerte en la tienda (1000 disparos por 50 Créditos).
-- **HUD Modernizado**: Interfaz limpia con cabeceras minimalistas en Menú, Tienda y Hangar. 
+- **HUD Modernizado e Inteligente**: Interfaz limpia con cabeceras minimalistas. Incluye un sistema de **Sincronización Bidireccional (Polling)** que refresca tus estadísticas cada 30s para reflejar donaciones o cambios externos sin refrescar la página.
 - **Hotbar Draggable & Lockable**: La barra de armas es arrastrable por el HUD y cuenta con un sistema de bloqueo (**🔒/🔓**) para evitar movimientos accidentales durante el combate.
 - **Sincronización en Tiempo Real**: Sincronización fluida entre la Tienda y el Juego. Las compras realizadas en el menú se reflejan instantáneamente al despegar.
+
+### ⚙️ Administración Avanzada
+- **Panel de Control de Servidor**: Herramientas para moderadores que permiten gestionar el estado de los sectores, expulsar usuarios conflictivos y monitorear la integridad de la base de datos en tiempo real.
 
 ---
 
@@ -83,4 +88,5 @@ El juego estará disponible en `http://localhost:5173`.
 ## 🌌 Próximos Pasos
 - Completar las opciones de Diplomacia del Clan (alianzas/guerras formales) y Módulos de Estación.
 - Añadir jefes finales (Bosses) en zonas específicas del mapa con botín de élite.
-- Eventos dinámicos en el servidor con recompensas exclusivas y chat de voz de escuadrón.
+- Implementar Chat de Voz o Chat Global de Combate para mayor coordinación.
+- Eventos dinámicos en el servidor con recompensas exclusivas.

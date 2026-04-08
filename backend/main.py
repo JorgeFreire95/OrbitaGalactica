@@ -8,7 +8,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db
 
 class RegisterRequest(BaseModel):
     username: str
@@ -27,6 +27,18 @@ class AdminUpdateRequest(BaseModel):
     username: str
     email: str
     faction: str
+    level: int = None
+    xp: int = None
+    credits: int = None
+    uridium: int = None
+    is_admin: bool = None
+
+class SyncRequest(BaseModel):
+    username: str
+    level: int
+    xp: int
+    credits: int
+    uridium: int
 
 class ClanCreateRequest(BaseModel):
     tag: str
@@ -43,6 +55,15 @@ class ClanLeaveRequest(BaseModel):
 class ClanKickRequest(BaseModel):
     username: str
     target_username: str
+
+class ClanTaxRequest(BaseModel):
+    clan_tag: str
+    tax_rate: float
+
+class ClanDonateRequest(BaseModel):
+    clan_tag: str
+    target_username: str
+    amount: int
 
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
@@ -77,6 +98,24 @@ async def game_loop():
             traceback.print_exc()
             await asyncio.sleep(1.0)
 
+async def daily_scheduler():
+    import datetime
+    last_run = None
+    print("Iniciador de programador diario listo...")
+    while True:
+        try:
+            now = datetime.datetime.now()
+            # Si son las 00:00 y no se ha ejecutado hoy
+            if now.hour == 0 and now.minute == 0 and (last_run is None or last_run != now.date()):
+                print(f"[{now}] EJECUTANDO RECAUDACIÓN DIARIA DE IMPUESTOS...")
+                collect_all_taxes()
+                last_run = now.date()
+                logger.info("Recaudación diaria de impuestos completada.")
+        except Exception as e:
+            logger.error(f"Error en scheduler diario: {e}")
+        
+        await asyncio.sleep(30) # Comprobar cada 30 segundos
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Inicializando Base de Datos...")
@@ -84,6 +123,10 @@ async def lifespan(app: FastAPI):
     print("Iniciando bucle de juego...")
     global game_loop_task
     game_loop_task = asyncio.create_task(game_loop())
+    
+    print("Iniciando programador de impuestos...")
+    asyncio.create_task(daily_scheduler())
+    
     yield
     print("Deteniendo bucle de juego...")
     game_loop_task.cancel()
@@ -119,6 +162,10 @@ async def api_login(req: LoginRequest):
         "username": result["username"], 
         "faction": result["faction"], 
         "is_admin": result.get("is_admin", False),
+        "level": result.get("level", 1),
+        "xp": result.get("xp", 0),
+        "credits": result.get("credits", 2000),
+        "uridium": result.get("uridium", 0),
         "clan": clan_data
     }
 
@@ -163,6 +210,28 @@ async def api_kick_member(req: ClanKickRequest):
         raise HTTPException(status_code=400, detail=result["error"])
     return {"message": "Miembro expulsado exitosamente."}
 
+@app.post("/api/clans/tax")
+async def api_update_clan_tax(req: ClanTaxRequest):
+    success = update_clan_tax_db(req.clan_tag, req.tax_rate)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al actualizar la tasa de impuestos.")
+    return {"message": "Tasa de impuestos actualizada exitosamente."}
+
+@app.post("/api/clans/donate")
+async def api_clan_donate(req: ClanDonateRequest):
+    if req.amount <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0.")
+        
+    result = donate_from_clan_db(req.clan_tag, req.target_username, req.amount)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Donación realizada con éxito.", "new_clan_credits": result["new_clan_credits"]}
+
+@app.get("/api/clans/logs")
+async def api_get_clan_logs(clan_tag: str):
+    logs = get_clan_logs_db(clan_tag)
+    return {"logs": logs}
+
 @app.post("/api/set_faction")
 async def api_set_faction(req: SetFactionRequest):
     updated = set_user_faction(req.username, req.faction)
@@ -175,7 +244,19 @@ async def api_get_messages(username: str):
     msgs = get_user_messages_db(username)
     return {"messages": msgs}
 
-@app.post("/api/messages/read/{msg_id}")
+@app.get("/api/user/stats")
+async def api_get_user_stats(username: str):
+    stats = get_user_stats_db(username)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return stats
+
+@app.post("/api/user/sync")
+async def api_user_sync(req: SyncRequest):
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.uridium)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al sincronizar datos.")
+    return {"message": "Sincronización exitosa."}
 async def api_mark_message_read(msg_id: int):
     success = mark_message_read_db(msg_id)
     if not success:
@@ -191,7 +272,11 @@ async def api_admin_get_users():
 
 @app.put("/api/admin/users/{username}")
 async def api_admin_update_user(username: str, req: AdminUpdateRequest):
-    result = update_user(username, req.username, req.email, req.faction)
+    result = update_user(
+        username, req.username, req.email, req.faction,
+        level=req.level, xp=req.xp, credits=req.credits, uridium=req.uridium,
+        is_admin=req.is_admin
+    )
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result.get("error", "Error actualizando el usuario"))
     return {"message": "Usuario actualizado"}

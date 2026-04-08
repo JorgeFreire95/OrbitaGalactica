@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NavigationBar from './NavigationBar';
 
 const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, onBack, onNavigate }) => {
@@ -14,6 +14,8 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
   const [clanList, setClanList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [messages, setMessages] = useState([]);
+  const [donationAmounts, setDonationAmounts] = useState({});
+  const [clanLogs, setClanLogs] = useState([]);
   const CLAN_COST = 0;
   const API_URL = 'http://localhost:8000/api';
 
@@ -196,6 +198,87 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
     }
   };
 
+  const handleUpdateTax = async (newRate) => {
+    try {
+      const resp = await fetch(`${API_URL}/clans/tax`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clan_tag: clan.tag,
+          tax_rate: parseFloat(newRate)
+        })
+      });
+
+      if (resp.ok) {
+        setClan({ ...clan, tax_rate: newRate });
+      } else {
+        const err = await resp.json();
+        alert(err.detail || "Error al actualizar la tasa de impuestos.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión al servidor.");
+    }
+  };
+
+  const handleDonateMember = async (targetUsername) => {
+    const amount = donationAmounts[targetUsername];
+    if (!amount || amount <= 0) {
+      alert("Ingresa una cantidad válida para donar.");
+      return;
+    }
+
+    if (amount > clan.credits) {
+      alert("No hay suficientes créditos en la tesorería del clan.");
+      return;
+    }
+
+    if (!window.confirm(`¿Seguro que deseas donar ${amount.toLocaleString()} CR a ${targetUsername}?`)) return;
+
+    try {
+      const resp = await fetch(`${API_URL}/clans/donate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clan_tag: clan.tag,
+          target_username: targetUsername,
+          amount: parseInt(amount)
+        })
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        setClan({ ...clan, credits: data.new_clan_credits });
+        setDonationAmounts({ ...donationAmounts, [targetUsername]: '' });
+        alert(`Has donado ${amount.toLocaleString()} CR a ${targetUsername} con éxito.`);
+      } else {
+        const err = await resp.json();
+        alert(err.detail || "Error al realizar la donación.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión al servidor.");
+    }
+  };
+
+  const fetchClanLogs = async () => {
+    try {
+      const resp = await fetch(`${API_URL}/clans/logs?clan_tag=${clan.tag}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setClanLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Error fetching logs:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'admin' && clan) {
+      fetchClanLogs();
+    }
+  }, [activeTab, clan]);
+
   const SIDEMENU = [
     { id: 'summary', label: 'INFORMACIÓN' },
     { id: 'members', label: 'MIEMBROS' },
@@ -279,7 +362,7 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                           <div style={{ color: '#fff' }}>Todo</div>
                           
                           <div style={{ color: '#888' }}>Tasa de impuestos:</div>
-                          <div style={{ color: '#fff' }}>{clan.taxRate || 0}% ({ ((clan.members || []).length * 10000 * ((clan.taxRate || 0) / 100)).toLocaleString() } CR diarios)</div>
+                          <div style={{ color: '#fff' }}>{clan.tax_rate || 0}% ({ ((clan.members || []).reduce((sum, m) => sum + (m.credits || 0), 0) * ((clan.tax_rate || 0) / 100)).toLocaleString() } CR diarios)</div>
                           
                           <div style={{ color: '#888' }}>Estado de reclutamiento:</div>
                           <div style={{ color: '#00ffcc' }}>Reclutando</div>
@@ -733,15 +816,15 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                                <span style={{ color: '#888', fontSize: '0.9rem' }}>Estado de cuenta:</span>
-                               <span style={{ color: '#fff', fontWeight: 'bold' }}>{(clan.balance || 0).toLocaleString()} CR</span>
+                               <span style={{ color: '#fff', fontWeight: 'bold' }}>{(clan.credits || 0).toLocaleString()} CR</span>
                             </div>
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', alignItems: 'center' }}>
                                <span style={{ color: '#888', fontSize: '0.9rem' }}>Tasa de impuestos:</span>
                                <select 
-                                   value={clan.taxRate || 0}
+                                   value={clan.tax_rate || 0}
                                    disabled={!canEdit}
-                                   onChange={(e) => setClan({ ...clan, taxRate: parseInt(e.target.value) })}
+                                   onChange={(e) => handleUpdateTax(parseInt(e.target.value))}
                                    style={{ 
                                        background: '#0a0f1a', 
                                        color: '#00ffcc', 
@@ -760,32 +843,113 @@ const Clan = ({ credits, uridium, level, xp, setCredits, clan, setClan, user, on
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                                <span style={{ color: '#888', fontSize: '0.9rem' }}>Ingresos / Día (Estimado):</span>
-                               <span style={{ color: '#00aaff', fontWeight: 'bold' }}>+{((clan.members && clan.members.length > 0 ? clan.members.length : 1) * 10000 * ((clan.taxRate || 0) / 100)).toLocaleString()} CR</span>
+                               <span style={{ color: '#00aaff', fontWeight: 'bold' }}>+{((clan.members && clan.members.length > 0 ? clan.members.length : 1) * 10000 * ((clan.tax_rate || 0) / 100)).toLocaleString()} CR</span>
                             </div>
                         </div>
 
-                        {/* Recuadro Detalles de Aporte */}
-                        <div style={{ flex: 1.2, background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', overflowY: 'auto', maxHeight: '250px' }}>
-                            <h4 style={{ color: '#ffcc00', borderBottom: '1px solid #334466', paddingBottom: '10px', marginTop: 0 }}>Aportes por Miembro</h4>
+                        {/* Recuadro Detalles de Aporte y Donación */}
+                        <div style={{ flex: 1.5, background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', overflowY: 'auto', maxHeight: '400px' }}>
+                            <h4 style={{ color: '#ffcc00', borderBottom: '1px solid #334466', paddingBottom: '10px', marginTop: 0 }}>Gestión de Fondos por Miembro</h4>
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: '10px' }}>
                                 <thead>
                                     <tr style={{ color: '#888', fontSize: '0.8rem' }}>
                                         <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Piloto</th>
                                         <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Aporte Diario</th>
                                         <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Total Aportado</th>
+                                        {canEdit && <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Donar Credits</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {(clan.members && clan.members.length > 0 ? clan.members : [{ name: clan.leader || (user ? user.username : 'PILOTO_ESTELAR'), contribution: 0 }]).map((m, i) => {
-                                        const estimatedContrib = 10000 * ((clan.taxRate || 0) / 100);
+                                    {(clan.members && clan.members.length > 0 ? clan.members : [{ name: clan.leader || (user ? user.username : 'PILOTO_ESTELAR'), contribution: 0, credits: credits }]).map((m, i) => {
+                                        const actualContrib = (m.credits || 0) * ((clan.tax_rate || 0) / 100);
                                         return (
                                             <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                                 <td style={{ padding: '8px', color: '#fff', fontSize: '0.85rem' }}>{m.name}</td>
-                                                <td style={{ padding: '8px', color: '#00aaff', fontSize: '0.85rem' }}>{estimatedContrib.toLocaleString()} CR</td>
-                                                <td style={{ padding: '8px', color: '#00cc66', fontSize: '0.85rem', fontWeight: 'bold' }}>{m.contribution ? m.contribution.toLocaleString() : 0} CR</td>
+                                                <td style={{ padding: '8px', color: '#00aaff', fontSize: '0.85rem' }}>{parseInt(actualContrib).toLocaleString()} CR</td>
+                                                <td style={{ padding: '8px', color: '#00cc66', fontSize: '0.85rem', fontWeight: 'bold' }}>{(m.credits || 0).toLocaleString()} CR (Banco)</td>
+                                                {canEdit && (
+                                                    <td style={{ padding: '8px', display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                                        <input 
+                                                            type="number" 
+                                                            min="0"
+                                                            placeholder="Monto..."
+                                                            value={donationAmounts[m.name] || ''}
+                                                            onChange={(e) => setDonationAmounts({ ...donationAmounts, [m.name]: e.target.value })}
+                                                            style={{ width: '80px', background: '#0a0f1a', color: '#fff', border: '1px solid #334466', padding: '5px', borderRadius: '4px', fontSize: '0.75rem', outline: 'none' }}
+                                                        />
+                                                        <button 
+                                                            onClick={() => handleDonateMember(m.name)}
+                                                            style={{ 
+                                                                background: 'rgba(0, 255, 204, 0.1)', 
+                                                                color: '#00ffcc', 
+                                                                border: '1px solid #00ffcc44', 
+                                                                padding: '5px 10px', 
+                                                                borderRadius: '4px', 
+                                                                fontSize: '0.75rem', 
+                                                                cursor: 'pointer',
+                                                                fontWeight: 'bold'
+                                                            }}
+                                                        >
+                                                            DONAR
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                         );
                                     })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Historial de Movimientos - Pantalla Completa abajo */}
+                    <div style={{ marginTop: '20px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a' }}>
+                        <h4 style={{ color: '#00ffcc', borderBottom: '1px solid #334466', paddingBottom: '10px', marginTop: 0, display: 'flex', justifyContent: 'space-between' }}>
+                            HISTORIAL DE MOVIMIENTOS
+                            <button onClick={fetchClanLogs} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.8rem' }}>🔄 Refrescar</button>
+                        </h4>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead style={{ position: 'sticky', top: 0, background: '#0a101a', zIndex: 1 }}>
+                                    <tr style={{ color: '#888', fontSize: '0.8rem' }}>
+                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Fecha</th>
+                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Tipo</th>
+                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Descripción</th>
+                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Piloto</th>
+                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {clanLogs.length > 0 ? clanLogs.map((log, index) => (
+                                        <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.85rem' }}>
+                                            <td style={{ padding: '8px', color: '#666' }}>{new Date(log.timestamp).toLocaleString()}</td>
+                                            <td style={{ padding: '8px' }}>
+                                                <span style={{ 
+                                                    padding: '2px 6px', 
+                                                    borderRadius: '3px', 
+                                                    fontSize: '0.7rem', 
+                                                    background: log.type === 'IMPUESTO' ? 'rgba(0,255,100,0.1)' : 'rgba(255,100,0,0.1)',
+                                                    color: log.type === 'IMPUESTO' ? '#00ffcc' : '#ffaa00',
+                                                    border: `1px solid ${log.type === 'IMPUESTO' ? '#00ffcc44' : '#ffaa0044'}`
+                                                }}>
+                                                    {log.type}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '8px', color: '#ccc' }}>{log.description}</td>
+                                            <td style={{ padding: '8px', color: '#fff' }}>{log.username}</td>
+                                            <td style={{ 
+                                                padding: '8px', 
+                                                fontWeight: 'bold',
+                                                color: log.type === 'IMPUESTO' ? '#00ffcc' : '#ff6666'
+                                            }}>
+                                                {log.type === 'IMPUESTO' ? '+' : '-'}{log.amount.toLocaleString()} CR
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#555' }}>No hay movimientos registrados.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
