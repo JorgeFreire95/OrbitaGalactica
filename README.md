@@ -25,7 +25,7 @@
 - **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
 - **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'**, con animación de flash de salto hiperespacial.
 - **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m.
-- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Incluye posición exacta (`X, Y`), sector actual, créditos, uridium, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
+- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Incluye posición exacta (`X, Y`), sector actual, créditos, paladio, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
 
 ### 👥 Sistema de Grupo Táctico (Party System)
 - **Reclutamiento Rápido**: Fija el blanco en las naves de tus aliados haciendo clic en ellas e invítalos de forma remota a tu Grupo Táctico sin salir de la vista de combate.
@@ -46,8 +46,8 @@
 - **Transmisiones (Correos)**: Sistema interno de mensajes con bandeja de entrada y enviados. Permite orquestar la alianza mandando correos privados o transmisiones masivas a toda la tripulación.
 
 ### 💰 Economía y Recursos
-- **Uridium (💎)**: Moneda premium recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
-- **Créditos (🔋)**: Ganados al destruir naves enemigas o batallando en tu Escuadrón.
+- **Paladio (🪐)**: Recurso valioso recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
+- **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
 
 ### ⚔️ Combate y HUD Cinematográfico
@@ -93,3 +93,5 @@ El juego estará disponible en `http://localhost:5173`.
 - Añadir jefes finales (Bosses) en zonas específicas del mapa con botín de élite.
 - Implementar Chat de Voz o Chat Global de Combate para mayor coordinación.
 - Eventos dinámicos en el servidor con recompensas exclusivas.
+
+
