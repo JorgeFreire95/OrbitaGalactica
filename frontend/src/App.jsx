@@ -24,12 +24,16 @@ function App() {
     return localStorage.getItem('og_game_running') === 'true';
   });
 
+  const [inSafeZone, setInSafeZone] = useState(() => {
+    return localStorage.getItem('og_player_safe_zone') === 'true';
+  });
+
   const [currentView, setCurrentView] = useState(() => {
     const savedUser = sessionStorage.getItem('game_user');
     return savedUser ? 'menu' : 'auth';
   });
   const [selectedShipId, setSelectedShipId] = useState(() => {
-    return sessionStorage.getItem('selected_ship_id') || 'tank';
+    return sessionStorage.getItem('selected_ship_id') || 'starter';
   });
   const [leaderboard, setLeaderboard] = useState([]);
   
@@ -79,7 +83,13 @@ function App() {
 
   const [upgrades, setUpgrades] = useState(() => {
     const saved = localStorage.getItem('game_upgrades');
-    return saved ? JSON.parse(saved) : { atk: 0, shld: 0, spd: 0 };
+    // Si es el formato viejo (número), resetear a objeto
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed.atk === 'number') return { atk: [], shld: [], spd: [] };
+      return parsed;
+    }
+    return { atk: [], shld: [], spd: [] };
   });
 
   const [paladio, setPaladio] = useState(() => {
@@ -90,6 +100,30 @@ function App() {
     const saved = sessionStorage.getItem('game_clan');
     return saved ? JSON.parse(saved) : null;
   });
+
+  const [ownedShips, setOwnedShips] = useState(() => {
+    const saved = localStorage.getItem('owned_ships');
+    return saved ? JSON.parse(saved) : ['starter'];
+  });
+
+  // One-time fleet cleanup: remove 'tank' if it was a default assignment from previous versions
+  useEffect(() => {
+    if (ownedShips.includes('tank') && ownedShips.includes('starter')) {
+      // Only do this once to avoid annoying legitimate buyers later
+      const hasCleaned = localStorage.getItem('og_tank_cleaned');
+      if (!hasCleaned) {
+        const newShips = ownedShips.filter(id => id !== 'tank');
+        setOwnedShips(newShips);
+        localStorage.setItem('owned_ships', JSON.stringify(newShips));
+        localStorage.setItem('og_tank_cleaned', 'true');
+        
+        if (selectedShipId === 'tank') {
+          setSelectedShipId('starter');
+          sessionStorage.setItem('selected_ship_id', 'starter');
+        }
+      }
+    }
+  }, [ownedShips]);
 
   // Auto-lanzamiento si se abre en pestaña nueva con ?play=true
   useEffect(() => {
@@ -110,20 +144,27 @@ function App() {
       if (e.key === 'og_game_running') {
         setIsGameActive(e.newValue === 'true');
       }
+      if (e.key === 'og_player_safe_zone') {
+        setInSafeZone(e.newValue === 'true');
+      }
     };
 
     const handleWindowClose = () => {
+      // SOLO si esta pestaña es la que tiene el juego abierto
       if (window.location.search.includes('play=true')) {
         localStorage.removeItem('og_game_running');
+        localStorage.removeItem('og_player_safe_zone');
       }
     };
 
     window.addEventListener('storage', syncGameSession);
     window.addEventListener('beforeunload', handleWindowClose);
+    window.addEventListener('pagehide', handleWindowClose);
 
     return () => {
       window.removeEventListener('storage', syncGameSession);
       window.removeEventListener('beforeunload', handleWindowClose);
+      window.removeEventListener('pagehide', handleWindowClose);
     };
   }, []);
 
@@ -192,6 +233,10 @@ function App() {
   }, [upgrades]);
 
   useEffect(() => {
+    localStorage.setItem('owned_ships', JSON.stringify(ownedShips));
+  }, [ownedShips]);
+
+  useEffect(() => {
     localStorage.setItem('game_paladio', paladio);
   }, [paladio]);
 
@@ -256,6 +301,28 @@ function App() {
         sessionStorage.setItem('game_user', JSON.stringify(user));
     }
   }, [user]);
+
+  // Limpieza periódica de mejoras expiradas (cada 10 segundos para mayor precisión visual)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      let changed = false;
+      const nextUpgrades = { ...upgrades };
+
+      ['atk', 'shld', 'spd'].forEach(stat => {
+        const filtered = nextUpgrades[stat].filter(u => u.expires > now);
+        if (filtered.length !== nextUpgrades[stat].length) {
+          nextUpgrades[stat] = filtered;
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        setUpgrades(nextUpgrades);
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [upgrades]);
 
   const API_URL = 'http://localhost:8000/api';
 
@@ -340,7 +407,9 @@ function App() {
         'standard': 1000, 'thermal': 0, 'plasma': 0, 'siphon': 0,
         'missile_1': 0, 'missile_2': 0, 'missile_3': 0
       });
-      setUpgrades({ atk: 0, shld: 0, spd: 0 });
+      setUpgrades({ atk: [], shld: [], spd: [] });
+      setOwnedShips(['starter']);
+      setSelectedShipId('starter');
 
       setCurrentView('menu');
     } catch (e) {
@@ -416,6 +485,12 @@ function App() {
   };
 
   const handleEquip = (moduleIndex, shipId) => {
+    // SECURITY CHECK: Solo permitir equipar en Zona Segura si el juego está activo
+    if (isGameActive && !inSafeZone) {
+      alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura (Base o Portal) para modificar la nave.");
+      return;
+    }
+
     const module = inventory[moduleIndex];
     if (!module) return;
 
@@ -442,6 +517,12 @@ function App() {
   };
 
   const handleUnequip = (instanceId, shipId) => {
+    // SECURITY CHECK: Solo permitir desequipar en Zona Segura si el juego está activo
+    if (isGameActive && !inSafeZone) {
+      alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura (Base o Portal) para modificar la nave.");
+      return;
+    }
+
     const currentEquipped = equippedByShip[shipId] || [];
     const module = currentEquipped.find(m => m.instanceId === instanceId);
     if (!module) return;
@@ -466,7 +547,7 @@ function App() {
     setLevel(1);
     setXp(0);
     setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
-    setUpgrades({ atk: 0, shld: 0, spd: 0 });
+    setUpgrades({ atk: [], shld: [], spd: [] });
     localStorage.clear();
   };
 
@@ -482,12 +563,18 @@ function App() {
       [mineralType]: prev[mineralType] - cost
     }));
     
+    const DURATION = 2 * 60 * 60 * 1000; // 2 Horas en ms
+    const newEntry = {
+      amount,
+      expires: Date.now() + DURATION
+    };
+
     setUpgrades(prev => ({
       ...prev,
-      [stat]: prev[stat] + amount
+      [stat]: [...prev[stat], newEntry]
     }));
     
-    alert(`¡Mejora aplicada! +${amount} a ${stat.toUpperCase()} base.`);
+    alert(`¡Mejora aplicada! +${amount} a ${stat.toUpperCase()} (Duración: 2 Horas).`);
   };
 
   const handleSellMinerals = (mineralId, amount, totalCredits) => {
@@ -500,6 +587,37 @@ function App() {
 
   const handleUpdatePaladio = (newUridium) => {
     setPaladio(newUridium);
+  };
+
+  const handleBuyShip = (shipId, shipCost) => {
+    if (credits < shipCost) return false;
+    if (ownedShips.includes(shipId)) return false;
+    
+    setCredits(prev => prev - shipCost);
+    setOwnedShips(prev => [...prev, shipId]);
+    return true;
+  };
+
+  const handleRepair = async () => {
+    if (!user) return false;
+    try {
+      const resp = await fetch(`${API_URL}/user/repair`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        setCredits(data.credits);
+        return true;
+      } else {
+        alert(data.error || "Error al reparar la nave.");
+        return false;
+      }
+    } catch (error) {
+      console.error("Repair error:", error);
+      return false;
+    }
   };
 
   const handleUpdateProgress = (newLvl, newXp) => {
@@ -608,6 +726,9 @@ function App() {
           minerals={minerals}
           upgrades={upgrades}
           onRefine={handleRefine}
+          ownedShips={ownedShips}
+          inSafeZone={inSafeZone}
+          isPlaying={isGameActive}
         />
       )}
 
@@ -628,6 +749,8 @@ function App() {
           paladio={paladio}
           onBack={() => setCurrentView('menu')}
           onNavigate={setCurrentView}
+          ownedShips={ownedShips}
+          onBuyShip={handleBuyShip}
         />
       )}
 
@@ -691,6 +814,7 @@ function App() {
             onUpdateCredits={(newCredits) => setCredits(newCredits)}
             onUpdatePaladio={handleUpdatePaladio}
             onUpdateMinerals={handleUpdateMinerals}
+            onRepair={handleRepair}
           />
         </>
       )}

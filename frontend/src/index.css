@@ -914,23 +914,93 @@ canvas {
 .ship-preview-box {
   width: 100%;
   height: 400px;
-  background: radial-gradient(circle at center, rgba(0, 255, 204, 0.05), transparent 70%);
+  background: radial-gradient(circle at center, rgba(0, 119, 255, 0.1), transparent 70%);
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
+  border: 1px solid rgba(0, 255, 204, 0.1);
+  border-radius: 12px;
   position: relative;
+  overflow: hidden;
 }
 
 .ship-preview-box img {
-  width: 300px;
-  filter: drop-shadow(0 0 30px rgba(0, 255, 204, 0.4));
-  animation: shipFloat 5s infinite ease-in-out;
+  width: 100%;
+  max-width: 450px;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 40px rgba(0, 255, 204, 0.2));
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out, filter 0.3s ease;
+  pointer-events: none;
+  position: relative;
+  z-index: 5;
 }
 
-@keyframes shipFloat {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50% { transform: translateY(-20px) rotate(2deg); }
+.scanline-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.1) 50%
+  ), linear-gradient(
+    90deg, 
+    rgba(255, 0, 0, 0.02), 
+    rgba(0, 255, 0, 0.01), 
+    rgba(0, 0, 255, 0.02)
+  );
+  background-size: 100% 4px, 3px 100%;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0.3;
+}
+
+/* Hologram Scanning Line (Dynamic) */
+.ship-preview-box::after {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(to bottom, transparent, rgba(0, 255, 204, 0.15), transparent);
+  animation: hologramScan 6s infinite linear;
+  z-index: 8;
+  pointer-events: none;
+}
+
+/* Base Light Projector */
+.ship-preview-box::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 20px;
+  background: radial-gradient(ellipse at center, rgba(0, 255, 204, 0.4), transparent 70%);
+  filter: blur(5px);
+  animation: projectorPulse 4s infinite ease-in-out;
+}
+
+@keyframes shipHologramFloat {
+  0% { transform: perspective(1000px) rotateY(-15deg) translateY(0); }
+  50% { transform: perspective(1000px) rotateY(15deg) translateY(-20px); }
+  100% { transform: perspective(1000px) rotateY(-15deg) translateY(0); }
+}
+
+@keyframes hologramScan {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+@keyframes projectorPulse {
+  0%, 100% { opacity: 0.5; width: 180px; }
+  50% { opacity: 1; width: 220px; }
 }
 
 .launch-action-button {
@@ -1657,4 +1727,132 @@ canvas {
   .modal-body .input-field {
     grid-column: span 1 !important;
   }
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0.5; transform: scale(0.98); }
+}
+
+.launch-action-button.locked {
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+/* --- CINEMATIC LOADING SCREEN --- */
+.loading-screen-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, #0a1020 0%, #02050a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  overflow: hidden;
+  font-family: 'Orbitron', sans-serif;
+}
+
+.loading-screen-overlay::before {
+  content: '';
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background-image: url('https://www.transparenttextures.com/patterns/stardust.png');
+  opacity: 0.1;
+  animation: backgroundMove 100s linear infinite;
+}
+
+@keyframes backgroundMove {
+  from { transform: translate(-25%, -25%); }
+  to { transform: translate(0, 0); }
+}
+
+.loading-container {
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  position: relative;
+  z-index: 10;
+}
+
+.loading-title {
+  font-size: 1.5rem;
+  color: #00ffcc;
+  text-transform: uppercase;
+  letter-spacing: 5px;
+  text-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
+  margin-bottom: 10px;
+  animation: titlePulse 2s infinite ease-in-out;
+}
+
+@keyframes titlePulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.02); opacity: 1; }
+}
+
+.loading-bar-wrapper {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.loading-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0077ff, #00ffcc);
+  box-shadow: 0 0 15px #00ffcc;
+  transition: width 0.3s ease-out;
+}
+
+.loading-message {
+  font-size: 0.75rem;
+  color: #88aaff;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  height: 20px;
+}
+
+.battle-button {
+  background: linear-gradient(135deg, #ffcc00, #ff8800);
+  border: none;
+  padding: 15px 40px;
+  color: #000;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  border-radius: 5px;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(255, 204, 0, 0.4);
+  animation: buttonAppear 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.3s;
+}
+
+.battle-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(255, 204, 0, 0.7);
+  filter: brightness(1.1);
+}
+
+@keyframes buttonAppear {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.loading-percentage {
+  position: absolute;
+  right: 0;
+  top: -25px;
+  font-size: 0.8rem;
+  color: #00ffcc;
+  font-weight: bold;
 }

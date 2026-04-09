@@ -13,6 +13,9 @@ heavyImg.src = '/titan_hammer.png';
 const supportImg = new Image();
 supportImg.src = '/helix_support.png';
 
+const starterImg = new Image();
+starterImg.src = '/phoenix.png';
+
 export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   const { width, height } = ctx.canvas;
   
@@ -337,6 +340,31 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         ctx.font = 'bold 12px Orbitron';
         ctx.textAlign = 'center';
         ctx.fillText("ESPECIAL", 0, -30);
+    } else if (box.type === "cargo") {
+      // --- CAJA DE CARGA METÁLICA ---
+      const grad = ctx.createLinearGradient(-15, -15, 15, 15);
+      grad.addColorStop(0, '#4a4a4a');
+      grad.addColorStop(0.5, '#6a6a6a');
+      grad.addColorStop(1, '#2a2a2a');
+      
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-15, -15, 30, 30);
+      ctx.fillRect(-15, -15, 30, 30);
+      
+      // Remaches y detalles industriales
+      ctx.fillStyle = '#ffcc00';
+      ctx.globalAlpha = 0.6;
+      ctx.fillRect(-12, -12, 4, 4);
+      ctx.fillRect(8, -12, 4, 4);
+      ctx.fillRect(-12, 8, 4, 4);
+      ctx.fillRect(8, 8, 4, 4);
+      
+      // Indicador de contenido valioso (Barra de progreso ámbar)
+      ctx.fillStyle = '#ffaa00';
+      ctx.fillRect(-10, -2, 20, 4);
+      ctx.globalAlpha = 1.0;
     } else if (isMineral) {
       const colors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
       ctx.fillStyle = colors[box.mineral_type] || '#fff';
@@ -386,6 +414,15 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillRect(-15, -25, 30, 4);
     ctx.fillStyle = '#0f0';
     ctx.fillRect(-15, -25, 30 * (enemy.hp / enemy.max_hp), 4);
+
+    // Name
+    ctx.fillStyle = enemy.is_hard ? '#ffaa00' : '#ff3333';
+    ctx.font = 'bold 11px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.shadowBlur = 5;
+    ctx.shadowColor = 'black';
+    ctx.fillText(enemy.name || "Alien", 0, -38);
+    ctx.shadowBlur = 0;
 
     // Retícula de fijación (Lock-on)
     if (gameState.selectedTargetId === enemy.id) {
@@ -506,7 +543,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         'plasma': '#ff33ff',
         'siphon': '#33ff33'
       };
-      const color = proj.is_player ? (ammoColors[proj.ammo_type] || baseColor) : baseColor;
+      const color = proj.color || (proj.is_player ? (ammoColors[proj.ammo_type] || baseColor) : baseColor);
 
       ctx.fillStyle = color;
       ctx.shadowBlur = 20;
@@ -530,6 +567,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   // Draw players
   gameState.players?.forEach(player => {
+    if (player.hp <= 0) return; 
     ctx.save();
     ctx.translate(player.x, player.y);
     
@@ -568,22 +606,49 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.drawImage(heavyImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'support') {
       ctx.drawImage(supportImg, -size/2, -size/2, size, size);
+    } else if (player.ship_type === 'starter') {
+      // --- DYNAMIC ENGINE THRUSTERS ---
+      const engineTime = Date.now() / 100;
+      const flicker = Math.sin(engineTime * 5) * 3;
+      
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      
+      // Draw a more subtle Plasma Flame
+      const grad = ctx.createLinearGradient(0, size/2, 0, size/2 + 20 + flicker);
+      grad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
+      grad.addColorStop(1, 'transparent');
+      
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(-6, size/2 - 5);
+      ctx.lineTo(6, size/2 - 5);
+      ctx.lineTo(0, size/2 + 25 + flicker);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw the ship itself without extra shadow glow
+      ctx.drawImage(starterImg, -size/2, -size/2, size, size);
+      
+      ctx.restore();
     } else {
       ctx.drawImage(tankImg, -size/2, -size/2, size, size); // fallback
     }
     
-    // Add colored engine glow to the base (thrusters)
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = baseColor;
-    ctx.shadowOffsetY = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.globalCompositeOperation = 'screen';
-    // Draw faint thruster glow bubble at bottom
-    ctx.beginPath();
-    ctx.arc(0, size/2.5, 8, 0, Math.PI * 2);
-    ctx.fillStyle = baseColor;
-    ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
+    // Add colored engine glow to the base (thrusters) - ONLY FOR NON-STARTER SHIPS
+    if (player.ship_type !== 'starter') {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = baseColor;
+        ctx.shadowOffsetY = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.globalCompositeOperation = 'screen';
+        // Draw faint thruster glow bubble at bottom
+        ctx.beginPath();
+        ctx.arc(0, size/2.5, 8, 0, Math.PI * 2);
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+    }
     
     ctx.restore();
     
@@ -715,6 +780,14 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
           const mColors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
           text = `📦 +${event.amount} ${mIcons[event.mineral_type] || ''}`;
           color = mColors[event.mineral_type] || "#fff";
+        } else if (event.type === 'cargo') {
+          const mIcons = { titanium: 'Ti', plutonium: 'Pl', silicon: 'Si' };
+          const parts = [];
+          for (const [m_type, amount] of Object.entries(event.minerals || {})) {
+            parts.push(`+${amount}${mIcons[m_type]}`);
+          }
+          text = `📦 [${parts.join(' / ')}]`;
+          color = "#ffcc00"; // Color cargo (Ámbar)
         } else if (event.type === 'credits') {
           text = `💰 +${event.amount} CRÉDITOS`;
           color = "#ffcc00";
@@ -728,6 +801,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         } else if (event.type === 'speed') {
           text = `🚀 VELOCIDAD MAX!`;
           color = "#00fbff";
+        } else if (event.type === 'cargo_full') {
+          text = "⚠️ BODEGA LLENA";
+          color = "#ff3333";
         } else if (event.type === "special_coin") {
           text = `✨ +${event.amount} PALADIO`;
           color = '#ff00ff';
@@ -736,6 +812,42 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         ctx.fillStyle = color;
         ctx.fillText(text, 0, 0);
         ctx.restore();
+
+        // --- EFECTO DE ABSORCIÓN (NUEVO) ---
+        // Dibujamos una partícula que viaja hacia la nave
+        if (event.type !== 'cargo_full') {
+          const tPos = Math.min(1, elapsed / 0.8); // Animación de absorción más rápida (0.8s)
+          if (tPos < 1) {
+            // Curva de aceleración (Quadratic Ease In)
+            const easeIn = tPos * tPos;
+            const curX = event.x + (me.x - event.x) * easeIn;
+            const curY = event.y + (me.y - event.y) * easeIn;
+            
+            ctx.save();
+            ctx.translate(curX, curY);
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            
+            // Partícula principal
+            ctx.beginPath();
+            ctx.arc(0, 0, 4 * (1 - easeIn) + 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Estela corta
+            ctx.globalAlpha = 0.5 * (1 - easeIn);
+            ctx.beginPath();
+            const tailLen = 20;
+            const angle = Math.atan2(me.y - event.y, me.x - event.x);
+            ctx.rotate(angle + Math.PI); // Dirección opuesta al movimiento
+            ctx.moveTo(0, 0);
+            ctx.lineTo(tailLen, -5);
+            ctx.lineTo(tailLen, 5);
+            ctx.fill();
+            
+            ctx.restore();
+          }
+        }
       }
     }
   });
@@ -835,22 +947,27 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         }
       });
     }
-  };
 
-  // 5. DIBUJAR INDICADOR DE SECTOR (En la parte superior)
-  if (gameState.current_map_name) {
-    ctx.font = 'bold 24px Orbitron';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(gameState.current_map_name, width / 2, 40);
-    // Decoración del indicador
-    ctx.strokeStyle = '#00ffff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(width / 2 - 100, 50);
-    ctx.lineTo(width / 2 + 100, 50);
-    ctx.stroke();
-  }
+    // 5. DIBUJAR NOMBRE DEL MAPA SOBRE EL MINIMAPA
+    if (gameState.current_map_name) {
+      ctx.save();
+      ctx.font = 'bold 13px Orbitron';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#00ffff';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#00ffff';
+      ctx.fillText(gameState.current_map_name.toUpperCase(), mmX + mmW, mmY - 8);
+      
+      // Subrayado decorativo
+      ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mmX + mmW - 100, mmY - 4);
+      ctx.lineTo(mmX + mmW, mmY - 4);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
 
   // --- 8. EVENTOS DE DAÑO (NUEVO) ---
   if (gameState.damage_events) {
@@ -873,6 +990,50 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       
       ctx.strokeText(`-${evt.amount}`, screenX, screenY);
       ctx.fillText(`-${evt.amount}`, screenX, screenY);
+      ctx.restore();
+    });
+  }
+
+  // --- 9. EVENTOS DE DESTRUCCIÓN (NUEVO) ---
+  if (gameState.destruction_events) {
+    gameState.destruction_events.forEach(evt => {
+      const elapsed = (Date.now() - evt.time * 1000) / 1000;
+      if (elapsed > 2.0) return;
+
+      const screenX = evt.x - camX;
+      const screenY = evt.y - camY;
+
+      ctx.save();
+      ctx.translate(screenX, screenY);
+
+      // Partículas de explosión
+      const numParticles = 20;
+      for (let i = 0; i < numParticles; i++) {
+        const angle = (i / numParticles) * Math.PI * 2;
+        const dist = elapsed * (100 + Math.random() * 150);
+        const pSize = (10 + Math.random() * 15) * (1 - elapsed / 2.0);
+        
+        ctx.fillStyle = i % 2 === 0 ? '#ff6600' : '#ff3300';
+        ctx.globalAlpha = 1 - elapsed / 2.0;
+        
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, pSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Destello central
+      const flashSize = (1 - elapsed) * 200;
+      if (flashSize > 0) {
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, flashSize);
+        grad.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
+        grad.addColorStop(0.5, 'rgba(255, 150, 0, 0.4)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, 0, flashSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.restore();
     });
   }

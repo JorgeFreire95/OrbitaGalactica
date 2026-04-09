@@ -14,7 +14,9 @@ export default function Shop({
   level,
   paladio,
   onNavigate,
-  onBack 
+  onBack,
+  ownedShips = [],
+  onBuyShip
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
   const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
@@ -36,6 +38,7 @@ export default function Shop({
     { id: 'armas', label: 'Armas', icon: '🎯' },
     { id: 'municion', label: 'Munición', icon: '📦' },
     { id: 'generadores', label: 'Generadores', icon: '🛡️' },
+    { id: 'naves', label: 'Naves', icon: '🚀' },
     { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'materiales', label: 'Materiales', icon: '💎' },
   ];
@@ -45,6 +48,7 @@ export default function Shop({
       case 'armas': return MODULES_CATALOG.filter(m => m.type === 'lasers');
       case 'municion': return [...AMMO_CATALOG, ...MISSILE_CATALOG];
       case 'generadores': return MODULES_CATALOG.filter(m => m.type === 'shields' || m.type === 'engines');
+      case 'naves': return SHIPS;
       case 'extras': return MODULES_CATALOG.filter(m => m.type === 'utility');
       case 'materiales': return MINERAL_TYPES;
       default: return [];
@@ -75,6 +79,20 @@ export default function Shop({
        onBuyAmmo(selectedItem.id, selectedItem.count, selectedItem.cost);
        triggerSuccess(`Compra de ${selectedItem.name} exitosa`);
        return;
+    }
+
+    // Ship Purchase
+    if (activeCategory === 'naves') {
+      const alreadyOwned = ownedShips.includes(selectedItem.id);
+      if (alreadyOwned) return alert('Ya posees esta nave');
+      
+      const success = onBuyShip(selectedItem.id, selectedItem.cost);
+      if (success) {
+        triggerSuccess(`Adquisición de ${selectedItem.name} completada`);
+      } else {
+        alert('No tienes suficientes créditos');
+      }
+      return;
     }
 
     // Module Purchase
@@ -150,12 +168,16 @@ export default function Shop({
               className={`shop-item-card ${selectedItem?.id === item.id ? 'selected' : ''}`}
               onClick={() => handleItemClick(item)}
             >
+              {activeCategory === 'naves' && ownedShips.includes(item.id) && (
+                <div style={{ position: 'absolute', top: '5px', left: '5px', background: '#00ffcc', color: 'black', fontSize: '0.6rem', padding: '2px 5px', borderRadius: '3px', fontWeight: 'bold', zIndex: 10 }}>ADQUIRIDA</div>
+              )}
               <div style={{ fontSize: '2.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50px' }}>
                 {item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'contain' }} /> : item.icon}
               </div>
               <div className="shop-item-name">{item.name}</div>
               <div className="shop-item-price">
-                {item.cost ? `${item.cost} Cr` : `${item.sellPrice} Cr/u`}
+                {activeCategory === 'naves' && ownedShips.includes(item.id) ? '---' : 
+                 (item.cost !== undefined) ? `${item.cost.toLocaleString()} Cr` : `${item.sellPrice} Cr/u`}
               </div>
             </div>
           ))}
@@ -208,22 +230,50 @@ export default function Shop({
                       <span style={{ color: '#fff' }}>{amountOwned} unidades</span>
                     </div>
                   )}
+                  {activeCategory === 'naves' && (
+                    <>
+                      <div className="preview-stat-row">
+                        <span>Casco Estructural</span>
+                        <span style={{ color: '#00ffcc' }}>{selectedItem.hp} HP</span>
+                      </div>
+                      <div className="preview-stat-row">
+                        <span>Escudo Base</span>
+                        <span style={{ color: '#00c8ff' }}>{selectedItem.shld} SB</span>
+                      </div>
+                      <div className="preview-stat-row">
+                        <span>Velocidad Base</span>
+                        <span style={{ color: '#ffcc00' }}>{selectedItem.spd} m/s</span>
+                      </div>
+                      <div className="preview-stat-row">
+                        <span>Bodega Carga</span>
+                        <span style={{ color: '#88aaff' }}>{selectedItem.cargo_capacity} t</span>
+                      </div>
+                      <div className="preview-stat-row">
+                        <span>Ranuras Láser</span>
+                        <span>{selectedItem.slots.lasers}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="shop-action-strip">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>PRECIO FINAL:</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isAffordable || isMineral ? '#00ffcc' : '#ff3366' }}>
-                    {isMineral ? amountOwned * selectedItem.sellPrice : selectedItem.cost} Cr
+                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                    {activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? 'ESTADO:' : 'PRECIO FINAL:'}
+                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: (isAffordable || isMineral) ? '#00ffcc' : '#ff3366' }}>
+                    {activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? 'ADQUIRIDA' :
+                     isMineral ? (amountOwned * selectedItem.sellPrice).toLocaleString() : (selectedItem.cost || 0).toLocaleString()} Cr
                   </div>
                 </div>
                 <button 
                   className="buy-button" 
-                  disabled={isMineral ? amountOwned === 0 : !isAffordable}
+                  disabled={isMineral ? amountOwned === 0 : (activeCategory === 'naves' && ownedShips.includes(selectedItem.id)) || !isAffordable}
                   onClick={handleAction}
+                  style={{ background: activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? '#333' : '' }}
                 >
-                  {isMineral ? 'VENDER TODO' : 'COMPRAR'}
+                  {activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? 'YA EN PROPIEDAD' : isMineral ? 'VENDER TODO' : 'COMPRAR'}
                 </button>
               </div>
             </>

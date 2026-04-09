@@ -22,7 +22,8 @@ export default function Hangar({
   upgrades,
   onRefine,
   inSafeZone,
-  isPlaying
+  isPlaying,
+  ownedShips = []
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
@@ -32,13 +33,14 @@ export default function Hangar({
   const viewedShip = SHIPS.find(s => s.id === viewedShipId) || SHIPS[0];
   const currentEquipped = equippedByShip[viewedShipId] || [];
   const isActive = selectedShipId === viewedShipId;
+  const isOwned = ownedShips.includes(viewedShipId);
 
   // Calculate stats for the viewed ship
   const stats = {
     hp: viewedShip.hp + currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0),
-    shld: viewedShip.shld + currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0) + upgrades.shld,
-    atk: viewedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + upgrades.atk,
-    spd: viewedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + upgrades.spd,
+    shld: viewedShip.shld + currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0) + (upgrades.shld || []).reduce((acc, u) => acc + (u.amount || 0), 0),
+    atk: viewedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + (upgrades.atk || []).reduce((acc, u) => acc + (u.amount || 0), 0),
+    spd: viewedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + (upgrades.spd || []).reduce((acc, u) => acc + (u.amount || 0), 0),
     lasersSlots: viewedShip.slots.lasers,
     genSlots: viewedShip.slots.shields + viewedShip.slots.engines
   };
@@ -48,18 +50,23 @@ export default function Hangar({
       <main className="hangar-main-layout">
         
         {/* SHIP GRID */}
-        <section className="fleet-grid-area">
-          {SHIPS.map(ship => (
-            <div 
-              key={ship.id} 
-              className={`ship-inventory-card ${viewedShipId === ship.id ? 'selected' : ''}`}
-              onClick={() => setViewedShipId(ship.id)}
-            >
-              <img src={ship.image} alt={ship.name} />
-              <div className="ship-inventory-name">{ship.name}</div>
-              {selectedShipId === ship.id && <div className="ship-status-icon">✓</div>}
-            </div>
-          ))}
+         <section className="fleet-grid-area">
+          {SHIPS.map(ship => {
+            const shipOwned = ownedShips.includes(ship.id);
+            return (
+              <div 
+                key={ship.id} 
+                className={`ship-inventory-card ${viewedShipId === ship.id ? 'selected' : ''} ${!shipOwned ? 'locked' : ''}`}
+                onClick={() => setViewedShipId(ship.id)}
+                style={{ opacity: shipOwned ? 1 : 0.5, filter: shipOwned ? 'none' : 'grayscale(80%)' }}
+              >
+                {!shipOwned && <div style={{ position: 'absolute', top: '5px', right: '5px', fontSize: '1rem' }}>🔒</div>}
+                <img src={ship.image} alt={ship.name} />
+                <div className="ship-inventory-name">{ship.name}</div>
+                {selectedShipId === ship.id && <div className="ship-status-icon">✓</div>}
+              </div>
+            );
+          })}
           {/* Mock extra cards for the "grid" look */}
           {[1,2,3,4,5,6,7].map(i => (
             <div key={i} className="ship-inventory-card" style={{ opacity: 0.2, cursor: 'default' }}>
@@ -106,6 +113,10 @@ export default function Hangar({
                 <span className="fleet-stat-label">Nivel de Piloto</span>
                 <span className="fleet-stat-value">{level}</span>
              </div>
+             <div className="fleet-stat-row">
+                <span className="fleet-stat-label">Bodega de Carga</span>
+                <span className="fleet-stat-value">{viewedShip.cargo_capacity.toLocaleString()} t</span>
+             </div>
              
              {/* Large Status Label */}
              <div className="active-status-label" style={{ color: isActive ? '#00ffcc' : '#333' }}>
@@ -114,7 +125,7 @@ export default function Hangar({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', padding: '10px' }}>
-            {!isActive && (
+            {!isActive && isOwned && (
               <button 
                 onClick={() => setSelectedShipId(viewedShipId)}
                 style={{ marginBottom: '10px', padding: '12px', background: '#00ffcc', border: 'none', color: 'black', fontWeight: 'bold', cursor: 'pointer', borderRadius: '4px' }}
@@ -122,11 +133,20 @@ export default function Hangar({
                 EQUIPAR COMO ACTIVA
               </button>
             )}
+            {!isOwned && (
+               <button 
+                onClick={() => onNavigate('shop')}
+                style={{ marginBottom: '10px', padding: '12px', background: '#ffcc00', border: 'none', color: 'black', fontWeight: 'bold', cursor: 'pointer', borderRadius: '4px' }}
+              >
+                ADQUIRIR EN TIENDA ({viewedShip.cost.toLocaleString()} Cr)
+              </button>
+            )}
             <button 
-              className={`gestionar-button ${isBlocked ? 'blocked' : ''}`} 
-              onClick={() => setEditMode(true)}
+              className={`gestionar-button ${isBlocked || !isOwned ? 'blocked' : ''}`} 
+              onClick={() => isOwned && setEditMode(true)}
+              disabled={!isOwned}
             >
-              {isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR'}
+              {!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR'}
             </button>
           </div>
         </aside>

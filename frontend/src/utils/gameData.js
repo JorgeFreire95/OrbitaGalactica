@@ -1,5 +1,20 @@
 export const SHIPS = [
   {
+    id: 'starter',
+    name: 'Phoenix (Básica)',
+    hp: 60,
+    atk: 40,
+    spd: 120,
+    color: '#ffffff',
+    desc: 'Nave ligera de entrenamiento para cadetes recién alistados.',
+    image: '/phoenix.png',
+    ui_image: '/phoenix_ui.png',
+    slots: { lasers: 1, shields: 1, engines: 1, utility: 1 },
+    shld: 30,
+    cargo_capacity: 100,
+    cost: 0
+  },
+  {
     id: 'tank',
     name: 'Aegis Vanguard (Tanque)',
     hp: 180,
@@ -10,7 +25,8 @@ export const SHIPS = [
     image: '/aegis_vanguard.png',
     slots: { lasers: 2, shields: 6, engines: 3, utility: 2 },
     shld: 150,
-    cargo_capacity: 80
+    cargo_capacity: 1500,
+    cost: 150000
   },
   {
     id: 'fast',
@@ -23,7 +39,8 @@ export const SHIPS = [
     image: '/nova_striker.png',
     slots: { lasers: 3, shields: 2, engines: 7, utility: 2 },
     shld: 50,
-    cargo_capacity: 30
+    cargo_capacity: 500,
+    cost: 250000
   },
   {
     id: 'stealth',
@@ -36,7 +53,8 @@ export const SHIPS = [
     image: '/orion_phantom.png',
     slots: { lasers: 5, shields: 3, engines: 4, utility: 3 },
     shld: 80,
-    cargo_capacity: 40
+    cargo_capacity: 800,
+    cost: 500000
   },
   {
     id: 'heavy',
@@ -49,7 +67,8 @@ export const SHIPS = [
     image: '/titan_hammer.png',
     slots: { lasers: 8, shields: 4, engines: 2, utility: 1 },
     shld: 120,
-    cargo_capacity: 50
+    cargo_capacity: 1200,
+    cost: 1000000
   },
   {
     id: 'support',
@@ -62,7 +81,8 @@ export const SHIPS = [
     image: '/helix_support.png',
     slots: { lasers: 2, shields: 3, engines: 4, utility: 6 },
     shld: 100,
-    cargo_capacity: 120
+    cargo_capacity: 2500,
+    cost: 450000
   }
 ];
 

@@ -12,6 +12,9 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
     is_admin: false,
     is_super_admin: false
   });
+  const [activeAdminTab, setActiveAdminTab] = useState('users'); // 'users' or 'announcements'
+  const [announcements, setAnnouncements] = useState([]);
+  const [newAnnouncement, setNewAnnouncement] = useState({ title: '', content: '', type: 'info' });
 
   const API_URL = 'http://localhost:8000/api';
 
@@ -34,6 +37,24 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
       setLoading(false);
     }
   };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const resp = await fetch(`${API_URL}/announcements`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setAnnouncements(data.announcements || []);
+      }
+    } catch (err) {
+      console.error("Error fetching announcements:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeAdminTab === 'announcements') {
+      fetchAnnouncements();
+    }
+  }, [activeAdminTab]);
 
   const handleDelete = async (username) => {
     if (!window.confirm(`¿Estás seguro de eliminar a ${username}? Esta acción no se puede deshacer.`)) return;
@@ -80,6 +101,34 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
     }
   };
 
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!newAnnouncement.title || !newAnnouncement.content) return;
+    try {
+      const resp = await fetch(`${API_URL}/admin/announcements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAnnouncement)
+      });
+      if (resp.ok) {
+        setNewAnnouncement({ title: '', content: '', type: 'info' });
+        fetchAnnouncements();
+      }
+    } catch (err) {
+      alert("Error al publicar anuncio");
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    if (!window.confirm("¿Eliminar este anuncio?")) return;
+    try {
+      const resp = await fetch(`${API_URL}/admin/announcements/${id}`, { method: 'DELETE' });
+      if (resp.ok) fetchAnnouncements();
+    } catch (err) {
+      alert("Error al eliminar");
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.username.toLowerCase().includes(search.toLowerCase()) || 
     u.email.toLowerCase().includes(search.toLowerCase())
@@ -100,10 +149,27 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
             <p style={{ margin: 0, color: '#88aaff', fontSize: '0.8rem' }}>Terminal de Supervisión Táctica v3.0</p>
           </div>
         </div>
-        <button onClick={onBack} className="back-btn">SALIR DE TERMINAL</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => setActiveAdminTab('users')} 
+            className={`nav-button ${activeAdminTab === 'users' ? 'active' : ''}`}
+            style={{ fontSize: '0.7rem', opacity: activeAdminTab === 'users' ? 1 : 0.6 }}
+          >
+            GESTIÓN DE PILOTOS
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('announcements')} 
+            className={`nav-button ${activeAdminTab === 'announcements' ? 'active' : ''}`}
+            style={{ fontSize: '0.7rem', opacity: activeAdminTab === 'announcements' ? 1 : 0.6 }}
+          >
+            SISTEMA DE ANUNCIOS
+          </button>
+          <button onClick={onBack} className="back-btn" style={{ marginLeft: '20px' }}>SALIR DE TERMINAL</button>
+        </div>
       </div>
 
-      <div className="admin-glass-panel">
+      {activeAdminTab === 'users' ? (
+        <div className="admin-glass-panel">
         {/* TOOLBAR */}
         <div className="admin-toolbar">
           <input 
@@ -214,6 +280,84 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
           )}
         </div>
       </div>
+      ) : (
+        <div className="admin-glass-panel" style={{ padding: '30px' }}>
+          <h2 style={{ color: '#00ffcc', marginBottom: '20px', fontSize: '1.2rem' }}>📢 PUBLICAR COMUNICADO ESTELAR</h2>
+          <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '600px', marginBottom: '40px' }}>
+            <div className="input-field">
+              <label>Título del Anuncio</label>
+              <input 
+                type="text" 
+                value={newAnnouncement.title} 
+                onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} 
+                placeholder="Ej: Mantenimiento Programado"
+              />
+            </div>
+            <div className="input-field">
+              <label>Contenido del Mensaje</label>
+              <textarea 
+                value={newAnnouncement.content} 
+                onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} 
+                style={{ background: '#0a0f1a', color: '#fff', border: '1px solid #334466', padding: '10px', minHeight: '100px', fontFamily: 'Inter' }}
+                placeholder="Describe los detalles del anuncio..."
+              />
+            </div>
+            <div className="input-field">
+              <label>Prioridad / Tipo</label>
+              <select value={newAnnouncement.type} onChange={e => setNewAnnouncement({...newAnnouncement, type: e.target.value})}>
+                <option value="info">INFORMACIÓN (AZUL)</option>
+                <option value="warning">ALERTA (AMARILLO)</option>
+                <option value="event">EVENTO (VERDE)</option>
+                <option value="critical">CRÍTICO (ROJO)</option>
+              </select>
+            </div>
+            <button type="submit" className="btn-primary" style={{ padding: '15px' }}>TRANSMITIR A TODA LA FLOTA</button>
+          </form>
+
+          <h2 style={{ color: '#00ffcc', marginBottom: '20px', fontSize: '1.2rem' }}>📜 HISTORIAL DE COMUNICADOS</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {announcements.length === 0 ? (
+              <div style={{ color: '#555', fontStyle: 'italic' }}>No hay anuncios activos en el sistema.</div>
+            ) : (
+              announcements.map(a => (
+                <div key={a.id} style={{ 
+                  background: 'rgba(255,255,255,0.03)', 
+                  border: '1px solid #334466', 
+                  borderRadius: '8px', 
+                  padding: '15px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <span style={{ 
+                      fontSize: '0.6rem', 
+                      background: a.type === 'critical' ? '#ff3333' : a.type === 'warning' ? '#ffcc00' : a.type === 'event' ? '#00ff66' : '#00aaff',
+                      color: '#000',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      fontWeight: 'bold',
+                      marginRight: '10px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {a.type}
+                    </span>
+                    <strong style={{ color: '#fff' }}>{a.title}</strong>
+                    <p style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '5px' }}>{a.content}</p>
+                    <small style={{ color: '#555' }}>Publicado el: {new Date(a.date).toLocaleString()}</small>
+                  </div>
+                  <button 
+                    onClick={() => handleDeleteAnnouncement(a.id)}
+                    style={{ background: 'none', border: 'none', color: '#ff3333', cursor: 'pointer', fontSize: '1.2rem' }}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* EDIT MODAL */}
       {editingUser && (

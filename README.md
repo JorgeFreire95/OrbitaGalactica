@@ -50,13 +50,16 @@
 - **Créditos (🔋)**: Ganados al destruir naves enemigas o batallando en tu Escuadrón.
 - **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
 
-### ⚔️ Combate y HUD Avanzado
-- **Munición Finita**: Todas las municiones, incluida la **Estándar**, son limitadas y deben ser gestionadas. Puedes reabastecerte en la tienda (1000 disparos por 50 Créditos).
-- **HUD Modernizado e Inteligente**: Interfaz limpia con cabeceras minimalistas. Incluye un sistema de **Sincronización Bidireccional (Polling)** que refresca tus estadísticas cada 30s para reflejar donaciones o cambios externos sin refrescar la página.
+### ⚔️ Combate y HUD Cinematográfico
+- **Efectos de Destrucción Estelar**: Sistema de partículas dinámicas que genera una explosión cinemática (destello radial y restos incandescentes) cuando una nave es destruida.
+- **Protocolo de Emergencia (Reparación)**: Tras la derrota, los pilotos pueden restaurar su sistema de combate pagando **500 Créditos**. La reparación incluye el reabastecimiento total de salud/escudos y el salto automático a la **Sede Central de su Facción**.
+- **HUD Dinámico de Nueva Generación**: Panel de estados equipado con barras de progreso animadas que muestran **Vida (❤️)** y **Escudo (🛡️)** en tiempo real. La barra de vida cambia de color dinámicamente según el estado crítico del casco.
+- **Sincronización Total en Tiempo Real**: Sincronización bidireccional instantánea. Al equipar módulos de motor, armas o escudos en el Hangar, las estadísticas se recalculan y actualizan en el HUD del juego al milisegundo, permitiendo pruebas de equipo fluidas.
 - **Hotbar Draggable & Lockable**: La barra de armas es arrastrable por el HUD y cuenta con un sistema de bloqueo (**🔒/🔓**) para evitar movimientos accidentales durante el combate.
-- **Sincronización en Tiempo Real**: Sincronización fluida entre la Tienda y el Juego. Las compras realizadas en el menú se reflejan instantáneamente al despegar.
+- **Gestión de Munición**: Control de munición tanto para láseres como para misiles, con actualización en tiempo real desde la Tienda.
 
-### ⚙️ Administración Avanzada
+### ⚙️ Administración y Seguridad
+- **Bases de Facción Autorritativas**: Puntos de reaparición estratégicos para **MARS**, **MOON** y **PLUTO**, cada uno con su propia Zona Segura dedicada.
 - **Panel de Control de Servidor**: Herramientas para moderadores que permiten gestionar el estado de los sectores, expulsar usuarios conflictivos y monitorear la integridad de la base de datos en tiempo real.
 
 ---

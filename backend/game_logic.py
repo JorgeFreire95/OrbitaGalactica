@@ -16,6 +16,7 @@ class GameState:
         self.kill_events = [] 
         self.loot_events = [] 
         self.damage_events = []
+        self.destruction_events = []
         self.last_special_spawn = time.time()
         self.special_spawn_rate = 30.0 # Más constante: cada 30 segundos
         
@@ -42,10 +43,9 @@ class GameState:
             "mars_1": {
                 "name": "Sector de Hierro", "level": 1, "style": "mars",
                 "portals": [
-                    {"x": PB_X, "y": PB_Y, "target": "mars_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cañón del Óxido"},
-                    {"x": 1000, "y": 7000, "target": "moon_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Bahía de Selene"},
-                    {"x": 1000, "y": 1000, "target": "pluto_1",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Abismo de Caronte"}
-                ]
+                    {"x": PB_X, "y": PB_Y, "target": "mars_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cañón del Óxido"}
+                ],
+                "station": {"x": 1750, "y": 1150} # Base de Inicio
             },
             "mars_2": {
                 "name": "Cañón del Óxido", "level": 2, "style": "mars",
@@ -93,16 +93,17 @@ class GameState:
                 "name": "Plataforma de Asedio", "level": 8, "style": "mars_industrial",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "mars_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Puesto Phobos"}
-                ]
+                ],
+                "station": {"x": PB_X, "y": PB_Y} # Nueva estación en el punto celeste
             },
             # --- FACCIÓN MOON (Mapa Inicial: Bahía de Selene) ---
             "moon_1": {
                 "name": "Bahía de Selene", "level": 1, "style": "moon",
                 "portals": [
                     {"x": PB_X, "y": PB_Y, "target": "moon_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cráter de Cristal"},
-                    {"x": 1000, "y": 7000, "target": "mars_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Sector de Hierro"},
                     {"x": 1000, "y": 1000, "target": "pluto_1",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Abismo de Caronte"}
-                ]
+                ],
+                "station": {"x": 1750, "y": 1150} # Base de Inicio (Luna)
             },
             "moon_2": {
                 "name": "Cráter de Cristal", "level": 2, "style": "moon_crystal",
@@ -150,16 +151,17 @@ class GameState:
                 "name": "Anillo de Plata", "level": 8, "style": "moon_racing",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "moon_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Refinería Helio-3"}
-                ]
+                ],
+                "station": {"x": PB_X, "y": PB_Y} # Avanzada de la Luna
             },
             # --- FACCIÓN PLUTO (Mapa Inicial: Abismo de Caronte) ---
             "pluto_1": {
                 "name": "Abismo de Caronte", "level": 1, "style": "pluto",
                 "portals": [
                     {"x": PB_X, "y": PB_Y, "target": "pluto_2",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Glaciar Eterno"},
-                    {"x": 1000, "y": 7000, "target": "mars_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Sector de Hierro"},
                     {"x": 1000, "y": 1000, "target": "moon_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Bahía de Selene"}
-                ]
+                ],
+                "station": {"x": 1750, "y": 1150} # Base de Inicio (Plutón)
             },
             "pluto_2": {
                 "name": "Glaciar Eterno", "level": 2, "style": "pluto_ice",
@@ -207,7 +209,8 @@ class GameState:
                 "name": "Resplandor de Hielo", "level": 8, "style": "pluto_glow",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "pluto_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Exilio"}
-                ]
+                ],
+                "station": {"x": PB_X, "y": PB_Y} # Avanzada de Plutón
             }
         }
         
@@ -228,29 +231,39 @@ class GameState:
         
         # Stats and Slot profiles
         profiles = {
+            "starter": {
+                "hp": 60, "shld": 30, "atk": 40, "spd": 120, "color": "#ffffff",
+                "slots": {"lasers": 1, "shields": 1, "engines": 1, "utility": 1},
+                "cargo_capacity": 100
+            },
             "tank": {
                 "hp": 180, "shld": 150, "atk": 70, "spd": 60, "color": "#ffb300",
-                "slots": {"lasers": 2, "shields": 6, "engines": 3, "utility": 2}
+                "slots": {"lasers": 2, "shields": 6, "engines": 3, "utility": 2},
+                "cargo_capacity": 1500
             },
             "fast": {
                 "hp": 80, "shld": 50, "atk": 110, "spd": 180, "color": "#00ccff",
-                "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2}
+                "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2},
+                "cargo_capacity": 500
             },
             "stealth": {
                 "hp": 90, "shld": 80, "atk": 130, "spd": 140, "color": "#9933ff",
-                "slots": {"lasers": 5, "shields": 3, "engines": 4, "utility": 3}
+                "slots": {"lasers": 5, "shields": 3, "engines": 4, "utility": 3},
+                "cargo_capacity": 800
             },
             "heavy": {
                 "hp": 160, "shld": 120, "atk": 180, "spd": 50, "color": "#ff3333",
-                "slots": {"lasers": 8, "shields": 4, "engines": 2, "utility": 1}
+                "slots": {"lasers": 8, "shields": 4, "engines": 2, "utility": 1},
+                "cargo_capacity": 1200
             },
             "support": {
                 "hp": 110, "shld": 100, "atk": 60, "spd": 100, "color": "#33ff99",
-                "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6}
+                "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6},
+                "cargo_capacity": 2500
             }
         }
         
-        prof = profiles.get(ship_type, profiles["tank"])
+        prof = profiles.get(ship_type, profiles["starter"])
         
         # Calculate modules based on stats (legacy logic, will be overridden by initial_modules eventually)
         c_lasers = max(1, round(prof["atk"] / 25))
@@ -285,7 +298,7 @@ class GameState:
             "score": 0,
             "credits": initial_credits, 
             "last_shot": 0,
-            "fire_rate": 0.12, # Cadencia base más rápida (antes 0.25)
+            "fire_rate": 0.20, # Velocidad de ataque reducida (antes 0.12)
             "powerup": None,
             "powerup_time": 0,
             "heading": -1.57,
@@ -297,22 +310,38 @@ class GameState:
             "level": initial_level,
             "xp": initial_xp,
             "xp_next": initial_level * 1000,
-            "minerals": initial_minerals if initial_minerals else {"titanium": 0, "plutonium": 0, "silicon": 0},
-            "max_cargo": prof.get("cargo_capacity", 50),
-            "permanent_upgrades": initial_upgrades if initial_upgrades else {"atk": 0, "shld": 0, "spd": 0},
+            "minerals": initial_minerals if (initial_minerals and isinstance(initial_minerals, dict)) else {"titanium": 0, "plutonium": 0, "silicon": 0},
+            "max_cargo": prof.get("cargo_capacity", 1500), # Capacidad aumentada significativamente
             "current_map": "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"),
             "paladio": initial_paladio,
             "faction": faction, # Mars, Moon, Pluto
             "clan_tag": clan_tag  # User created clan (e.g. [ABC])
         }
-        
-        # Apply permanent upgrades to base stats
-        upg = player["permanent_upgrades"]
-        player["atk"] += upg.get("atk", 0)
-        player["shld"] += upg.get("shld", 0)
-        player["max_shld"] += upg.get("shld", 0)
-        # Note: spd is used for calculations later, but we update the base here
-        player["spd"] += upg.get("spd", 0)
+
+        # Guardar estadísticas base para recálculos
+        player["base_atk"] = prof["atk"]
+        player["base_spd"] = prof["spd"]
+        player["base_max_shld"] = prof["shld"]
+        player["base_max_hp"] = prof["hp"]
+
+        # Procesar mejoras iniciales (pueden ser formato nuevo o viejo)
+        raw_upg = initial_upgrades if (initial_upgrades and isinstance(initial_upgrades, dict)) else {}
+        player["timed_upgrades"] = {
+            "atk": raw_upg.get("atk", []) if isinstance(raw_upg.get("atk"), list) else [],
+            "shld": raw_upg.get("shld", []) if isinstance(raw_upg.get("shld"), list) else [],
+            "spd": raw_upg.get("spd", []) if isinstance(raw_upg.get("spd"), list) else []
+        }
+
+        # Convertir formato viejo si es necesario (retrocompatibilidad por si acaso)
+        if isinstance(raw_upg.get("atk"), (int, float)) and raw_upg["atk"] > 0:
+            player["timed_upgrades"]["atk"].append({"amount": raw_upg["atk"], "expires": time.time() + 7200})
+        if isinstance(raw_upg.get("shld"), (int, float)) and raw_upg["shld"] > 0:
+            player["timed_upgrades"]["shld"].append({"amount": raw_upg["shld"], "expires": time.time() + 7200})
+        if isinstance(raw_upg.get("spd"), (int, float)) and raw_upg["spd"] > 0:
+            player["timed_upgrades"]["spd"].append({"amount": raw_upg["spd"], "expires": time.time() + 7200})
+
+        # Primera actualización de stats
+        self.recalculate_player_stats(player)
  
         if initial_ammo:
             # Separar munición de láseres vs misiles
@@ -640,8 +669,23 @@ class GameState:
             
         # 2. Update Players
         for pid, p in self.players.items():
-            if p["hp"] <= 0: continue
+            if p["hp"] <= 0:
+                if not p.get("is_dead"):
+                    p["is_dead"] = True
+                    p["vx"] = 0
+                    p["vy"] = 0
+                    self.destruction_events.append({
+                        "id": f"death_{pid}_{random.random()}",
+                        "x": p["x"], "y": p["y"],
+                        "type": "ship_explosion",
+                        "time": now,
+                        "owner_id": pid
+                    })
+                continue
             
+            # Si el jugador estaba muerto (reparado), reseter flag
+            if p.get("is_dead"): p["is_dead"] = False
+
             p["x"] += p["vx"] * dt
             p["y"] += p["vy"] * dt
             
@@ -657,12 +701,30 @@ class GameState:
             # Quitar powerup si expiró
             if p["powerup"] and now > p["powerup_time"]:
                 p["powerup"] = None
+
+            # --- GESTIÓN DE MEJORAS TEMPORALES (2 HORAS) ---
+            upg_changed = False
+            for stat in ["atk", "shld", "spd"]:
+                current_list = p["timed_upgrades"].get(stat, [])
+                # expires está en ms desde el frontend, convertir a s para time.time() o viceversa
+                # El frontend envía Date.now() que es ms.
+                # time.time() es segundos.
+                active = [u for u in current_list if (u["expires"] / 1000.0) > now]
+                if len(active) != len(current_list):
+                    p["timed_upgrades"][stat] = active
+                    upg_changed = True
+            
+            if upg_changed:
+                self.recalculate_player_stats(p)
                 
             # --- DETECCIÓN DE ZONA SEGURA (BASE Y PORTAL) ---
-            # La base existe en Sector de Hierro, Bahía de Selene y Abismo de Caronte
+            # Localizar portales y estación del mapa actual
+            map_cfg = self.MAPS.get(p["current_map"], {})
+            
             in_base_safety = False
-            if p["current_map"] in ["mars_1", "moon_1", "pluto_1"]:
-                dist_to_base = math.hypot(p["x"] - self.BASE_X, p["y"] - self.BASE_Y)
+            if "station" in map_cfg:
+                st = map_cfg["station"]
+                dist_to_base = math.hypot(p["x"] - st["x"], p["y"] - st["y"])
                 in_base_safety = dist_to_base < self.SAFE_ZONE_RADIUS
             
             # Localizar portales del mapa actual
@@ -709,15 +771,71 @@ class GameState:
             
         self.projectiles = [p for p in self.projectiles if p["life"] > 0]
         
-        # 4. Update Enemies (Simple AI: move towards nearest player, or random)
+        # 4. Update Enemies (AI: Hunter vs Passive)
+        DETECTION_RANGE = 600
         for enemy in self.enemies:
-            enemy["y"] += enemy["vy"] * dt
-            enemy["x"] += enemy["vx"] * dt
+            ai_type = enemy.get("ai_type", "passive")
+            m_id = enemy.get("map_id")
             
-            # Si salen de los límites del mapa (cualquiera de los 4 bordes), reaparecen
+            target_player = None
+            if ai_type == "hunter":
+                # Si ya tiene target, verificar que siga en el mapa, vivo y FUERA de zona segura
+                if enemy["aggro_target"] and enemy["aggro_target"] in self.players:
+                    p = self.players[enemy["aggro_target"]]
+                    if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False):
+                        target_player = p
+                    else:
+                        enemy["aggro_target"] = None # Perder rastro si entra a base o muere
+                
+                # Si no hay target o lo perdió, buscar el más cercano
+                if not target_player:
+                    min_dist = DETECTION_RANGE
+                    for pid, p in self.players.items():
+                        if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False):
+                            d = math.hypot(enemy["x"] - p["x"], enemy["y"] - p["y"])
+                            if d < min_dist:
+                                min_dist = d
+                                target_player = p
+                                enemy["aggro_target"] = pid
+
+            # Lógica de Movimiento
+            if target_player:
+                dx = target_player["x"] - enemy["x"]
+                dy = target_player["y"] - enemy["y"]
+                dist = math.hypot(dx, dy)
+                
+                if dist > 50: # Mantener una pequeña distancia
+                    enemy["vx"] = (dx / dist) * 120 # Velocidad de persecución
+                    enemy["vy"] = (dy / dist) * 120
+                else:
+                    enemy["vx"], enemy["vy"] = 0, 0
+
+                # Lógica de Ataque (Disparo)
+                if dist < 500 and now - enemy.get("last_shot", 0) > 1.5:
+                    angle = math.atan2(dy, dx)
+                    self.projectiles.append({
+                        "id": "alien_laser_" + str(random.random()),
+                        "owner_id": enemy["id"],
+                        "is_player": False,
+                        "x": enemy["x"],
+                        "y": enemy["y"],
+                        "vx": math.cos(angle) * 400,
+                        "vy": math.sin(angle) * 400,
+                        "damage": enemy.get("atk", 15),
+                        "life": 1.5,
+                        "map_id": m_id,
+                        "color": "#ff3333" # Rojo para aliens
+                    })
+                    enemy["last_shot"] = now
+            
+            # Actualización de posición final para TODOS los tipos de movimiento
+            enemy["x"] += enemy["vx"] * dt
+            enemy["y"] += enemy["vy"] * dt
+            
+            # Si salen de los límites del mapa, reaparecen
             if (enemy["y"] > self.GAME_HEIGHT + 100 or enemy["y"] < -100 or
                 enemy["x"] > self.GAME_WIDTH + 100 or enemy["x"] < -100):
-                enemy["y"] = -50 # Reaparecer desde arriba
+                enemy["y"] = -50 
                 enemy["x"] = random.randint(50, self.GAME_WIDTH - 50)
                 enemy["vx"] = random.uniform(-50, 50)
                 enemy["vy"] = random.uniform(50, 150)
@@ -726,6 +844,7 @@ class GameState:
         self.kill_events = [e for e in self.kill_events if now - e["time"] < 2.5]
         self.loot_events = [e for e in self.loot_events if now - e["time"] < 2.5]
         self.damage_events = [e for e in self.damage_events if now - e["time"] < 1.0] # Daño dura 1 seg
+        self.destruction_events = [e for e in self.destruction_events if now - e["time"] < 2.0] # Explosión dura 2 seg
                 
         # 5. Collisions
         self._check_collisions(now)
@@ -746,6 +865,10 @@ class GameState:
                         if p.get("ammo_type") != "siphon":
                             e["hp"] -= p["damage"]
                             
+                            # Retaliation: Si es un hunter, fijar como target al que le disparó
+                            if e.get("ai_type") == "hunter":
+                                e["aggro_target"] = p["owner_id"]
+
                             # Registrar evento de daño para el frontend
                             self.damage_events.append({
                                 "id": str(random.random()),
@@ -791,28 +914,22 @@ class GameState:
                                 if random.random() < 0.05:
                                     player["ammo"]["thermal"] += 5
                                     
-                                # Soltar loot box! Chance del 20%
-                                if random.random() < 0.2:
-                                    self.loot_boxes.append({
-                                        "id": str(random.random()),
-                                        "x": e["x"],
-                                        "y": e["y"],
-                                        "type": random.choice(["heal", "rapid_fire", "speed"]),
-                                        "spawn_time": now,
-                                        "map_id": e["map_id"]
-                                    })
-                                # Soltar MINERALES! Chance del 40%
-                                if random.random() < 0.4:
-                                    self.loot_boxes.append({
-                                        "id": str(random.random()),
-                                        "x": e["x"] + random.randint(-15, 15),
-                                        "y": e["y"] + random.randint(-15, 15),
-                                        "type": "mineral",
-                                        "mineral_type": random.choice(["titanium", "plutonium", "silicon"]),
-                                        "amount": random.randint(3, 8),
-                                        "spawn_time": now,
-                                        "map_id": e["map_id"]
-                                    })
+                                # --- DROP GARANTIZADO DE CARGA DE MINERALES ---
+                                self.loot_boxes.append({
+                                    "id": str(random.random()),
+                                    "x": e["x"],
+                                    "y": e["y"],
+                                    "type": "cargo",
+                                    "minerals": {
+                                        "titanium": random.randint(5, 12),
+                                        "plutonium": random.randint(2, 6),
+                                        "silicon": random.randint(1, 4)
+                                    },
+                                    "spawn_time": now,
+                                    "map_id": e["map_id"]
+                                })
+
+
                             
                             # RECOMPENSAS COMPARTIDAS EN GRUPO (Duplicar para el resto de miembros)
                             if player.get("party_id") and player["party_id"] in self.parties:
@@ -851,7 +968,23 @@ class GameState:
                         hit = True
                         break
             else:
-                pass # Aquí para el MVP, los aliens no disparan, mueren por chocar.
+                # PROYECTILES DE ALIENS -> JUGADORES
+                for pid, target in self.players.items():
+                    if target["hp"] <= 0 or target.get("in_safe_zone"): continue
+                    if p.get("map_id") != target.get("current_map"): continue
+
+                    dist = math.hypot(p["x"] - target["x"], p["y"] - target["y"])
+                    if dist < 25: # Colisión un poco más generosa para aliens
+                        damage = p["damage"]
+                        target["last_dmg_time"] = now
+                        if target["shld"] >= damage:
+                            target["shld"] -= damage
+                        else:
+                            rem = damage - target["shld"]
+                            target["shld"] = 0
+                            target["hp"] -= rem
+                        hit = True
+                        break
                 
             if not hit:
                 alive_projectiles.append(p)
@@ -884,7 +1017,7 @@ class GameState:
                             "time": now, "owner_id": pid
                         })
                     elif box["type"] == "mineral":
-                        # Verificar espacio en bodega
+                        # (Legacy) Caja de un solo mineral
                         current_cargo = sum(player["minerals"].values())
                         can_take = min(box["amount"], player["max_cargo"] - current_cargo)
                         if can_take > 0:
@@ -896,8 +1029,69 @@ class GameState:
                                 "type": "mineral", "mineral_type": m_type, "amount": can_take,
                                 "time": now, "owner_id": pid
                             })
+                            # Si no se llevó todo, la caja se queda con el resto
+                            if can_take < box["amount"]:
+                                box["amount"] -= can_take
+                                taken = False
                         else:
-                            taken = False # No pudo recoger nada porque está lleno
+                            # Notificar bodega llena para cajas legacy
+                            if not hasattr(self, "_last_full_warn"): self._last_full_warn = {}
+                            if now - self._last_full_warn.get(pid, 0) > 2:
+                                self.loot_events.append({
+                                    "id": str(random.random()), "x": box["x"], "y": box["y"],
+                                    "type": "cargo_full", "time": now, "owner_id": pid
+                                })
+                                self._last_full_warn[pid] = now
+                            taken = False 
+                    elif box["type"] == "cargo":
+                        # Recoger múltiples minerales
+                        minerals_dict = player.get("minerals", {})
+                        # Asegurar que sea un dict
+                        if not isinstance(minerals_dict, dict):
+                            minerals_dict = {"titanium": 0, "plutonium": 0, "silicon": 0}
+                            player["minerals"] = minerals_dict
+                        
+                        current_shared_cargo = sum(minerals_dict.values())
+                        box_minerals = box.get("minerals", {})
+                        
+                        collected_info = {}
+                        has_remaining = False
+                        for m_type, amount in box_minerals.items():
+                            if amount <= 0: continue
+                            if current_shared_cargo < player["max_cargo"]:
+                                can_take = min(amount, player["max_cargo"] - current_shared_cargo)
+                                if can_take > 0:
+                                    minerals_dict[m_type] += can_take
+                                    current_shared_cargo += can_take
+                                    collected_info[m_type] = can_take
+                                    box_minerals[m_type] -= can_take # Restar de la caja
+                                    if box_minerals[m_type] > 0:
+                                        has_remaining = True
+                                else:
+                                    has_remaining = True
+                            else:
+                                has_remaining = True
+                        
+                        if collected_info:
+                            self.loot_events.append({
+                                "id": str(random.random()),
+                                "x": box["x"], "y": box["y"],
+                                "type": "cargo", "minerals": collected_info,
+                                "time": now, "owner_id": pid
+                            })
+                            # Si quedan minerales en la caja, no la eliminamos
+                            if has_remaining:
+                                taken = False
+                        else:
+                            # Notificar bodega llena (Cooldown de 2 seg para no spamear eventos)
+                            if not hasattr(self, "_last_full_warn"): self._last_full_warn = {}
+                            if now - self._last_full_warn.get(pid, 0) > 2:
+                                self.loot_events.append({
+                                    "id": str(random.random()), "x": box["x"], "y": box["y"],
+                                    "type": "cargo_full", "time": now, "owner_id": pid
+                                })
+                                self._last_full_warn[pid] = now
+                            taken = False # Bodega llena
                     elif box["type"] == "special_coin":
                         # --- RECOMPENSA ALEATORIA PALADIO/CRÉDITOS/MUNICIÓN ---
                         rand = random.random()
@@ -910,7 +1104,7 @@ class GameState:
                                 "type": "credits", "amount": amt,
                                 "time": now, "owner_id": pid
                             })
-                        elif rand < 0.80: # 40% Munición Especial
+                        elif rand < 0.65: # 25% Munición Láser
                             amt = random.randint(50, 150)
                             ammo_id = random.choice(["thermal", "plasma", "siphon"])
                             player["ammo"][ammo_id] += amt
@@ -918,6 +1112,17 @@ class GameState:
                                 "id": str(random.random()),
                                 "x": box["x"], "y": box["y"],
                                 "type": "ammo", "ammo_type": ammo_id, "amount": amt,
+                                "time": now, "owner_id": pid
+                            })
+                        elif rand < 0.80: # 15% Munición Misiles
+                            amt = random.randint(5, 15)
+                            m_type = random.choice(["missile_1", "missile_2", "missile_3"])
+                            if "missiles" not in player: player["missiles"] = {"missile_1": 0, "missile_2": 0, "missile_3": 0}
+                            player["missiles"][m_type] += amt
+                            self.loot_events.append({
+                                "id": str(random.random()),
+                                "x": box["x"], "y": box["y"],
+                                "type": "missile_loot", "missile_type": m_type, "amount": amt,
                                 "time": now, "owner_id": pid
                             })
                         else: # 20% Paladio
@@ -967,6 +1172,26 @@ class GameState:
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
     def spawn_alien(self, map_id="mars_1"):
+        # Determinar nombre del alien según el mapa
+        if map_id in ["mars_1", "moon_1", "pluto_1"]:
+            alien_name = "Gryllos"
+        elif map_id in ["mars_2", "moon_2", "pluto_2"]:
+            alien_name = "Xylos"
+        elif map_id in ["mars_3", "moon_3", "pluto_3"]:
+            alien_name = "Nykor"
+        elif map_id in ["mars_4", "moon_4", "pluto_4"]:
+            alien_name = "Syrith"
+        elif map_id in ["mars_5", "moon_5", "pluto_5"]:
+            alien_name = "Vexis"
+        elif map_id in ["mars_6", "moon_6", "pluto_6"]:
+            alien_name = "Kragos"
+        elif map_id in ["mars_7", "moon_7", "pluto_7"]:
+            alien_name = "Zoltan"
+        elif map_id in ["mars_8", "moon_8", "pluto_8"]:
+            alien_name = "Drakon"
+        else:
+            alien_name = "Alien"
+
         # Escalamiento de dificultad basado en el nivel del mapa
         map_info = self.MAPS.get(map_id, {"level": 1})
         lvl = map_info["level"]
@@ -984,6 +1209,7 @@ class GameState:
         
         self.enemies.append({
             "id": alien_id,
+            "name": alien_name,
             "x": random.randint(100, self.GAME_WIDTH - 100),
             "y": random.randint(100, self.GAME_HEIGHT - 100),
             "hp": int(base_hp * (2.8 if is_hard else 1.0)),
@@ -994,7 +1220,10 @@ class GameState:
             "vx": random.uniform(-60, 60) * speed_mult,
             "vy": random.uniform(-60, 60) * speed_mult,
             "map_id": map_id,
-            "is_hard": is_hard
+            "is_hard": is_hard,
+            "ai_type": "hunter" if alien_name == "Gryllos" else "passive",
+            "aggro_target": None,
+            "last_shot": 0
         })
 
     def spawn_special_chest(self, map_id="mars_1"):
@@ -1009,49 +1238,101 @@ class GameState:
         })
         print(f"¡Cofre Especial spawneado en {map_id}!")
 
+    def recalculate_player_stats(self, player):
+        """Recalcula las estadísticas finales sumando base + módulos + mejoras temporales."""
+        # Reiniciar a base
+        player["atk"] = player.get("base_atk", player.get("atk", 70))
+        player["spd"] = player.get("base_spd", player.get("spd", 60))
+        player["max_shld"] = player.get("base_max_shld", player.get("max_shld", 150))
+        player["max_hp"] = player.get("base_max_hp", player.get("max_hp", 180))
+
+        # 1. Sumar Módulos Equipados
+        player["lasers"] = 0
+        player["engines"] = 0
+        player["shields"] = 0
+        
+        for mod in player.get("equipped", []):
+            if "atk" in mod: player["atk"] += mod["atk"]
+            if "shld" in mod: player["max_shld"] += mod["shld"]
+            if "spd" in mod: player["spd"] += mod["spd"]
+            if "hp" in mod: player["max_hp"] += mod["hp"]
+
+            # Recount for visuals
+            m_type = mod.get("type", "")
+            if m_type == "lasers": player["lasers"] += 1
+            if m_type == "engines": player["engines"] += 1
+            if m_type == "shields": player["shields"] += 1
+
+        # 2. Sumar Mejoras Temporales (Laboratorio)
+        if "timed_upgrades" in player:
+            for stat_key in ["atk", "shld", "spd"]:
+                bonus_total = sum(u["amount"] for u in player["timed_upgrades"].get(stat_key, []))
+                if stat_key == "shld":
+                    player["max_shld"] += bonus_total
+                else:
+                    player[stat_key] += bonus_total
+
+        # Ajustar valores actuales si el máximo bajó
+        player["shld"] = min(player["shld"], player["max_shld"])
+        player["hp"] = min(player["hp"], player["max_hp"])
+
     def buy_module(self, client_id, module_data, free=False):
         if client_id not in self.players:
             return
             
         player = self.players[client_id]
         cost = module_data.get("cost", 0)
-        m_type = module_data.get("type", "") # lasers, shields, engines, utility
+        m_type = module_data.get("type", "") 
         
-        # Check credits (unless it's free/initial)
         if not free:
-            if player["credits"] < cost:
-                return # Not enough money
+            if player["credits"] < cost: return
+            if not player.get("in_safe_zone", False): return
             
-            # BLOQUEO: Solo permitir equipar en la Base / Zona Segura
-            if not player.get("in_safe_zone", False):
-                return # Debe estar en la base para equipar
-            
-        # Check slot capacity
         max_slots = player["slots"].get(m_type, 0)
         current_used = len([m for m in player["equipped"] if m["type"] == m_type])
         
-        if current_used >= max_slots:
-            return # No more slots available for this type
+        if current_used >= max_slots: return
             
-        # Deduct credits and equip
         if not free:
             player["credits"] -= cost
-        player["equipped"].append(module_data)
         
-        # Apply bonuses
-        if "atk" in module_data: player["atk"] += module_data["atk"]
-        if "hp" in module_data: 
-            player["max_hp"] += module_data["hp"]
-            player["hp"] += module_data["hp"]
-        if "shld" in module_data:
-            player["max_shld"] += module_data["shld"]
-            player["shld"] += module_data["shld"]
-        if "spd" in module_data: player["spd"] += module_data["spd"]
+        player["equipped"].append(module_data)
+        self.recalculate_player_stats(player)
+
+    def update_equipped_modules(self, client_id, modules):
+        """Sincroniza el equipamiento completo en tiempo real (solo en zona segura)."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        # Solo permitir cambios de equipamiento en zona segura
+        if not player.get("in_safe_zone", False):
+            print(f"Intento de cambio de equipamiento fuera de zona segura para {client_id}")
+            return
             
-        # Recalculate modules count for visuals (lasers, engines etc)
-        if m_type == "lasers": player["lasers"] += 1
-        if m_type == "engines": player["engines"] += 1
-        if m_type == "shields": player["shields"] += 1
+        player["equipped"] = modules if isinstance(modules, list) else []
+        self.recalculate_player_stats(player)
+        print(f"Equipamiento sincronizado para {client_id}: {len(player['equipped'])} módulos.")
+
+    def update_resources(self, client_id, ammo_data):
+        """Sincroniza munición y otros recursos en tiempo real."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        # Si llega un objeto 'ammo' plano (como el del frontend), lo procesamos
+        # de forma inteligente separando láseres de misiles.
+        raw_ammo = ammo_data.get("ammo", {})
+        for k, v in raw_ammo.items():
+            if k.startswith("missile_"):
+                player["missiles"][k] = v
+            else:
+                player["ammo"][k] = v
+        
+        # Si por alguna razón llegan por separado
+        if "missiles" in ammo_data:
+            for k, v in ammo_data["missiles"].items():
+                player["missiles"][k] = v
+        
+        print(f"Recursos sincronizados para {client_id}")
 
     def switch_ammo(self, client_id, ammo_id):
         if client_id in self.players:
@@ -1131,11 +1412,12 @@ class GameState:
                 "loot_boxes": [b for b in self.loot_boxes if b.get("map_id") == m_id],
                 "kill_events": [e for e in self.kill_events if e.get("owner_id") == client_id],
                 "loot_events": [e for e in self.loot_events if e.get("owner_id") == client_id],
-                "base": {"x": self.BASE_X, "y": self.BASE_Y, "radius": self.SAFE_ZONE_RADIUS} if m_id in ["mars_1", "moon_1", "pluto_1"] else None,
+                "base": {"x": map_info["station"]["x"], "y": map_info["station"]["y"], "radius": self.SAFE_ZONE_RADIUS} if "station" in map_info else None,
                 "portals": portals,
                 "current_map_name": map_info["name"],
                 "current_map_style": map_info.get("style", "space"),
                 "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id],
+                "destruction_events": self.destruction_events,
                 "party": self.parties.get(me.get("party_id")) if me.get("party_id") else None,
                 "party_invites": self.party_invites.get(client_id, {})
             }

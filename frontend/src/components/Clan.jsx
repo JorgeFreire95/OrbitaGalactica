@@ -240,6 +240,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          username: user.username,
           clan_tag: clan.tag,
           target_username: targetUsername,
           amount: parseInt(amount)
@@ -254,6 +255,47 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
       } else {
         const err = await resp.json();
         alert(err.detail || "Error al realizar la donación.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión al servidor.");
+    }
+  };
+
+  const handleUpdateClanMetadata = async (updates) => {
+    try {
+      // Prepare the data with defaults from current clan state
+      const body = {
+        old_tag: clan.tag,
+        new_tag: updates.tag || clan.tag,
+        name: updates.name || clan.name,
+        description: updates.description !== undefined ? updates.description : clan.description,
+        status: updates.status || clan.status || 'Reclutando',
+        news: JSON.stringify(updates.news || clan.news || []),
+        logo: updates.logo !== undefined ? updates.logo : clan.logo
+      };
+
+      const resp = await fetch(`${API_URL}/clans/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (resp.ok) {
+        // Update local state with the same values
+        setClan({ 
+          ...clan, 
+          tag: body.new_tag,
+          name: body.name,
+          description: body.description,
+          status: body.status,
+          news: updates.news || clan.news || [],
+          logo: body.logo
+        });
+        setEditMode(null);
+      } else {
+        const err = await resp.json();
+        alert(err.detail || "Error al actualizar la información.");
       }
     } catch (err) {
       console.error(err);
@@ -326,11 +368,11 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           {canEdit && (
                             editMode === 'info' ? (
                                 <span>
-                                   <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => { setClan({...clan, tag: editValues.tag.toUpperCase(), name: editValues.name}); setEditMode(null); }}>✔ guardar</span>
+                                   <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => handleUpdateClanMetadata({ tag: editValues.tag.toUpperCase(), name: editValues.name, status: editValues.status })}>✔ guardar</span>
                                    <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖ cancelar</span>
                                 </span>
                             ) : (
-                                <span style={{ color: '#88aaff', fontSize: '0.8rem', cursor: 'pointer' }} onClick={() => {setEditMode('info'); setEditValues({tag: clan.tag, name: clan.name})}}>✎ editar</span>
+                                <span style={{ color: '#88aaff', fontSize: '0.8rem', cursor: 'pointer' }} onClick={() => {setEditMode('info'); setEditValues({tag: clan.tag, name: clan.name, status: clan.status || 'Reclutando'})}}>✎ editar</span>
                             )
                           )}
                         </div>
@@ -365,7 +407,18 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           <div style={{ color: '#fff' }}>{clan.tax_rate || 0}% ({ ((clan.members || []).reduce((sum, m) => sum + (m.credits || 0), 0) * ((clan.tax_rate || 0) / 100)).toLocaleString() } CR diarios)</div>
                           
                           <div style={{ color: '#888' }}>Estado de reclutamiento:</div>
-                          <div style={{ color: '#00ffcc' }}>Reclutando</div>
+                          {editMode === 'info' ? (
+                              <select 
+                                value={editValues.status} 
+                                onChange={e => setEditValues({...editValues, status: e.target.value})}
+                                style={{ background: '#0a0f1a', color: '#00ffcc', border: '1px solid #334466', padding: '2px 5px', outline: 'none', cursor: 'pointer' }}
+                              >
+                                  <option value="Reclutando">Reclutando</option>
+                                  <option value="Sin Cupo">Sin Cupo</option>
+                              </select>
+                          ) : (
+                              <div style={{ color: '#00ffcc' }}>{clan.status || 'Reclutando'}</div>
+                          )}
                         </div>
                       </div>
                       
@@ -376,7 +429,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           {canEdit && (
                             editMode === 'logo' ? (
                                <span>
-                                 <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '5px' }} onClick={() => {setClan({...clan, logo: editValues.logo}); setEditMode(null)}}>✔</span>
+                                 <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '5px' }} onClick={() => handleUpdateClanMetadata({ logo: editValues.logo })}>✔</span>
                                  <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖</span>
                                </span>
                             ) : (
@@ -399,15 +452,15 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334466', paddingBottom: '10px', marginBottom: '10px' }}>
                         <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Texto del clan</span>
                         {canEdit && (
-                          editMode === 'text' ? (
-                             <span>
-                               <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => {setClan({...clan, description: editValues.text}); setEditMode(null)}}>✔ guardar</span>
-                               <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖ cancelar</span>
-                             </span>
-                          ) : (
-                             <span style={{ color: '#88aaff', fontSize: '0.8rem', cursor: 'pointer' }} onClick={() => {setEditMode('text'); setEditValues({text: clan.description || ''})}}>✎ editar</span>
-                          )
-                        )}
+                            editMode === 'text' ? (
+                               <span>
+                                 <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => handleUpdateClanMetadata({ description: editValues.text })}>✔ guardar</span>
+                                 <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖ cancelar</span>
+                               </span>
+                            ) : (
+                               <span style={{ color: '#88aaff', fontSize: '0.8rem', cursor: 'pointer' }} onClick={() => {setEditMode('text'); setEditValues({text: clan.description || ''})}}>✎ editar</span>
+                            )
+                          )}
                       </div>
                       
                       {editMode === 'text' ? (
@@ -424,19 +477,19 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #334466', paddingBottom: '10px', marginBottom: '10px' }}>
                         <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Novedades / Información</span>
                         {canEdit && (
-                          editMode === 'news' ? (
-                             <span>
-                               <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => {
-                                   if(!editValues.news) return setEditMode(null);
-                                   setClan({...clan, news: [{date: new Date().toLocaleDateString(), text: editValues.news}, ...(clan.news || [])]}); 
-                                   setEditMode(null);
-                               }}>✔ publicar</span>
-                               <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖ cancelar</span>
-                             </span>
-                          ) : (
-                             <span style={{ color: '#00cc66', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => {setEditMode('news'); setEditValues({news: ''})}}>+ añadir entrada</span>
-                          )
-                        )}
+                            editMode === 'news' ? (
+                               <span>
+                                 <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => {
+                                     if(!editValues.news) return setEditMode(null);
+                                     const newNews = [{date: new Date().toLocaleDateString(), text: editValues.news}, ...(clan.news || [])];
+                                     handleUpdateClanMetadata({ news: newNews });
+                                 }}>✔ publicar</span>
+                                 <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖ cancelar</span>
+                               </span>
+                            ) : (
+                               <span style={{ color: '#00cc66', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => {setEditMode('news'); setEditValues({news: ''})}}>+ añadir entrada</span>
+                            )
+                          )}
                       </div>
                       
                       {editMode === 'news' && (
@@ -446,7 +499,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                       )}
 
                       <div style={{ color: '#666', fontSize: '0.85rem', minHeight: '60px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        {clan.news && clan.news.length > 0 ? clan.news.map((n, i) => (
+                        {Array.isArray(clan.news) && clan.news.length > 0 ? clan.news.map((n, i) => (
                             <div key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '5px' }}>
                                 <strong style={{ color: '#00aaff' }}>[{n.date}]</strong> <span style={{ color: '#ddd' }}>{n.text}</span>
                             </div>

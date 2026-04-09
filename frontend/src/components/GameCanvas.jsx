@@ -5,16 +5,19 @@ import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
   const cameraRef = useRef({ x: 0, y: 0 });
   
   const [gameState, setGameState] = useState(null);
+  // Estado liviano y dedicado para el HUD — garantiza re-renders al recibir daño, etc.
+  const [hudState, setHudState] = useState(null);
   const [error, setError] = useState(null);
   const [isJumping, setIsJumping] = useState(false);
   const [showJumpPrompt, setShowJumpPrompt] = useState(false);
+  const joinSentRef = useRef(false);
 
   // --- DRAGGABLE HUD STATE ---
   const [hotbarPos, setHotbarPos] = useState(() => {
@@ -37,6 +40,42 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     shoot: false, missile_shoot: false,
     target_x: null, target_y: null, locked_target_id: null
   });
+
+  // --- LOADING SCREEN STATE ---
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('INICIANDO SISTEMAS DE SALTO...');
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+
+  const loadingMessages = [
+    'INICIANDO SISTEMAS DE SALTO...',
+    'CALIBRANDO GENERADORES DE ESCUDO...',
+    'SITUANDO COORDENADAS DE MAPA...',
+    'SINCRO-ENLACE CON LA FLOTA...',
+    'CARGANDO BATERÍAS LÁSER...',
+    'ESTADO DE SISTEMAS: COMPLETO'
+  ];
+
+  useEffect(() => {
+    if (gameStarted) return;
+    
+    const interval = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsLoaded(true);
+          setLoadingMessage('SISTEMAS PREPARADOS');
+          return 100;
+        }
+        const next = prev + Math.random() * 15;
+        const msgIndex = Math.floor((next / 100) * (loadingMessages.length - 1));
+        setLoadingMessage(loadingMessages[msgIndex]);
+        return Math.min(next, 100);
+      });
+    }, 400 + Math.random() * 400);
+
+    return () => clearInterval(interval);
+  }, [gameStarted]);
 
   const triggerJumpAnimation = useCallback(() => {
     setIsJumping(true);
@@ -213,18 +252,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       
       ws.onopen = () => {
         if (!isMounted) return ws.close();
-        let userId = propsRef.current.user?.username || sessionStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
-        sessionStorage.setItem('orbita_galactica_user_id', userId);
-        
-        const p = propsRef.current;
-        ws.send(JSON.stringify({ 
-          type: 'join', userId, ship_type: p.selectedShip,
-          modules: p.initialModules, initial_ammo: p.initialAmmo,
-          level: p.initialLevel, xp: p.initialXp, credits: p.initialCredits,
-          initialPaladio: propsRef.current.initialPaladio,
-          minerals: p.initialMinerals, upgrades: p.initialUpgrades,
-          clan: p.initialClan, clanTag: p.initialClanTag
-        }));
+        // El join se enviará por el useEffect de gameStarted
       };
 
       ws.onmessage = (event) => {
@@ -239,6 +267,27 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           setGameState(data.state);
           const me = data.state.players?.find(p => p.is_self);
           if (me) {
+            // Actualizar HUD estado liviano — dispara re-render garantizado
+            setHudState({
+              hp: me.hp,
+              max_hp: me.max_hp,
+              shld: me.shld,
+              max_shld: me.max_shld,
+              spd: me.spd,
+              xp: me.xp,
+              credits: me.credits,
+              level: me.level,
+              paladio: me.paladio,
+              minerals: me.minerals,
+              max_cargo: me.max_cargo,
+              in_safe_zone: me.in_safe_zone,
+              is_dead: me.hp <= 0,
+            });
+            // Persist safe zone status for other views (Hangar)
+            if (localStorage.getItem('og_player_safe_zone') !== String(me.in_safe_zone)) {
+              localStorage.setItem('og_player_safe_zone', me.in_safe_zone);
+            }
+
             const p = propsRef.current;
             const last = lastSyncRef.current;
             
@@ -347,12 +396,76 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     };
   }, []); // WE ONLY CONNECT ONCE
 
+  // --- SEND JOIN MESSAGE ONLY WHEN STARTED ---
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && !joinSentRef.current) {
+      let userId = propsRef.current.user?.username || sessionStorage.getItem('orbita_galactica_user_id') || ('user_' + Math.random().toString(36).substr(2, 9));
+      sessionStorage.setItem('orbita_galactica_user_id', userId);
+      
+      const p = propsRef.current;
+      wsRef.current.send(JSON.stringify({ 
+        type: 'join', userId, ship_type: p.selectedShip,
+        modules: p.initialModules, initial_ammo: p.initialAmmo,
+        level: p.initialLevel, xp: p.initialXp, credits: p.initialCredits,
+        initialPaladio: propsRef.current.initialPaladio,
+        minerals: p.initialMinerals, upgrades: p.initialUpgrades,
+        clan: p.initialClan, clanTag: p.initialClanTag
+      }));
+      joinSentRef.current = true;
+    }
+  }, [gameStarted]);
+
+  // --- REAL-TIME EQUIPMENT & RESOURCE SYNC ---
+  // If modules or ammo change via props (from Hangar/Shop), sync with the active session
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'update_equipment', 
+        modules: initialModules 
+      }));
+    }
+  }, [initialModules, gameStarted]);
+
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'update_resources', 
+        ammo_data: { ammo: initialAmmo, missiles: {} } // Assuming missiles are also in ammo for now or handled similarly
+      }));
+    }
+  }, [initialAmmo, gameStarted]);
+
   const me = gameState?.players?.find(p => p.is_self);
   const party = gameState?.party;
   const partyInvites = gameState?.party_invites || {};
 
   return (
     <>
+      {/* LOADING SCREEN OVERLAY */}
+      {!gameStarted && (
+        <div className="loading-screen-overlay">
+          <div className="loading-container">
+            <h1 className="loading-title">Órbita Galáctica</h1>
+            
+            {!isLoaded ? (
+              <>
+                <div style={{ width: '100%', position: 'relative' }}>
+                  <div className="loading-bar-wrapper">
+                    <div className="loading-bar-fill" style={{ width: `${loadingProgress}%` }} />
+                  </div>
+                  <span className="loading-percentage">{Math.floor(loadingProgress)}%</span>
+                </div>
+                <div className="loading-message">{loadingMessage}</div>
+              </>
+            ) : (
+              <button className="battle-button" onClick={() => setGameStarted(true)}>
+                ⚔️ A LA BATALLA
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <canvas ref={canvasRef} onMouseDown={handleMouseDown} onContextMenu={handleContextMenu} style={{ display: 'block' }} />
       
       {me?.in_safe_zone && (
@@ -390,23 +503,93 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       </div>}
 
       <div className="ui-overlay">
-        {me && (
+        {(me || hudState) && (
           <>
             <div className="status-display-container hud-mode">
                 <div className="status-block hud-variant">
-                    <div className="status-item"><span>✪</span><span className="status-value">{Math.floor(me.xp).toLocaleString()} XP</span></div>
-                    <div className="status-item"><span style={{ color: '#ffcc00' }}>🔋</span><span className="status-value">{me.credits.toLocaleString()} CR</span></div>
-                    <div className="status-item"><span style={{ color: '#00ffcc' }}>🎖️</span><span className="status-value">Lvl {me.level}</span></div>
+                    <div className="status-item"><span>✪</span><span className="status-value">{Math.floor(hudState?.xp ?? 0).toLocaleString()} XP</span></div>
+                    <div className="status-item"><span style={{ color: '#ffcc00' }}>🔋</span><span className="status-value">{(hudState?.credits ?? 0).toLocaleString()} CR</span></div>
+                    <div className="status-item"><span style={{ color: '#00ffcc' }}>🎖️</span><span className="status-value">Lvl {hudState?.level ?? 0}</span></div>
                     <div className="status-item" style={{ background: 'rgba(100,0,200,0.1)', borderLeft: '2px solid #cc33ff' }}>
                         <span style={{ color: '#cc33ff' }}>🪐</span>
-                        <span className="status-value">{me.paladio.toLocaleString()} PAL</span>
+                        <span className="status-value">{(hudState?.paladio ?? 0).toLocaleString()} PAL</span>
                     </div>
                 </div>
-                <div className="status-block hud-variant">
-                    <div className="status-item"><span>❤️</span><span className="status-value">{Math.floor(me.hp).toLocaleString()}</span></div>
-                    <div className="status-item"><span>🛡️</span><span className="status-value">{Math.floor(me.shield).toLocaleString()}</span></div>
-                    <div className="status-item"><span>🚀</span><span className="status-value">{me.spd}</span></div>
-                    <div className="status-item"><span>💥</span><span className="status-value">{me.atk}</span></div>
+                <div className="status-block hud-variant" style={{ minWidth: '200px' }}>
+                    {/* HP Bar */}
+                    <div style={{ marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '0.65rem', color: '#ff4466', fontWeight: 'bold', fontFamily: 'Orbitron' }}>❤️ CASCO</span>
+                            <span style={{ fontSize: '0.65rem', color: '#fff', fontFamily: 'Orbitron' }}>
+                                {Math.floor(hudState?.hp ?? 0)} / {hudState?.max_hp ?? 0}
+                            </span>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255,68,102,0.2)' }}>
+                            <div style={{
+                                width: `${hudState?.max_hp > 0 ? Math.max(0, Math.min(100, ((hudState?.hp ?? 0) / hudState.max_hp) * 100)) : 0}%`,
+                                height: '100%',
+                                background: (hudState?.hp / hudState?.max_hp) > 0.5 ? '#ff4466' : (hudState?.hp / hudState?.max_hp) > 0.25 ? '#ff8800' : '#ff2200',
+                                boxShadow: '0 0 6px #ff446688',
+                                transition: 'width 0.3s ease-out, background 0.5s'
+                            }} />
+                        </div>
+                    </div>
+
+                    {/* Shield Bar */}
+                    <div style={{ marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '0.65rem', color: '#00aaff', fontWeight: 'bold', fontFamily: 'Orbitron' }}>🛡️ ESCUDO</span>
+                            <span style={{ fontSize: '0.65rem', color: '#fff', fontFamily: 'Orbitron' }}>
+                                {Math.floor(hudState?.shld ?? 0)} / {hudState?.max_shld ?? 0}
+                            </span>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(0,170,255,0.2)' }}>
+                            <div style={{
+                                width: `${hudState?.max_shld > 0 ? Math.max(0, Math.min(100, ((hudState?.shld ?? 0) / hudState.max_shld) * 100)) : 0}%`,
+                                height: '100%',
+                                background: '#00aaff',
+                                boxShadow: '0 0 6px #00aaff88',
+                                transition: 'width 0.3s ease-out'
+                            }} />
+                        </div>
+                    </div>
+
+                    {/* Speed */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.65rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Orbitron' }}>🚀 VELOCIDAD</span>
+                        <span style={{ fontSize: '0.7rem', color: '#fff', fontFamily: 'Orbitron' }}>{hudState?.spd ?? 0}</span>
+                    </div>
+                </div>
+
+                {/* BLOQUE DE BODEGA */}
+                <div className="status-block hud-variant" style={{ minWidth: '180px', borderLeft: '2px solid #00ffcc' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '0.65rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Orbitron' }}>📦 BODEGA</span>
+                        <span style={{ fontSize: '0.65rem', color: '#fff' }}>
+                            {(() => {
+                                const current = hudState?.minerals ? Object.values(hudState.minerals).reduce((a, b) => a + b, 0) : 0;
+                                return `${current} / ${hudState?.max_cargo || 1500} T`;
+                            })()}
+                        </span>
+                    </div>
+                    <div style={{ width: '100%', height: '5px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {(() => {
+                            const current = hudState?.minerals ? Object.values(hudState.minerals).reduce((a, b) => a + b, 0) : 0;
+                            const max = hudState?.max_cargo || 1500;
+                            const pct = Math.min(100, (current / max) * 100);
+                            let barColor = '#00ffcc';
+                            if (pct > 90) barColor = '#ff3366';
+                            else if (pct > 70) barColor = '#ffcc00';
+                            return <div style={{ width: `${pct}%`, height: '100%', background: barColor, boxShadow: `0 0 8px ${barColor}66`, transition: 'width 0.3s ease-out' }} />;
+                        })()}
+                    </div>
+                    <div style={{ display: 'flex', gap: '5px', marginTop: '4px' }}>
+                        {hudState?.minerals && Object.entries(hudState.minerals).map(([type, amount]) => amount > 0 && (
+                            <span key={type} style={{ fontSize: '0.6rem', color: '#aaa' }}>
+                                {type === 'titanium' ? '💎' : type === 'plutonium' ? '🏮' : '💾'}{amount}
+                            </span>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -507,13 +690,6 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             )}
 
             <div className="weapon-hotbar-container" style={{ position: 'fixed', left: hotbarPos.x, top: hotbarPos.y, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', pointerEvents: 'auto', userSelect: 'none', cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handleHotbarMouseDown}>
-                 <div style={{ display: 'flex', gap: '8px', pointerEvents: 'none' }}>
-                  {me.minerals && Object.entries(me.minerals).map(([type, amount]) => amount > 0 && (
-                    <div key={type} className="hud-item" style={{ fontSize: '0.65rem', padding: '1px 6px', background: 'rgba(0,0,0,0.6)' }}>
-                      {type === 'titanium' ? '🪐' : type === 'plutonium' ? '🏮' : '💾'} {amount}
-                    </div>
-                  ))}
-                </div>
                 <div className="weapon-hotbar" style={{ display: 'flex', alignItems: 'center' }}>
                     <div onClick={(e) => { e.stopPropagation(); toggleUiLock(); }} style={{ width: '30px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isUiLocked ? 'rgba(255,204,0,0.1)' : 'rgba(0,0,0,0.3)', border: '1px solid ' + (isUiLocked ? '#ffcc0044' : '#333'), marginRight: '5px', borderRadius: '4px', cursor: 'pointer' }}>
                       {isUiLocked ? '🔒' : '🔓'}
@@ -548,6 +724,53 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           </>
         )}
       </div>
+
+      {hudState?.is_dead && (
+          <div className="death-overlay" style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'radial-gradient(circle, rgba(60, 0, 0, 0.9) 10%, rgba(10, 5, 5, 0.98) 100%)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            zIndex: 10000, fontFamily: 'Orbitron', textAlign: 'center', backdropFilter: 'blur(10px)',
+            animation: 'fade-in-death 1s forwards'
+          }}>
+            <style>{`
+              @keyframes fade-in-death { from { opacity: 0; } to { opacity: 1; } }
+            `}</style>
+            
+            <div style={{ padding: '40px', background: 'rgba(0,0,0,0.5)', border: '2px solid #ff333333', borderRadius: '20px', boxShadow: '0 0 50px rgba(255,0,0,0.2)' }}>
+                <h1 style={{ color: '#ff3333', fontSize: '3rem', textShadow: '0 0 20px #ff0000', marginBottom: '10px' }}>CONEXIÓN PERDIDA</h1>
+                <h2 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: '30px', letterSpacing: '2px', opacity: 0.8 }}>SU NAVE HA SIDO DESTRUIDA</h2>
+                
+                <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '40px', maxWidth: '400px' }}>
+                    Los sistemas críticos han fallado debido a la desintegración catastrófica del casco. 
+                    El seguro de su facción puede reconstruir su nave en la Base.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    <button 
+                        onClick={async () => {
+                            const success = await onRepair();
+                            if (success) {
+                                // Reparado
+                            }
+                        }}
+                        className="battle-button" 
+                        style={{ padding: '18px 40px', background: '#00ffcc', color: '#000', width: '100%', fontSize: '1.1rem' }}
+                    >
+                        🔧 RECONSTRUIR (500 CR)
+                    </button>
+                    
+                    <button 
+                        onClick={() => window.location.reload()}
+                        style={{ padding: '12px', background: 'transparent', border: '1px solid #ff333366', color: '#ff3333', borderRadius: '5px', cursor: 'pointer', fontFamily: 'Orbitron', fontSize: '0.8rem' }}
+                    >
+                        ABANDONAR SESIÓN
+                    </button>
+                </div>
+            </div>
+          </div>
+      )}
+
       <ChatBox 
         socket={wsRef.current} 
         user={user} 

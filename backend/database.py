@@ -42,6 +42,8 @@ def init_db():
             members_count INTEGER DEFAULT 1,
             tax_rate REAL DEFAULT 0.0,
             credits INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'Reclutando',
+            news TEXT DEFAULT '[]',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -68,6 +70,16 @@ def init_db():
             type TEXT DEFAULT 'notif',
             sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_read BOOLEAN DEFAULT 0
+        )
+    ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS announcements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
@@ -116,6 +128,14 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE clans ADD COLUMN credits INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE clans ADD COLUMN status TEXT DEFAULT 'Reclutando'")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE clans ADD COLUMN news TEXT DEFAULT '[]'")
     except sqlite3.OperationalError:
         pass
 
@@ -344,21 +364,23 @@ def collect_all_taxes():
                         c.execute('UPDATE users SET credits = credits - ? WHERE username = ?', (tax_amount, username))
                         total_tax_collected += tax_amount
                         
-                        # 4. Enviar notificación (opcional, pero útil)
+                        # 4. Registrar en el historial del clan (Individual)
+                        c.execute('''
+                            INSERT INTO clan_logs (clan_tag, type, description, amount, username)
+                            VALUES (?, ?, ?, ?, ?)
+                        ''', (tag, 'IMPUESTO', f"Impuesto diario ({rate}%)", tax_amount, username))
+
+                        # 5. Enviar notificación
                         send_system_message_db(
                             username, 
                             "Cobro de Impuestos", 
                             f"Se ha descontado {tax_amount:,} créditos de tu banco por concepto de impuestos del clan ({rate}%)."
                         )
             
-            # 5. Sumar a la tesorería del clan
+            # 6. Sumar a la tesorería del clan
             if total_tax_collected > 0:
                 c.execute('UPDATE clans SET credits = credits + ? WHERE tag = ?', (total_tax_collected, tag))
-                # 6. Registrar en el historial del clan
-                c.execute('''
-                    INSERT INTO clan_logs (clan_tag, type, description, amount, username)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (tag, 'IMPUESTO', f"Recaudación diaria de {rate}%", total_tax_collected, "SYSTEM"))
+
         
         conn.commit()
         print(f"Impuestos recaudados exitosamente.")
@@ -394,7 +416,7 @@ def create_clan_db(tag, name, leader):
     finally:
         conn.close()
 
-def donate_from_clan_db(clan_tag, target_username, amount):
+def donate_from_clan_db(clan_tag, target_username, amount, sender_username="UNKNOWN"):
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -411,17 +433,19 @@ def donate_from_clan_db(clan_tag, target_username, amount):
         c.execute('UPDATE users SET credits = credits + ? WHERE username = ?', (amount, target_username))
         
         # 3.5 Registrar en el historial
+        description = f"Donación: {sender_username} -> {target_username}"
         c.execute('''
             INSERT INTO clan_logs (clan_tag, type, description, amount, username)
             VALUES (?, ?, ?, ?, ?)
-        ''', (clan_tag, 'DONACION', "Donación de mando", amount, target_username))
+        ''', (clan_tag, 'DONACION', description, amount, target_username))
         
         # 4. Enviar notificación al receptor
         send_system_message_db(
             target_username, 
             "Transferencia de Clan", 
-            f"El mando de tu clan [{clan_tag}] te ha transferido {amount:,} créditos desde la tesorería."
+            f"{sender_username} te ha transferido {amount:,} créditos desde la tesorería del clan [{clan_tag}]."
         )
+
         
         conn.commit()
         return {"success": True, "new_clan_credits": row[0] - amount}
@@ -469,11 +493,27 @@ def join_clan_db(username, clan_tag):
     conn = get_connection()
     c = conn.cursor()
     try:
-        # Verificar si el clan existe
-        c.execute('SELECT tag FROM clans WHERE tag = ?', (clan_tag.upper(),))
-        if not c.fetchone():
+        # Verificar si el clan existe y su estado
+        c.execute('SELECT tag, members_count, status FROM clans WHERE tag = ?', (clan_tag.upper(),))
+        clan_data = c.fetchone()
+        if not clan_data:
             return {"success": False, "error": "El clan no existe."}
             
+        current_members = clan_data[1]
+        status = clan_data[2]
+        
+        if current_members >= 30:
+            return {"success": False, "error": "El clan ha alcanzado su límite máximo de 30 miembros."}
+            
+        if status == 'Sin Cupo':
+            return {"success": False, "error": "Este clan no está aceptando nuevos miembros actualmente."}
+            
+        # Verificar si el usuario ya está en un clan
+        c.execute('SELECT clan_tag FROM users WHERE username = ?', (username,))
+        user_res = c.fetchone()
+        if user_res and user_res[0]:
+            return {"success": False, "error": "Ya perteneces a un clan. Debes abandonarlo primero."}
+
         # Asignar clan al usuario con rol Novato
         c.execute('''
             UPDATE users 
@@ -528,6 +568,12 @@ def get_user_clan_data(username):
             "xp": m[4] or 0
         })
     
+    import json
+    try:
+        news_data = json.loads(clan[9]) if len(clan) > 9 and clan[9] else []
+    except Exception:
+        news_data = []
+
     return {
         "tag": clan[0],
         "name": clan[1],
@@ -537,8 +583,48 @@ def get_user_clan_data(username):
         "created_at": clan[5],
         "tax_rate": clan[6],
         "credits": clan[7],
+        "status": clan[8] if len(clan) > 8 else "Reclutando",
+        "news": news_data,
         "members": members_list
     }
+
+def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, logo):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Si el tag cambia, debemos actualizarlo en todas las tablas relacionadas
+        if old_tag != new_tag:
+            # Verificar si el nuevo tag ya existe
+            c.execute('SELECT tag FROM clans WHERE tag = ?', (new_tag,))
+            if c.fetchone():
+                return {"success": False, "error": "La nueva sigla ya está en uso."}
+            
+            # Actualizar clanes
+            c.execute('''
+                UPDATE clans 
+                SET tag = ?, name = ?, description = ?, status = ?, news = ?, logo_url = ?
+                WHERE tag = ?
+            ''', (new_tag, name, description, status, news, logo, old_tag))
+            
+            # Actualizar usuarios
+            c.execute('UPDATE users SET clan_tag = ? WHERE clan_tag = ?', (new_tag, old_tag))
+            
+            # Actualizar logs
+            c.execute('UPDATE clan_logs SET clan_tag = ? WHERE clan_tag = ?', (new_tag, old_tag))
+        else:
+            # Solo actualizar metadata normal
+            c.execute('''
+                UPDATE clans 
+                SET name = ?, description = ?, status = ?, news = ?, logo_url = ?
+                WHERE tag = ?
+            ''', (name, description, status, news, logo, old_tag))
+            
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
 
 def leave_clan_db(username):
     conn = get_connection()
@@ -745,3 +831,40 @@ def get_leaderboard_db():
             "xp": row[2]
         })
     return leaderboard
+# --- ANUNCIOS ---
+
+def create_announcement_db(title, content, type='info'):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('INSERT INTO announcements (title, content, type) VALUES (?, ?, ?)', (title, content, type))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def get_announcements_db():
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT id, title, content, type, created_at FROM announcements ORDER BY created_at DESC')
+        rows = c.fetchall()
+        return [{
+            "id": r[0],
+            "title": r[1],
+            "content": r[2],
+            "type": r[3],
+            "date": r[4]
+        } for r in rows]
+    finally:
+        conn.close()
+
+def delete_announcement_db(announcement_id):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('DELETE FROM announcements WHERE id = ?', (announcement_id,))
+        conn.commit()
+        return c.rowcount > 0
+    finally:
+        conn.close()

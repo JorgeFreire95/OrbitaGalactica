@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db
 
 class RegisterRequest(BaseModel):
     username: str
@@ -63,7 +63,17 @@ class ClanTaxRequest(BaseModel):
     clan_tag: str
     tax_rate: float
 
+class ClanUpdateInfoRequest(BaseModel):
+    old_tag: str
+    new_tag: str
+    name: str
+    description: str = ""
+    status: str = "Reclutando"
+    news: str = "[]"
+    logo: str = ""
+
 class ClanDonateRequest(BaseModel):
+    username: str # El que realiza la donación (admin/líder)
     clan_tag: str
     target_username: str
     amount: int
@@ -74,6 +84,14 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
+
+class AnnouncementRequest(BaseModel):
+    title: str
+    content: str
+    type: str = "info"
+
+class RepairRequest(BaseModel):
+    username: str
 
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
@@ -157,7 +175,14 @@ async def api_register(req: RegisterRequest):
         raise HTTPException(status_code=400, detail=result["error"])
     return {"message": "Registro completado exitosamente."}
 
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, create_clan_db, get_available_clans, join_clan_db, get_user_clan_data
+from database import (
+    init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, 
+    create_clan_db, get_available_clans, join_clan_db, get_user_clan_data, update_clan_metadata_db,
+    leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, 
+    update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, 
+    get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, 
+    hash_password, get_leaderboard_db
+)
 
 @app.post("/api/login")
 async def api_login(req: LoginRequest):
@@ -228,12 +253,21 @@ async def api_update_clan_tax(req: ClanTaxRequest):
         raise HTTPException(status_code=500, detail="Error al actualizar la tasa de impuestos.")
     return {"message": "Tasa de impuestos actualizada exitosamente."}
 
+@app.post("/api/clans/update")
+async def api_update_clan_info(req: ClanUpdateInfoRequest):
+    result = update_clan_metadata_db(
+        req.old_tag, req.new_tag, req.name, req.description, req.status, req.news, req.logo
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Información del clan actualizada correctamente."}
+
 @app.post("/api/clans/donate")
 async def api_clan_donate(req: ClanDonateRequest):
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0.")
         
-    result = donate_from_clan_db(req.clan_tag, req.target_username, req.amount)
+    result = donate_from_clan_db(req.clan_tag, req.target_username, req.amount, req.username)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return {"message": "Donación realizada con éxito.", "new_clan_credits": result["new_clan_credits"]}
@@ -268,6 +302,50 @@ async def api_user_sync(req: SyncRequest):
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar datos.")
     return {"message": "Sincronización exitosa."}
+
+@app.post("/api/user/repair")
+async def api_repair_ship(req: RepairRequest):
+    REPAIR_COST = 500
+    stats = get_user_stats_db(req.username)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if stats["credits"] < REPAIR_COST:
+        raise HTTPException(status_code=400, detail="Créditos insuficientes (500 necesarios)")
+    
+    # Encontrar jugador en la sesión activa si existe
+    target_pid = None
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == req.username:
+            target_pid = pid
+            break
+            
+    # Descontar créditos en DB
+    new_credits = stats["credits"] - REPAIR_COST
+    sync_user_stats(req.username, stats["level"], stats["xp"], new_credits, stats["paladio"])
+    
+    if target_pid:
+        player = game_state.players[target_pid]
+        player["hp"] = player["max_hp"]
+        player["shld"] = player["max_shld"]
+        player["is_dead"] = False
+        player["credits"] = new_credits
+        
+        # Reaparecer en la base de la facción
+        faction = player.get("faction", "MARS")
+        base_map = "mars_1"
+        if faction == "MOON": base_map = "moon_1"
+        if faction == "PLUTO": base_map = "pluto_1"
+        
+        player["current_map"] = base_map
+        player["x"] = 1750
+        player["y"] = 1150
+        player["vx"] = 0
+        player["vy"] = 0
+        
+        return {"success": True, "credits": new_credits}
+    else:
+        return {"success": True, "credits": new_credits, "note": "Créditos descontados, pero no estás en una partida activa."}
 @app.post("/api/forgot-password")
 async def api_forgot_password(req: ForgotPasswordRequest):
     username = get_user_by_email_db(req.email)
@@ -340,6 +418,24 @@ async def api_admin_delete_user(username: str):
     if not success:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"message": "Usuario eliminado"}
+
+# --- ENDPOINTS DE ANUNCIOS ---
+
+@app.get("/api/announcements")
+async def get_announcements():
+    return {"announcements": get_announcements_db()}
+
+@app.post("/api/admin/announcements")
+async def create_announcement(req: AnnouncementRequest):
+    if create_announcement_db(req.title, req.content, req.type):
+        return {"message": "Anuncio publicado con éxito"}
+    raise HTTPException(status_code=400, detail="Error al publicar anuncio")
+
+@app.delete("/api/admin/announcements/{id}")
+async def delete_announcement(id: int):
+    if delete_announcement_db(id):
+        return {"message": "Anuncio eliminado"}
+    raise HTTPException(status_code=404, detail="Anuncio no encontrado")
 
 import traceback
 import logging
@@ -419,6 +515,14 @@ async def websocket_endpoint(websocket: WebSocket):
             
             elif data.get("type") == "party_leave" and player_added:
                 game_state.leave_party(client_id)
+            
+            elif data.get("type") == "update_equipment" and player_added:
+                modules = data.get("modules", [])
+                game_state.update_equipped_modules(client_id, modules)
+            
+            elif data.get("type") == "update_resources" and player_added:
+                ammo_data = data.get("ammo_data", {})
+                game_state.update_resources(client_id, ammo_data)
                 
     except WebSocketDisconnect as e:
         logger.info(f"Client disconnected: {client_id} Code: {e.code} Reason: {e.reason}")
