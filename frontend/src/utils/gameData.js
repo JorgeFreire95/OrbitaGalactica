@@ -103,15 +103,15 @@ export const MODULES_CATALOG = [
 
 export const AMMO_CATALOG = [
   { id: 'standard', name: 'Estándar',  damage: 1.0, cost: 50,    count: 1000, icon: '⚪', color: '#ffffff', image: '/std_ammo.jpg' },
-  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 500,  count: 50,   icon: '🔥', color: '#ff6600', image: '/thermal_ammo.jpg' },
-  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 1200, count: 25,   icon: '🔷', color: '#ff33ff', image: '/plasma_ammo.jpg' },
-  { id: 'siphon',   name: 'Sifón',     damage: 1.0, cost: 800,  count: 30,   icon: '🔋', color: '#33ff33', effect: 'shield_steal', image: '/siphon_ammo.png' },
+  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 15000, count: 1000, icon: '🔥', color: '#ff6600', image: '/thermal_ammo.jpg' },
+  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 60000, count: 1000, icon: '🔷', color: '#ff33ff', image: '/plasma_ammo.jpg' },
+  { id: 'siphon',   name: 'Sifón',     damage: 1.0, cost: 35000, count: 1000, icon: '🔋', color: '#33ff33', effect: 'shield_steal', image: '/siphon_ammo.png' },
 ];
 
 export const MISSILE_CATALOG = [
-  { id: 'missile_1', name: 'M-1 "Seta"',    damage: 500,  cost: 1000,  count: 5, icon: '🚀', color: '#ffcc00' },
-  { id: 'missile_2', name: 'M-2 "Ciclón"',  damage: 1200, cost: 3000,  count: 3, icon: '🚀', color: '#ff6600' },
-  { id: 'missile_3', name: 'M-3 "Giga-Nuke"', damage: 3500, cost: 7500, count: 1, icon: '☢️', color: '#ff0000' },
+  { id: 'missile_1', name: 'M-1 "Seta"',    damage: 500,  cost: 1500,   count: 1000, icon: '🚀', color: '#ffcc00' },
+  { id: 'missile_2', name: 'M-2 "Ciclón"',  damage: 1200, cost: 10000,  count: 1000, icon: '🚀', color: '#ff6600' },
+  { id: 'missile_3', name: 'M-3 "Giga-Nuke"', damage: 3500, cost: 35000,  count: 1000, icon: '☢️', color: '#ff0000' },
 ];
 
 export const getRank = (level) => {

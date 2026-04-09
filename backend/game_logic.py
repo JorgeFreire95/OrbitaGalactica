@@ -810,17 +810,21 @@ class GameState:
                 else:
                     enemy["vx"], enemy["vy"] = 0, 0
 
-                # Lógica de Ataque (Disparo)
-                if dist < 500 and now - enemy.get("last_shot", 0) > 1.5:
+                # Lógica de Ataque (Disparo) - Cada usuario se denomina enemigo de los aliens
+                map_lvl = self.MAPS.get(m_id, {}).get("level", 1)
+                shot_cooldown = max(0.4, 1.8 - (map_lvl * 0.15)) # Más rápidos en mapas altos
+                
+                if dist < 500 and now - enemy.get("last_shot", 0) > shot_cooldown:
                     angle = math.atan2(dy, dx)
+                    p_speed = 400 + (map_lvl * 40) # Balas más rápidas en mapas altos
                     self.projectiles.append({
                         "id": "alien_laser_" + str(random.random()),
                         "owner_id": enemy["id"],
                         "is_player": False,
                         "x": enemy["x"],
                         "y": enemy["y"],
-                        "vx": math.cos(angle) * 400,
-                        "vy": math.sin(angle) * 400,
+                        "vx": math.cos(angle) * p_speed,
+                        "vy": math.sin(angle) * p_speed,
                         "damage": enemy.get("atk", 15),
                         "life": 1.5,
                         "map_id": m_id,
@@ -983,6 +987,17 @@ class GameState:
                             rem = damage - target["shld"]
                             target["shld"] = 0
                             target["hp"] -= rem
+                        
+                        # Registrar evento de daño recibido por el jugador
+                        self.damage_events.append({
+                            "id": f"alien_hit_{pid}_{random.random()}",
+                            "x": target["x"] + random.randint(-15, 15),
+                            "y": target["y"] + random.randint(-15, 15),
+                            "amount": int(damage),
+                            "time": now,
+                            "owner_id": pid, 
+                            "color": "#ff4444" 
+                        })
                         hit = True
                         break
                 
@@ -1169,6 +1184,20 @@ class GameState:
                         p["hp"] -= remaining
                         
                     e["hp"] -= 50 # El alien también sufre daño
+                    
+                    # Registrar evento de daño para ambos (Jugador y Alien)
+                    self.damage_events.append({
+                        "id": f"col_p_{pid}_{random.random()}",
+                        "x": p["x"] + random.randint(-10, 10),
+                        "y": p["y"] + random.randint(-10, 10),
+                        "amount": int(damage), "time": now, "owner_id": pid, "color": "#ff4444"
+                    })
+                    self.damage_events.append({
+                        "id": f"col_e_{pid}_{random.random()}",
+                        "x": e["x"] + random.randint(-10, 10),
+                        "y": e["y"] + random.randint(-10, 10),
+                        "amount": 50, "time": now, "owner_id": pid # Blanco por defecto
+                    })
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
     def spawn_alien(self, map_id="mars_1"):
@@ -1221,7 +1250,7 @@ class GameState:
             "vy": random.uniform(-60, 60) * speed_mult,
             "map_id": map_id,
             "is_hard": is_hard,
-            "ai_type": "hunter" if alien_name == "Gryllos" else "passive",
+            "ai_type": "hunter", # Todos los aliens son agresivos ahora (cazan al usuario enemigo)
             "aggro_target": None,
             "last_shot": 0
         })

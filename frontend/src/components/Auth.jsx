@@ -35,79 +35,86 @@ export default function Auth({ onLogin, onRegister, onForgotPassword }) {
     <div className="auth-wrapper">
       <div className="auth-page-content">
         <h1 className="game-main-title">ÓRBITA GALÁCTICA</h1>
-
         {view === 'login' && (
           <>
             <section className="login-section">
               <form className="login-form-horizontal" onSubmit={handleLoginSubmit}>
                 <div className="login-inputs">
-                  <input 
-                    type="text" 
-                    placeholder="Nombre de Piloto" 
-                    value={loginForm.username}
-                    onChange={e => setLoginForm({...loginForm, username: e.target.value})}
-                  />
-                  <input 
-                    type="password" 
-                    placeholder="Contraseña" 
-                    value={loginForm.password}
-                    onChange={e => setLoginForm({...loginForm, password: e.target.value})}
-                  />
+                  <div className="login-input-wrapper">
+                    <input 
+                      type="text" 
+                      placeholder="Usuario / Piloto" 
+                      value={loginForm.username}
+                      onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+                    />
+                  </div>
+                  <div className="login-input-wrapper">
+                    <input 
+                      type="password" 
+                      placeholder="Contraseña" 
+                      value={loginForm.password}
+                      onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                    />
+                  </div>
                 </div>
                 <div className="login-actions">
-                  <button type="submit" className="btn-primary">INICIAR SESIÓN</button>
-                  <button type="button" className="btn-link" onClick={() => setView('forgot')}>¿Recuperar Contraseña?</button>
+                  <button type="submit" className="btn-primary">ENTRAR</button>
+                  <button type="button" className="btn-link" onClick={() => setView('forgot')}>¿Perdiste tu clave?</button>
                 </div>
               </form>
             </section>
 
             <div className="auth-divider">
-              <span>O CREA UNA NUEVA CUENTA DE COMANDANTE</span>
+              <span>NUEVO RECLUTA</span>
             </div>
 
             <section className="register-section">
               <form className="register-form-vertical" onSubmit={handleRegSubmit}>
-                <div className="reg-input-group">
-                  <label>NOMBRE DE PILOTO</label>
-                  <input 
-                    type="text" 
-                    required 
-                    placeholder="Elige tu Alias"
-                    value={regForm.username}
-                    onChange={e => setRegForm({...regForm, username: e.target.value})}
-                  />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div className="reg-input-group">
+                    <label>🚀 NOMBRE DE PILOTO</label>
+                    <input 
+                      type="text" 
+                      required 
+                      placeholder="Tu Alias"
+                      value={regForm.username}
+                      onChange={e => setRegForm({...regForm, username: e.target.value})}
+                    />
+                  </div>
+                  <div className="reg-input-group">
+                    <label>📧 CORREO ELECTRÓNICO</label>
+                    <input 
+                      type="email" 
+                      required 
+                      placeholder="usuario@galactica.com"
+                      value={regForm.email}
+                      onChange={e => setRegForm({...regForm, email: e.target.value})}
+                    />
+                  </div>
                 </div>
-                <div className="reg-input-group">
-                  <label>CORREO ELECTRÓNICO</label>
-                  <input 
-                    type="email" 
-                    required 
-                    placeholder="usuario@sistema.com"
-                    value={regForm.email}
-                    onChange={e => setRegForm({...regForm, email: e.target.value})}
-                  />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div className="reg-input-group">
+                    <label>🔑 CLAVE DE ACCESO</label>
+                    <input 
+                      type="password" 
+                      required 
+                      placeholder="Mín. 4 caracteres"
+                      value={regForm.password}
+                      onChange={e => setRegForm({...regForm, password: e.target.value})}
+                    />
+                  </div>
+                  <div className="reg-input-group">
+                    <label>🛡️ CONFIRMAR CLAVE</label>
+                    <input 
+                      type="password" 
+                      required 
+                      placeholder="Repite la clave"
+                      value={regForm.confirmPassword}
+                      onChange={e => setRegForm({...regForm, confirmPassword: e.target.value})}
+                    />
+                  </div>
                 </div>
-                <div className="reg-input-group">
-                  <label>CLAVE DE ACCESO</label>
-                  <input 
-                    type="password" 
-                    required 
-                    placeholder="Contraseña secreta"
-                    value={regForm.password}
-                    onChange={e => setRegForm({...regForm, password: e.target.value})}
-                  />
-                </div>
-                <div className="reg-input-group">
-                  <label>CONFIRMAR CLAVE</label>
-                  <input 
-                    type="password" 
-                    required 
-                    placeholder="Repite tu contraseña"
-                    value={regForm.confirmPassword}
-                    onChange={e => setRegForm({...regForm, confirmPassword: e.target.value})}
-                  />
-                </div>
-                <button type="submit" className="btn-mega-register">INGRESAR A LA BATALLA</button>
+                <button type="submit" className="btn-mega-register">ALISTARSE EN LA FLOTA</button>
               </form>
             </section>
           </>

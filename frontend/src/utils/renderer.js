@@ -980,7 +980,15 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       
       ctx.save();
       ctx.font = `bold ${evt.amount > 300 ? '24px' : '16px'} Orbitron`;
-      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      
+      // Aplicar color personalizado si existe, de lo contrario blanco predeterminado
+      if (evt.color) {
+        ctx.fillStyle = evt.color;
+        ctx.globalAlpha = opacity;
+      } else {
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      }
+      
       ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
       ctx.lineWidth = 3;
       ctx.textAlign = 'center';

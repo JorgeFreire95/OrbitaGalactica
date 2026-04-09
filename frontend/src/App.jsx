@@ -33,7 +33,7 @@ function App() {
     return savedUser ? 'menu' : 'auth';
   });
   const [selectedShipId, setSelectedShipId] = useState(() => {
-    return sessionStorage.getItem('selected_ship_id') || 'starter';
+    return localStorage.getItem('selected_ship_id') || 'starter';
   });
   const [leaderboard, setLeaderboard] = useState([]);
   
@@ -119,7 +119,7 @@ function App() {
         
         if (selectedShipId === 'tank') {
           setSelectedShipId('starter');
-          sessionStorage.setItem('selected_ship_id', 'starter');
+          localStorage.setItem('selected_ship_id', 'starter');
         }
       }
     }
@@ -190,6 +190,7 @@ function App() {
         case 'game_ammo': if (e.newValue) setAmmo(JSON.parse(e.newValue)); break;
         case 'game_inventory': if (e.newValue) setInventory(JSON.parse(e.newValue)); break;
         case 'equipped_modules': if (e.newValue) setEquippedByShip(JSON.parse(e.newValue)); break;
+        case 'selected_ship_id': if (e.newValue) setSelectedShipId(e.newValue); break;
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -201,7 +202,7 @@ function App() {
   }, [credits]);
 
   useEffect(() => {
-    sessionStorage.setItem('selected_ship_id', selectedShipId);
+    localStorage.setItem('selected_ship_id', selectedShipId);
   }, [selectedShipId]);
 
   useEffect(() => {

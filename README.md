@@ -50,13 +50,39 @@
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
 
+### 👾 Bestiario Alienígena y Amenaza Activa
+El universo de Órbita Galáctica es ahora más peligroso. Todos los alienígenas han sido reprogramados con un **Protocolo de Caza Activa**:
+- **IA de Cazador (Hunter AI)**: Los alienígenas no solo deambulan; ahora detectan tu presencia, te persiguen y abren fuego de forma agresiva.
+- **Escalado Táctico**: La velocidad de proyectiles y la cadencia de fuego de los aliens aumenta dinámicamente según el nivel del mapa.
+- **Visualización de Daño Hostil**: Los impactos recibidos de naves alienígenas se muestran en **rojo brillante** en el HUD, permitiendo identificar rápidamente la gravedad del combate.
+
+Razas detectadas:
+- **Gryllos**: Depredadores básicos rápidos que atacan en enjambre (S1).
+- **Xylos**: Blindaje ligero (Nvl 2).
+- **Nykor**: Entidades acorazadas (Nvl 3).
+- **Syrith**: Defensores pesados (Nvl 4).
+- **Vexis**: Gran capacidad regenerativa (Nvl 5).
+- **Kragos**: Guerreros de élite (Nvl 6).
+- **Zoltan**: Comandantes fenomenales (Nvl 7).
+- **Drakon**: Amenaza suprema de nivel 8. Solo para expertos.
+
 ### ⚔️ Combate y HUD Cinematográfico
-- **Efectos de Destrucción Estelar**: Sistema de partículas dinámicas que genera una explosión cinemática (destello radial y restos incandescentes) cuando una nave es destruida.
-- **Protocolo de Emergencia (Reparación)**: Tras la derrota, los pilotos pueden restaurar su sistema de combate pagando **500 Créditos**. La reparación incluye el reabastecimiento total de salud/escudos y el salto automático a la **Sede Central de su Facción**.
-- **HUD Dinámico de Nueva Generación**: Panel de estados equipado con barras de progreso animadas que muestran **Vida (❤️)** y **Escudo (🛡️)** en tiempo real. La barra de vida cambia de color dinámicamente según el estado crítico del casco.
-- **Sincronización Total en Tiempo Real**: Sincronización bidireccional instantánea. Al equipar módulos de motor, armas o escudos en el Hangar, las estadísticas se recalculan y actualizan en el HUD del juego al milisegundo, permitiendo pruebas de equipo fluidas.
-- **Hotbar Draggable & Lockable**: La barra de armas es arrastrable por el HUD y cuenta con un sistema de bloqueo (**🔒/🔓**) para evitar movimientos accidentales durante el combate.
-- **Gestión de Munición**: Control de munición tanto para láseres como para misiles, con actualización en tiempo real desde la Tienda.
+- **Efectos de Destrucción Estelar**: Explosiones dinámicas con destello radial al destruir enemigos.
+- **Protocolo de Emergencia (Reparación)**: Restauración de sistemas por **500 Créditos** con salto a la Sede Central.
+- **HUD Dinámico**: Barras de **Vida (❤️)** y **Escudo (🛡️)** animadas con cambios de color según el estado crítico.
+- **Sincronización Autorritativa**: Modificaciones en el Hangar se reflejan instantáneamente en las estadísticas de combate.
+- **Feedback de Daño Dual**: Los daños infligidos por el jugador son blancos/amarillos, mientras que el daño recibido de aliens es **rojo**, mejorando la conciencia táctica.
+
+### 💰 Economía y Suministros
+- **Packs de Munición Masivos**: Toda la munición (Láser y Misiles) se vende ahora en **Packs de 1000 unidades**, permitiendo misiones de larga duración sin reabastecimientos constantes.
+- **Reequilibrio de Misiles**: Precios de misiles ajustados para ser más competitivos y relativos a la munición láser, facilitando el uso de armamento pesado (M-1, M-2, M-3).
+- **Minerales y Refinería**: Refina recursos (Titanio, Plutonio, Silicio) para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
+
+### 🎨 Identidad Visual y UI Premium
+- **Nuevo Logo "Galactic Identity"**: Integración de un logo de alta fidelidad con efectos de resplandor neón en la cabecera.
+- **Interfaz Glassmorphism**: Paneles de registro y navegación con efectos de cristal esmerilado y desenfoque dinámico.
+- **Marca de Agua Táctica**: El logo principal se integra como marca de agua en los fondos de los paneles de acceso para una experiencia más inmersiva.
+- **Título Estilizado**: Uso consistente de tipografía *Orbitron* con efectos de sombreado y neón en toda la identidad del juego.
 
 ### ⚙️ Administración y Seguridad
 - **Bases de Facción Autorritativas**: Puntos de reaparición estratégicos para **MARS**, **MOON** y **PLUTO**, cada uno con su propia Zona Segura dedicada.

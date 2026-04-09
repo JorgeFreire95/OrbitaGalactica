@@ -2,7 +2,11 @@ import React from 'react';
 
 const TopBar = ({ credits, paladio, level, user, onLogout, onNavigate }) => {
   return (
-    <header className="dashboard-header" style={{ justifyContent: 'flex-end', padding: '10px 30px', height: 'auto', minHeight: '60px' }}>
+    <header className="dashboard-header" style={{ justifyContent: 'space-between', padding: '10px 30px', height: 'auto', minHeight: '60px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <img src="/logo_og.png" alt="Logo mini" className="game-logo-topbar" />
+        <span className="game-title-topbar">ÓRBITA GALÁCTICA</span>
+      </div>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
         
         {/* CRÉDITOS */}
