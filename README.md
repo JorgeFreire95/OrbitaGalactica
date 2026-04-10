@@ -24,8 +24,8 @@
 ### 🛸 Navegación y Mundo Galáctico
 - **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
 - **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'**, con animación de flash de salto hiperespacial.
-- **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m.
-- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Incluye posición exacta (`X, Y`), sector actual, créditos, paladio, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
+- **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m y detección temprana de naves alienígenas.
+- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Incluye posición exacta (`X, Y`), sector actual, créditos, paladio, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
 
 ### 👥 Sistema de Grupo Táctico (Party System)
 - **Reclutamiento Rápido**: Fija el blanco en las naves de tus aliados haciendo clic en ellas e invítalos de forma remota a tu Grupo Táctico sin salir de la vista de combate.
@@ -44,6 +44,10 @@
 - **Reparto de Fondos y Donaciones**: Los líderes pueden donar créditos desde la tesorería del clan directamente a las cuentas de cualquier miembro. El sistema verifica fondos y notifica al piloto mediante mensajes de sistema.
 - **Auditoría Galáctica (Logs)**: Historial completo de movimientos de créditos. Registra cada impuesto cobrado y cada donación realizada con fecha, descripción y piloto involucrado.
 - **Transmisiones (Correos)**: Sistema interno de mensajes con bandeja de entrada y enviados. Permite orquestar la alianza mandando correos privados o transmisiones masivas a toda la tripulación.
+- **Centro de Diplomacia Galáctica**: Sistema avanzado de relaciones exteriores con buscador global de clanes.
+    - **Menú Contextual Táctico**: Clic derecho sobre cualquier nombre de clan para proponer Alianzas, Pactos de No Agresión (PNA) o Declarar la Guerra.
+    - **Aceptación Bilateral**: Las alianzas y guerras requieren la ratificación del clan receptor, asegurando una diplomacia formal y equilibrada.
+    - **Panel de Relaciones**: Seguimiento en tiempo real de alianzas estratégicas y hostilidades activas directamente desde el dashboard.
 
 ### 💰 Economía y Recursos
 - **Paladio (🪐)**: Recurso valioso recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
@@ -72,6 +76,7 @@ Razas detectadas:
 - **HUD Dinámico**: Barras de **Vida (❤️)** y **Escudo (🛡️)** animadas con cambios de color según el estado crítico.
 - **Sincronización Autorritativa**: Modificaciones en el Hangar se reflejan instantáneamente en las estadísticas de combate.
 - **Feedback de Daño Dual**: Los daños infligidos por el jugador son blancos/amarillos, mientras que el daño recibido de aliens es **rojo**, mejorando la conciencia táctica.
+- **Sistema de Misiles Inteligentes**: Los misiles ahora son **teledirigidos**. Requieren que un alienígena esté marcado/fijado como blanco para ser disparados (Tecla 'E'), persiguiendo automáticamente al objetivo hasta el impacto.
 
 ### 💰 Economía y Suministros
 - **Packs de Munición Masivos**: Toda la munición (Láser y Misiles) se vende ahora en **Packs de 1000 unidades**, permitiendo misiones de larga duración sin reabastecimientos constantes.
@@ -115,7 +120,7 @@ El juego estará disponible en `http://localhost:5173`.
 ---
 
 ## 🌌 Próximos Pasos
-- Completar las opciones de Diplomacia del Clan (alianzas/guerras formales) y Módulos de Estación.
+- Implementar Módulos de Estación y bases de clan conquistables.
 - Añadir jefes finales (Bosses) en zonas específicas del mapa con botín de élite.
 - Implementar Chat de Voz o Chat Global de Combate para mayor coordinación.
 - Eventos dinámicos en el servidor con recompensas exclusivas.

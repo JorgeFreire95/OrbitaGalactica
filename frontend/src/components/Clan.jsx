@@ -21,7 +21,14 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
 
   const currentUserMember = clan?.members?.find(m => m.name === user.username);
   const myRole = currentUserMember?.role || 'Novato';
-  const canEdit = ['Líder', 'Oficial'].includes(myRole);
+  const isLeader = clan?.leader === user?.username;
+  const canEdit = isLeader || ['Líder', 'Oficial'].includes(myRole);
+  const [loading, setLoading] = useState(!clan);
+  
+  // States para Diplomacia Interactiva
+  const [allDetailedClans, setAllDetailedClans] = useState([]);
+  const [diplomacy, setDiplomacy] = useState({ alliances: [], wars: [], pending: [] });
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, clanTag: null, clanName: null });
 
   React.useEffect(() => {
     if (!clan) {
@@ -61,8 +68,40 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
     }
   };
 
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!draftSubject || !draftBody) return alert('Por favor, completa el asunto y el mensaje.');
+    
+    try {
+      const target = draftTo === 'all' ? `CLAN:${clan.tag}` : draftTo;
+      const resp = await fetch(`${API_URL}/messages/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: user.username,
+          receiver: target,
+          subject: draftSubject,
+          body: draftBody
+        })
+      });
+      
+      if (resp.ok) {
+        alert('Mensaje enviado con éxito.');
+        setDraftSubject('');
+        setDraftBody('');
+        setMsgTab('inbox');
+        fetchMessages();
+      } else {
+        alert('Error al enviar el mensaje.');
+      }
+    } catch (e) {
+      alert('Error de conexión al enviar mensaje.');
+    }
+  };
+
   const fetchClanData = async () => {
     if (!user) return;
+    setLoading(true);
     fetchMessages(); // También refrescamos mensajes al pedir data de clan
     try {
       const resp = await fetch(`${API_URL}/clan/my?username=${user.username}`);
@@ -72,6 +111,8 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
       }
     } catch (e) {
       console.error("Error fetching my clan data:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -143,15 +184,15 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   };
 
   React.useEffect(() => {
-    // Primero, si estamos en clan, refrescamos al montar
-    if (clan) {
+    // Sincronización inmediata al entrar si hay un usuario
+    if (user) {
       fetchClanData();
     }
     
-    // Polling cada 20 segundos
+    // Polling cada 30 segundos (sincronizado con App.js)
     const interval = setInterval(() => {
       fetchClanData();
-    }, 20000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [user.username]);
@@ -315,11 +356,75 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
     }
   };
 
+  const fetchDetailedClans = async () => {
+      try {
+          const resp = await fetch(`${API_URL}/clans/all`);
+          if (resp.ok) {
+              const data = await resp.json();
+              setAllDetailedClans(data.clans || []);
+          }
+      } catch (err) { console.error(err); }
+  };
+
+  const fetchDiplomacyData = async () => {
+      if (!clan) return;
+      try {
+          const resp = await fetch(`${API_URL}/clans/diplomacy?clan_tag=${clan.tag}`);
+          if (resp.ok) {
+              const data = await resp.json();
+              setDiplomacy(data);
+          }
+      } catch (err) { console.error(err); }
+  };
+
+  const handleDiplomacyProposal = async (targetTag, type) => {
+      if (targetTag === clan.tag) return alert("No puedes aliarte contigo mismo.");
+      try {
+          const resp = await fetch(`${API_URL}/clans/diplomacy/request`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sender_tag: clan.tag, receiver_tag: targetTag, type })
+          });
+          if (resp.ok) {
+              alert("Propuesta enviada correctamente.");
+              fetchDiplomacyData();
+          } else {
+              const err = await resp.json();
+              alert(err.detail || "Error al enviar propuesta.");
+          }
+      } catch (err) { alert("Error de conexión."); }
+      setContextMenu({ ...contextMenu, visible: false });
+  };
+
+  const handleDiplomacyResponse = async (requestId, response) => {
+      try {
+          const resp = await fetch(`${API_URL}/clans/diplomacy/respond`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ request_id: requestId, response })
+          });
+          if (resp.ok) {
+              alert(response === 'accept' ? "Petición aceptada." : "Petición rechazada.");
+              fetchDiplomacyData();
+          }
+      } catch (err) { alert("Error de conexión."); }
+  };
+
   useEffect(() => {
     if (activeTab === 'admin' && clan) {
       fetchClanLogs();
     }
+    if (activeTab === 'diplomacy' && clan) {
+        fetchDetailedClans();
+        fetchDiplomacyData();
+    }
   }, [activeTab, clan]);
+
+  useEffect(() => {
+    const handleClick = () => setContextMenu(prev => ({ ...prev, visible: false }));
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, []);
 
   const SIDEMENU = [
     { id: 'summary', label: 'INFORMACIÓN' },
@@ -335,7 +440,15 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
     <div className="dashboard-container">
       <main className="shop-main-layout" style={{ margin: '20px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #1a2a4a' }}>
         
-        {clan ? (
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '20px' }}>
+             <div className="loader-orbit" style={{ width: '50px', height: '50px', border: '3px solid transparent', borderTopColor: '#00ffff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+             <div style={{ color: '#00ffff', fontFamily: 'Orbitron', fontSize: '1rem', letterSpacing: '2px' }}>SINCRONIZANDO DATOS DE CLAN...</div>
+             <style>{`
+               @keyframes spin { to { transform: rotate(360deg); } }
+             `}</style>
+          </div>
+        ) : clan ? (
           <>
             {/* Sidebar from existing Shop classes */}
             <div className="shop-sidebar">
@@ -602,222 +715,135 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                 )}
 
                 {activeTab === 'diplomacy' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h3 style={{ color: '#00ffcc', margin: 0 }}>Relaciones Diplomáticas</h3>
-                    
-                    <div style={{ display: 'flex', gap: '20px' }}>
-                        {/* Send Request Panel */}
-                        <div style={{ flex: 1, background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a' }}>
-                            {canEdit && (
-                             <>
-                             <h4 style={{ color: '#ffcc00', borderBottom: '1px solid #334466', paddingBottom: '10px', marginTop: 0 }}>Gestionar Diplomacia</h4>
-                             
-                             <form onSubmit={(e) => {
-                                 e.preventDefault();
-                                 if(!editValues.dipTag) return alert('Debes ingresar la sigla de un clan.');
-                                 
-                                 const tagToContact = editValues.dipTag.toUpperCase();
-                                 if(tagToContact === clan.tag) return alert('No puedes interactuar diplomáticamente con tu propio clan.');
-
-                                 const currentDiplomacy = clan.diplomacy || { alliances: [], wars: [], pending: [] };
-                                 
-                                 // Revisar si ya existe una relación
-                                 if (currentDiplomacy.alliances.find(a => a.tag === tagToContact)) return alert('Ya tienes una alianza o PNA con este clan.');
-                                 if (currentDiplomacy.wars.find(w => w.tag === tagToContact)) return alert('Ya estás en guerra con este clan.');
-                                 if (currentDiplomacy.pending.find(p => p.tag === tagToContact)) return alert('Ya hay una petición pendiente con este clan.');
-
-                                 const newReq = {
-                                     id: Date.now(),
-                                     tag: tagToContact,
-                                     type: editValues.dipType || 'alliance',
-                                     date: new Date().toLocaleDateString(),
-                                     status: 'Pendiente'
-                                 };
-                                 
-                                 if (newReq.type === 'war') {
-                                     setClan({
-                                         ...clan,
-                                         diplomacy: {
-                                             ...currentDiplomacy,
-                                             wars: [{tag: newReq.tag, date: newReq.date}, ...currentDiplomacy.wars]
-                                         }
-                                     });
-                                     alert(`Se ha declarado la guerra al clan [${newReq.tag}]`);
-                                 } else {
-                                     setClan({
-                                         ...clan,
-                                         diplomacy: {
-                                             ...currentDiplomacy,
-                                             pending: [newReq, ...currentDiplomacy.pending]
-                                         }
-                                     });
-                                     alert(`Petición diplomática enviada a [${newReq.tag}]`);
-                                 }
-                                 
-                                 setEditValues({...editValues, dipTag: ''});
-                             }} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
-                                 <div>
-                                     <label style={{ display: 'block', color: '#88aaff', marginBottom: '5px', fontSize: '0.85rem' }}>Sigla del Clan a Contactar:</label>
-                                     <input 
-                                         type="text" 
-                                         maxLength={4}
-                                         value={editValues.dipTag || ''} 
-                                         onChange={e => setEditValues({...editValues, dipTag: e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0,4)})} 
-                                         placeholder="Ej. STAR" 
-                                         style={{ width: '100%', padding: '10px', background: '#0a0f1a', color: '#fff', border: '1px solid #334466', borderRadius: '4px', outline: 'none', textTransform: 'uppercase' }} 
-                                     />
-                                 </div>
-                                 <div>
-                                     <label style={{ display: 'block', color: '#88aaff', marginBottom: '5px', fontSize: '0.85rem' }}>Tipo de Relación:</label>
-                                     <select 
-                                         value={editValues.dipType || 'alliance'} 
-                                         onChange={e => setEditValues({...editValues, dipType: e.target.value})} 
-                                         style={{ width: '100%', padding: '10px', background: '#0a0f1a', color: '#fff', border: '1px solid #334466', borderRadius: '4px', outline: 'none' }}
-                                     >
-                                         <option value="alliance" style={{ color: '#00cc66' }}>Proponer Alianza</option>
-                                         <option value="pna" style={{ color: '#00aaff' }}>Pacto de No Agresión (PNA)</option>
-                                         <option value="war" style={{ color: '#ff3366' }}>Declarar Guerra</option>
-                                     </select>
-                                 </div>
-                                 <button type="submit" style={{ background: ((editValues.dipType || 'alliance') === 'war' ? '#ff3366' : '#00cc66'), color: '#000', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'opacity 0.2s' }}>
-                                     {(editValues.dipType || 'alliance') === 'war' ? 'DECLARAR GUERRA' : 'ENVIAR PROPUESTA'}
-                                 </button>
-                             </form>
-                             </>
-                            )}
-                        </div>
-
-                        {/* Current Relations Panel */}
-                        <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', flex: 1 }}>
-                                <h4 style={{ color: '#00cc66', marginTop: 0, marginBottom: '10px' }}>Alianzas / PNA Activos</h4>
-                                {(clan.diplomacy?.alliances?.length) ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                        {clan.diplomacy.alliances.map((all, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0, 204, 102, 0.1)', padding: '8px', borderRadius: '4px', borderLeft: '3px solid #00cc66' }}>
-                                                <div>
-                                                    <span style={{ color: '#fff', fontWeight: 'bold' }}>[{all.tag}]</span>
-                                                    <span style={{ color: '#00cc66', fontSize: '0.85rem', marginLeft: '8px' }}>{all.type === 'pna' ? 'PNA' : 'Alianza'}</span>
-                                                    <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '3px' }}>Desde: {all.date}</div>
-                                                </div>
-                                                {canEdit && (
-                                                  <button onClick={() => {
-                                                      if(window.confirm(`¿Seguro que deseas romper la ${all.type === 'pna' ? 'PNA' : 'Alianza'} con [${all.tag}]?`)) {
-                                                          const updatedAlliances = clan.diplomacy.alliances.filter(a => a.tag !== all.tag);
-                                                          setClan({ ...clan, diplomacy: { ...clan.diplomacy, alliances: updatedAlliances }});
-                                                      }
-                                                  }} style={{ background: 'transparent', color: '#ff3366', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.8rem' }}>Romper</button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div style={{ color: '#666', fontStyle: 'italic', fontSize: '0.9rem' }}>No hay alianzas activas.</div>
-                                )}
-                            </div>
-
-                            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', flex: 1 }}>
-                                <h4 style={{ color: '#ff3366', marginTop: 0, marginBottom: '10px' }}>Guerras Activas</h4>
-                                {(clan.diplomacy?.wars?.length) ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                        {clan.diplomacy.wars.map((war, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 51, 102, 0.1)', padding: '8px', borderRadius: '4px', borderLeft: '3px solid #ff3366' }}>
-                                                <div>
-                                                    <span style={{ color: '#fff', fontWeight: 'bold' }}>[{war.tag}]</span>
-                                                    <span style={{ color: '#ff3366', fontSize: '0.85rem', marginLeft: '8px' }}>Guerra</span>
-                                                    <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '3px' }}>Desde: {war.date}</div>
-                                                </div>
-                                                {canEdit && (
-                                                  <button onClick={() => {
-                                                      if(window.confirm(`¿Terminar la guerra y ofrecer paz a [${war.tag}]?`)) {
-                                                          const updatedWars = clan.diplomacy.wars.filter(w => w.tag !== war.tag);
-                                                          setClan({ ...clan, diplomacy: { ...clan.diplomacy, wars: updatedWars }});
-                                                      }
-                                                  }} style={{ background: 'transparent', color: '#00cc66', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.8rem' }}>Paz</button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div style={{ color: '#666', fontStyle: 'italic', fontSize: '0.9rem' }}>No hay guerras activas.</div>
-                                )}
-                            </div>
-                        </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', color: '#fff', padding: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h2 style={{ color: '#00ffcc', margin: 0, fontFamily: 'Orbitron', fontSize: '1.4rem' }}>Centro de Diplomacia</h2>
                     </div>
 
-                    {/* Pending Requests */}
-                    <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', display: 'flex', flexDirection: 'column' }}>
-                        <h4 style={{ color: '#88aaff', marginTop: 0, borderBottom: '1px solid #334466', paddingBottom: '10px' }}>Peticiones Pendientes</h4>
-                        {(clan.diplomacy?.pending?.length) ? (
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: '10px' }}>
-                                <thead>
-                                    <tr style={{ color: '#888', fontSize: '0.85rem' }}>
-                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Sigla Destino</th>
-                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Tipo</th>
-                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Fecha</th>
-                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Estado</th>
-                                        <th style={{ padding: '8px', borderBottom: '1px solid #334466' }}>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {clan.diplomacy.pending.map((req, idx) => (
-                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <td style={{ padding: '8px', color: '#fff', fontWeight: 'bold' }}>[{req.tag}]</td>
-                                            <td style={{ padding: '8px', color: req.type === 'pna' ? '#00aaff' : '#00cc66' }}>
-                                                {req.type === 'pna' ? 'Pacto de No Agresión' : 'Alianza'}
-                                            </td>
-                                            <td style={{ padding: '8px', color: '#888', fontSize: '0.85rem' }}>{req.date}</td>
-                                            <td style={{ padding: '8px', color: '#ffcc00', fontSize: '0.85rem' }}>{req.status}</td>
-                                            <td style={{ padding: '8px', display: 'flex', gap: '5px' }}>
-                                                {canEdit && (
-                                                    <>
-                                                    {/* Demo Accept Button (Local Mock) */}
-                                                    <button onClick={() => {
-                                                        const updatedPending = clan.diplomacy.pending.filter(p => p.id !== req.id);
-                                                        setClan({
-                                                            ...clan,
-                                                            diplomacy: {
-                                                                ...clan.diplomacy,
-                                                                pending: updatedPending,
-                                                                alliances: [{tag: req.tag, type: req.type, date: new Date().toLocaleDateString()}, ...(clan.diplomacy.alliances || [])]
-                                                            }
-                                                        });
-                                                    }} style={{ background: '#00cc66', color: '#000', border: '1px solid #00cc66', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', outline: 'none', fontWeight: 'bold' }} title="Simular que el otro clan acepta (Debug)">
-                                                        ✓ Mock Aceptar
-                                                    </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '20px' }}>
+                      
+                      {/* SUB-PANEL: LISTA GLOBAL */}
+                      <div className="diplomacy-panel" style={{ background: 'rgba(10, 20, 40, 0.7)', border: '1px solid #1a2a4a', borderRadius: '12px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '15px', borderBottom: '1px solid #1a2a4a', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          <span style={{ color: '#88aaff', fontSize: '0.9rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Lista Global de Clanes</span>
+                          <input 
+                            type="text" 
+                            placeholder="Buscar clan..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ width: '100%', background: '#050a14', border: '1px solid #334466', padding: '8px', color: '#fff', borderRadius: '6px' }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', maxHeight: '500px', padding: '10px' }}>
+                          {allDetailedClans.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.tag.toLowerCase().includes(searchTerm.toLowerCase())).map(c => (
+                            <div 
+                              key={c.tag} 
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                if(!canEdit) return;
+                                if(c.tag === clan.tag) return; // Evitar autodiplomacia
+                                setContextMenu({ visible: true, x: e.clientX, y: e.clientY, clanTag: c.tag, clanName: c.name });
+                              }}
+                              style={{ 
+                                display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', borderRadius: '8px', 
+                                cursor: 'default', transition: 'background 0.2s', borderBottom: '1px solid rgba(26, 42, 74, 0.3)' 
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = 'rgba(0, 255, 204, 0.05)'}
+                              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                            >
+                              <div style={{ width: '32px', height: '32px', background: '#1a2a4a', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffcc', fontWeight: 'bold', fontSize: '0.7rem' }}>
+                                {c.logo ? <img src={c.logo} alt="" style={{ width: '100%', height: '100%' }} /> : c.tag}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{c.name} <span style={{ color: '#88aaff' }}>[{c.tag}]</span></div>
+                                <div style={{ color: '#6688aa', fontSize: '0.75rem' }}>Líder: {c.leader} | {c.members} miembros</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ padding: '10px', fontSize: '0.75rem', color: '#556688', textAlign: 'center' }}>
+                          * Click derecho en un clan para interactuar
+                        </div>
+                      </div>
 
-                                                    <button onClick={() => {
-                                                        const updatedPending = clan.diplomacy.pending.filter(p => p.id !== req.id);
-                                                        setClan({
-                                                            ...clan,
-                                                            diplomacy: {
-                                                                ...clan.diplomacy,
-                                                                pending: updatedPending
-                                                            }
-                                                        });
-                                                    }} style={{ background: 'transparent', color: '#ff3366', border: '1px solid #ff3366', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', outline: 'none' }}>
-                                                        Cancelar
-                                                    </button>
-                                                    </>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <div style={{ color: '#666', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>No hay peticiones enviadas ni recibidas.</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        
+                        {/* SUB-PANEL: SOLICITUDES PENDIENTES */}
+                        {diplomacy.pending.length > 0 && (
+                          <div className="diplomacy-panel" style={{ background: 'rgba(255, 204, 0, 0.05)', border: '1px solid #cc9900', borderRadius: '12px', padding: '15px' }}>
+                            <h4 style={{ color: '#ffcc00', margin: '0 0 15px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ width: '8px', height: '8px', background: '#ffcc00', borderRadius: '50%' }}></span>
+                                PETICIONES PENDIENTES
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                              {diplomacy.pending.map(p => (
+                                <div key={p.id} style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #332200' }}>
+                                  <div>
+                                    <div style={{ color: '#fff', fontSize: '0.9rem' }}>
+                                      {p.is_incoming ? (
+                                        <>El clan <b style={{color: '#00ffcc'}}>[{p.sender}]</b> propone <b style={{textTransform: 'uppercase', color: p.type==='war'?'#ff3366':'#00cc66'}}>{p.type === 'war' ? 'Guerra' : p.type}</b></>
+                                      ) : (
+                                        <>Propuesta de <b style={{textTransform: 'uppercase'}}>{p.type}</b> enviada a <b style={{color: '#00ffcc'}}>[{p.receiver}]</b></>
+                                      )}
+                                    </div>
+                                    <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '4px' }}>Fecha: {p.date}</div>
+                                  </div>
+                                  {p.is_incoming && canEdit && (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <button onClick={() => handleDiplomacyResponse(p.id, 'accept')} style={{ background: '#00cc66', color: '#000', border: 'none', padding: '5px 12px', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>ACEPTAR</button>
+                                      <button onClick={() => handleDiplomacyResponse(p.id, 'reject')} style={{ background: '#ff3366', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>RECHAZAR</button>
+                                    </div>
+                                  )}
+                                  {!p.is_incoming && (
+                                    <span style={{ color: '#888', fontSize: '0.8rem', fontStyle: 'italic' }}>Esperando respuesta...</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
+
+                        {/* SUB-PANEL: RELACIONES ACTIVAS */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', flex: 1 }}>
+                          {/* ALIANZAS */}
+                          <div className="diplomacy-panel" style={{ background: 'rgba(0, 204, 102, 0.05)', border: '1px solid #00cc66', borderRadius: '12px', padding: '15px' }}>
+                            <h4 style={{ color: '#00cc66', margin: '0 0 12px 0', fontSize: '0.9rem' }}>ALIANZAS Y PNA</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {diplomacy.alliances.length > 0 ? diplomacy.alliances.map(a => (
+                                <div key={a.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', borderLeft: '3px solid #00cc66' }}>
+                                  <div style={{ color: '#fff', fontWeight: 'bold' }}>[{a.tag}]</div>
+                                  <div style={{ color: '#00cc66', fontSize: '0.75rem', textTransform: 'uppercase' }}>{a.type}</div>
+                                </div>
+                              )) : <div style={{ color: '#555', fontSize: '0.8rem' }}>Sin alianzas activas.</div>}
+                            </div>
+                          </div>
+
+                          {/* GUERRAS */}
+                          <div className="diplomacy-panel" style={{ background: 'rgba(255, 51, 102, 0.05)', border: '1px solid #ff3366', borderRadius: '12px', padding: '15px' }}>
+                            <h4 style={{ color: '#ff3366', margin: '0 0 12px 0', fontSize: '0.9rem' }}>GUERRAS ACTIVAS</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {diplomacy.wars.length > 0 ? diplomacy.wars.map(w => (
+                                <div key={w.id} style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '6px', borderLeft: '3px solid #ff3366' }}>
+                                  <div style={{ color: '#fff', fontWeight: 'bold' }}>[{w.tag}]</div>
+                                  <div style={{ color: '#ff3366', fontSize: '0.75rem' }}>EN COMBATE</div>
+                                </div>
+                              )) : <div style={{ color: '#555', fontSize: '0.8rem' }}>Sin guerras activas.</div>}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === 'msg' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h3 style={{ color: '#00ffcc', margin: 0 }}>Comunicaciones del Pilloto</h3>
+                    <h3 style={{ color: '#00ffcc', margin: 0 }}>Comunicaciones del Piloto</h3>
                     
                     <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid #1a2a4a', paddingBottom: '10px' }}>
                        <button onClick={() => setMsgTab('inbox')} style={{ background: msgTab === 'inbox' ? '#1a253a' : 'transparent', color: msgTab === 'inbox' ? '#00ffcc' : '#88aaff', border: '1px solid #334466', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Bandeja de Entrada</button>
+                       <button onClick={() => { setMsgTab('redactar'); setDraftTo('all'); }} style={{ background: msgTab === 'redactar' ? '#1a253a' : 'transparent', color: msgTab === 'redactar' ? '#00ffcc' : '#88aaff', border: '1px solid #334466', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Redactar</button>
                     </div>
 
                     <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', minHeight: '300px' }}>
@@ -854,6 +880,50 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                                )}
                            </div>
                        )}
+
+                        {msgTab === 'redactar' && (
+                            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+                                <h4 style={{ color: '#00ffcc', marginTop: 0, marginBottom: '20px', textAlign: 'center' }}>NUEVO MENSAJE ESTELAR</h4>
+                                <form onSubmit={handleSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    <div>
+                                        <label style={{ color: '#88aaff', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>DESTINATARIO</label>
+                                        <select 
+                                            value={draftTo}
+                                            onChange={e => setDraftTo(e.target.value)}
+                                            style={{ width: '100%', padding: '12px', background: '#0a0f1a', color: '#fff', border: '1px solid #334466', borderRadius: '4px', outline: 'none' }}
+                                        >
+                                            <option value="all">Todo el Clan (Circular)</option>
+                                            {clan.members?.filter(m => m.name !== user.username).map(m => (
+                                                <option key={m.name} value={m.name}>{m.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ color: '#88aaff', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>ASUNTO</label>
+                                        <input 
+                                            type="text"
+                                            value={draftSubject}
+                                            onChange={e => setDraftSubject(e.target.value)}
+                                            placeholder="Escribe el asunto del mensaje..."
+                                            style={{ width: '100%', padding: '12px', background: '#0a0f1a', color: '#fff', border: '1px solid #334466', borderRadius: '4px', outline: 'none' }}
+                                            maxLength={50}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ color: '#88aaff', fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>MENSAJE</label>
+                                        <textarea 
+                                            value={draftBody}
+                                            onChange={e => setDraftBody(e.target.value)}
+                                            placeholder="Escribe el contenido del mensaje aquí..."
+                                            style={{ width: '100%', padding: '12px', background: '#0a0f1a', color: '#fff', border: '1px solid #334466', borderRadius: '4px', outline: 'none', height: '150px', resize: 'none' }}
+                                        />
+                                    </div>
+                                    <button type="submit" className="buy-button" style={{ marginTop: '10px' }}>
+                                        ENVIAR MENSAJE
+                                    </button>
+                                </form>
+                            </div>
+                        )}
                     </div>
                   </div>
                 )}
@@ -1142,6 +1212,53 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        {contextMenu.visible && (
+          <div 
+            style={{ 
+              position: 'fixed', 
+              top: contextMenu.y, 
+              left: contextMenu.x, 
+              background: '#0a101a', 
+              border: '1px solid #00ffcc', 
+              borderRadius: '8px', 
+              boxShadow: '0 0 20px rgba(0, 255, 204, 0.3)', 
+              zIndex: 99999, 
+              overflow: 'hidden', 
+              minWidth: '200px' 
+            }}
+          >
+            <div style={{ padding: '10px 15px', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid #1a2a4a', fontSize: '0.7rem', color: '#88aaff', fontWeight: 'bold', textTransform: 'uppercase' }}>
+              Diplomacia: {contextMenu.clanName}
+            </div>
+            <button 
+                onClick={() => handleDiplomacyProposal(contextMenu.clanTag, 'alliance')}
+                style={{ width: '100%', padding: '12px 15px', background: 'transparent', border: 'none', color: '#00cc66', textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', outline: 'none' }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(0, 204, 102, 0.1)'}
+                onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              🤝 Proponer Alianza
+            </button>
+            <button 
+                onClick={() => handleDiplomacyProposal(contextMenu.clanTag, 'pna')}
+                style={{ width: '100%', padding: '12px 15px', background: 'transparent', border: 'none', color: '#00aaff', textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem', outline: 'none' }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(0, 170, 255, 0.1)'}
+                onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              🛡️ Pacto No Agresión (PNA)
+            </button>
+            <button 
+                onClick={() => handleDiplomacyProposal(contextMenu.clanTag, 'war')}
+                style={{ width: '100%', padding: '12px 15px', background: 'transparent', border: 'none', color: '#ff3366', textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', outline: 'none' }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(255, 51, 102, 0.1)'}
+                onMouseLeave={(e) => e.target.style.background = 'transparent'}
+            >
+              🔥 Declarar Guerra
+            </button>
+            <div style={{ padding: '8px 15px', fontSize: '0.65rem', color: '#445577', borderTop: '1px solid rgba(255,255,255,0.03)', textAlign: 'center' }}>
+              Esc para cerrar
             </div>
           </div>
         )}

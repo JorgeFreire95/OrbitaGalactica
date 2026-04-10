@@ -93,6 +93,21 @@ class AnnouncementRequest(BaseModel):
 class RepairRequest(BaseModel):
     username: str
 
+class MessageSendRequest(BaseModel):
+    sender: str
+    receiver: str
+    subject: str
+    body: str
+
+class DiplomacyRequest(BaseModel):
+    sender_tag: str
+    receiver_tag: str
+    type: str
+
+class DiplomacyResponse(BaseModel):
+    request_id: int
+    response: str
+
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
                     format='%(asctime)s %(levelname)s:%(message)s')
@@ -181,7 +196,8 @@ from database import (
     leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, 
     update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, 
     get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, 
-    hash_password, get_leaderboard_db
+    hash_password, get_leaderboard_db, send_user_message_db,
+    add_diplomacy_request, respond_diplomacy_request, get_clan_diplomacy_status, get_all_clans_detailed
 )
 
 @app.post("/api/login")
@@ -277,6 +293,32 @@ async def api_get_clan_logs(clan_tag: str):
     logs = get_clan_logs_db(clan_tag)
     return {"logs": logs}
 
+# --- ENDPOINTS DE DIPLOMACIA ---
+
+@app.get("/api/clans/all")
+async def api_get_all_clans():
+    clans = get_all_clans_detailed()
+    return {"clans": clans}
+
+@app.post("/api/clans/diplomacy/request")
+async def api_diplomacy_request(req: DiplomacyRequest):
+    result = add_diplomacy_request(req.sender_tag, req.receiver_tag, req.type)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Petición enviada correctamente."}
+
+@app.post("/api/clans/diplomacy/respond")
+async def api_diplomacy_respond(req: DiplomacyResponse):
+    success = respond_diplomacy_request(req.request_id, req.response)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al procesar la respuesta.")
+    return {"message": "Respuesta enviada correctamente."}
+
+@app.get("/api/clans/diplomacy")
+async def api_get_diplomacy(clan_tag: str):
+    data = get_clan_diplomacy_status(clan_tag)
+    return data
+
 @app.post("/api/set_faction")
 async def api_set_faction(req: SetFactionRequest):
     updated = set_user_faction(req.username, req.faction)
@@ -288,6 +330,13 @@ async def api_set_faction(req: SetFactionRequest):
 async def api_get_messages(username: str):
     msgs = get_user_messages_db(username)
     return {"messages": msgs}
+
+@app.post("/api/messages/send")
+async def api_send_message(req: MessageSendRequest):
+    success = send_user_message_db(req.sender, req.receiver, req.subject, req.body)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al enviar el mensaje.")
+    return {"message": "Mensaje enviado con éxito."}
 
 @app.get("/api/user/stats")
 async def api_get_user_stats(username: str):

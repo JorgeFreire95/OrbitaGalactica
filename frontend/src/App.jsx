@@ -68,7 +68,7 @@ function App() {
   
   const [level, setLevel] = useState(() => {
     const val = localStorage.getItem('game_level');
-    return val !== null ? parseInt(val) : 0;
+    return val !== null ? parseInt(val) : 1;
   });
 
   const [xp, setXp] = useState(() => {
@@ -97,7 +97,7 @@ function App() {
   });
 
   const [clan, setClan] = useState(() => {
-    const saved = sessionStorage.getItem('game_clan');
+    const saved = localStorage.getItem('game_clan');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -138,6 +138,9 @@ function App() {
       setCurrentView('reset_password');
     }
     fetchLeaderboard();
+    if (user) {
+      fetchClanData(user.username);
+    }
 
     // Sincronización de Sesión de Juego entre pestañas
     const syncGameSession = (e) => {
@@ -271,14 +274,28 @@ function App() {
       const resp = await fetch(`${API_URL}/user/stats?username=${user.username}`);
       if (resp.ok) {
         const data = await resp.json();
-        // Solo actualizamos si hay cambios externos y no estamos en medio de una acción crítica
         if (data.credits !== credits) setCredits(data.credits);
         if (data.paladio !== paladio) setPaladio(data.paladio);
         if (data.level !== level) setLevel(data.level);
         if (data.xp !== xp) setXp(data.xp);
       }
+      // Also refresh clan data periodically
+      fetchClanData(user.username);
     } catch (e) {
       console.error("Error refreshing stats:", e);
+    }
+  };
+
+  const fetchClanData = async (username) => {
+    if (!username) return;
+    try {
+      const resp = await fetch(`${API_URL}/clan/my?username=${username}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setClan(data.clan);
+      }
+    } catch (e) {
+      console.log("Error fetching initial clan data:", e);
     }
   };
 
@@ -399,7 +416,7 @@ function App() {
       // Wipe current local stats and set standard fresh-start stats
       setCredits(50000);
       setPaladio(0);
-      setLevel(0);
+      setLevel(1);
       setXp(0);
       setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
       setInventory([]);
@@ -467,7 +484,7 @@ function App() {
     sessionStorage.removeItem('game_equipped');
     sessionStorage.removeItem('game_ammo');
     sessionStorage.removeItem('game_upgrades');
-    sessionStorage.removeItem('game_clan');
+    localStorage.removeItem('game_clan');
     sessionStorage.removeItem('orbita_galactica_user_id');
     
     setUser(null);

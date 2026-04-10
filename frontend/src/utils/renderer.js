@@ -16,6 +16,242 @@ supportImg.src = '/helix_support.png';
 const starterImg = new Image();
 starterImg.src = '/phoenix.png';
 
+// --- FUNCIONES DE RENDERIZADO DE ALIENS ---
+
+const drawGryllos = (ctx, isHard) => {
+    // Gryllos: Cúmulo de Gas (Nebulosa verde/gris)
+    const color = isHard ? '#00ffaa' : '#aabbaa';
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    ctx.globalAlpha = 0.4 + Math.sin(Date.now()/400)*0.1;
+
+    // Nube Nebular
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 20);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    for(let i=0; i<3; i++) {
+        ctx.beginPath();
+        const offX = Math.sin(Date.now()/500 + i)*5;
+        const offY = Math.cos(Date.now()/500 + i)*5;
+        ctx.arc(offX, offY, 15, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    // Rayos internos
+    if(Math.random() > 0.9) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-10 + Math.random()*20, -10 + Math.random()*20);
+        ctx.lineTo(-10 + Math.random()*20, -10 + Math.random()*20);
+        ctx.stroke();
+    }
+    ctx.restore();
+};
+
+const drawXylos = (ctx, isHard) => {
+    // Xylos: Llamarada de Hielo (Fragmento con cola)
+    const color = isHard ? '#00ffff' : '#88ccff';
+    
+    // Cola de Viento Solar
+    const grad = ctx.createLinearGradient(0, 0, 0, 30);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-10, 0); ctx.lineTo(10, 0); ctx.lineTo(0, 40);
+    ctx.closePath();
+    ctx.fill();
+
+    // Núcleo de Hielo
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#fff';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.moveTo(0, -15); ctx.lineTo(10, 5); ctx.lineTo(-10, 5);
+    ctx.closePath();
+    ctx.fill();
+};
+
+const drawNykor = (ctx, isHard) => {
+    // Nykor: Sombra del Vacío (Silueta distorsionadora)
+    const color = isHard ? '#ff0000' : '#4444ff';
+    
+    ctx.save();
+    // Efecto de distorsión (Simple sombra negativa)
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = color;
+    ctx.globalCompositeOperation = 'screen';
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.beginPath();
+    const time = Date.now()/300;
+    for(let i=0; i<6; i++) {
+        const ang = (i/6)*Math.PI*2 + time;
+        const r = 18 + Math.sin(time*2 + i)*4;
+        const x = Math.cos(ang)*r;
+        const y = Math.sin(ang)*r;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // "Ojo" del vacío
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+};
+
+const drawSyrith = (ctx, isHard) => {
+    // Syrith: Serpiente Solar (Bucle de plasma)
+    const color = isHard ? '#ffaa00' : '#ff5500';
+    const time = Date.now() / 200;
+    
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    for(let i=0; i<20; i++) {
+        const r = 12 + Math.sin(time + i*0.3)*5;
+        const ang = (i/20)*Math.PI*2 + time;
+        const x = Math.cos(ang)*r;
+        const y = Math.sin(ang)*r;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Brillo interno
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+};
+
+const drawVexis = (ctx, isHard) => {
+    // Vexis: Núcleo de Supernova (Esferas expansivas)
+    const color = isHard ? '#ffffff' : '#00ffff';
+    const time = Date.now() / 500;
+    
+    // Capas de gas
+    for(let i=0; i<3; i++) {
+        const r = ((time + i) % 3) * 10;
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = 1 - (r/30);
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke();
+    }
+
+    // El Core
+    ctx.globalAlpha = 1.0;
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = color;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+};
+
+const drawKragos = (ctx, isHard) => {
+    // Kragos: Titán de Magma (Fragmentos de roca)
+    ctx.fillStyle = '#222';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ff4400';
+
+    // Rocas flotantes
+    for(let i=0; i<5; i++) {
+        const ang = (i/5)*Math.PI*2 + Date.now()/1000;
+        const x = Math.cos(ang)*15;
+        const y = Math.sin(ang)*15;
+        ctx.beginPath();
+        ctx.rect(x-5, y-5, 10, 10);
+        ctx.fill();
+        
+        // Venas de magma
+        ctx.fillStyle = '#ff4400';
+        ctx.fillRect(x-2, y-2, 4, 4);
+        ctx.fillStyle = '#222';
+    }
+
+    // Núcleo de calor
+    const pulse = 5 + Math.sin(Date.now()/100)*3;
+    const grad = ctx.createRadialGradient(0,0,0,0,0,pulse*2);
+    grad.addColorStop(0, '#ffaa00');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(0,0, pulse*2, 0, Math.PI*2); ctx.fill();
+};
+
+const drawZoltan = (ctx, isHard) => {
+    // Zoltan: Espiral de Cuásar (Vórtice cinético)
+    const color = isHard ? '#ffffff' : '#0099ff';
+    const time = Date.now() / 200;
+    
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    
+    for(let i=0; i<3; i++) {
+        ctx.rotate(time/2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.quadraticCurveTo(20, 20, 0, 30);
+        ctx.stroke();
+    }
+    
+    // Centro brillante
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+};
+
+const drawDrakon = (ctx, isHard) => {
+    // Drakon: Nave Constelación (Puntos y líneas)
+    const color = isHard ? '#fff' : '#ff4444';
+    const time = Date.now() / 1000;
+    
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = color;
+    
+    const points = [];
+    for(let i=0; i<8; i++) {
+        const ang = (i/8)*Math.PI*2 + time;
+        const r = 25 + Math.sin(time*2 + i)*5;
+        points.push({x: Math.cos(ang)*r, y: Math.sin(ang)*r});
+    }
+
+    // Dibujar líneas (Materia Oscura)
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    points.forEach((p, i) => {
+        if(i===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+    ctx.stroke();
+
+    // Dibujar Estrellas
+    points.forEach(p => {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+        // Destello
+        if(Math.random() > 0.8) {
+             ctx.fillStyle = '#fff';
+             ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+        }
+    });
+
+    // Corazón galáctico
+    ctx.fillStyle = isHard ? '#fff' : 'rgba(255,0,0,0.5)';
+    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+};
+
 export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   const { width, height } = ctx.canvas;
   
@@ -39,22 +275,33 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   else if (isMoon) ctx.strokeStyle = 'rgba(0, 200, 255, 0.08)';
   else if (isPluto) ctx.strokeStyle = 'rgba(100, 100, 255, 0.08)';
   else ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-  ctx.lineWidth = 1;
-  
   const gridSize = 100;
   const offsetX = -camX % gridSize;
   const offsetY = -camY % gridSize;
-
-  ctx.beginPath();
-  for (let x = offsetX; x < width; x += gridSize) {
-    ctx.moveTo(x, 0); ctx.lineTo(x, height);
+  
+  // --- DIBUJAR LÍMITES DEL MAPA (BORDES) ---
+  ctx.save();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 10;
+  const m_width = gameState.map_width || 10000;
+  const m_height = gameState.map_height || 8000;
+  ctx.strokeRect(-camX, -camY, m_width, m_height);
+  ctx.restore();
+  
+  if (isMars) {
+    ctx.beginPath();
+    for (let x = offsetX; x < width; x += gridSize) {
+      ctx.moveTo(x, 0); ctx.lineTo(x, height);
+    }
+    for (let y = offsetY; y < height; y += gridSize) {
+      ctx.moveTo(0, y); ctx.lineTo(width, y);
+    }
+    ctx.strokeStyle = 'rgba(255, 69, 0, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
-  for (let y = offsetY; y < height; y += gridSize) {
-    ctx.moveTo(0, y); ctx.lineTo(width, y);
-  }
-  ctx.stroke();
 
-  // 3. Dibujar Bordes del Mundo (10000x8000)
+  // 3. Dibujar Bordes del Mundo (Dinámico)
   ctx.save();
   ctx.translate(-camX, -camY);
   if (isMars) ctx.strokeStyle = 'rgba(255, 50, 0, 0.3)';
@@ -62,7 +309,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   else if (isPluto) ctx.strokeStyle = 'rgba(100, 100, 255, 0.3)';
   else ctx.strokeStyle = 'rgba(0, 255, 255, 0.2)';
   ctx.lineWidth = 4;
-  ctx.strokeRect(0, 0, 10000, 8000);
+  ctx.strokeRect(0, 0, m_width, m_height);
   
   // Resplandor en los bordes
   ctx.shadowBlur = 20;
@@ -70,7 +317,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   else if (isMoon) ctx.shadowColor = '#00ffff';
   else if (isPluto) ctx.shadowColor = '#4444ff';
   else ctx.shadowColor = 'cyan';
-  ctx.strokeRect(0, 0, 10000, 8000);
+  ctx.strokeRect(0, 0, m_width, m_height);
   ctx.restore();
 
   // --- COMIENZO DE RENDERIZADO DEL MUNDO (Coordenadas Reales) ---
@@ -216,8 +463,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillStyle = 'rgba(255, 100, 0, 0.15)';
     ctx.globalCompositeOperation = 'screen';
     for(let i=0; i<100; i++) {
-        const px = (i * 777 + time * 1500) % 10000;
-        const py = (i * 333 + time * 200) % 8000;
+        const px = (i * 777 + time * 1500) % m_width;
+        const py = (i * 333 + time * 200) % m_height;
         ctx.fillRect(px, py, 200, 2);
     }
     ctx.restore();
@@ -231,8 +478,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.globalAlpha = crystalPulse * 0.4;
     ctx.fillStyle = 'white';
     for(let i=0; i<20; i++) {
-        const cx = (i * 2345) % 10000;
-        const cy = (i * 6789) % 8000;
+        const cx = (i * 2345) % m_width;
+        const cy = (i * 6789) % m_height;
         ctx.beginPath();
         const sides = 6;
         const size = 150 + Math.sin(Date.now()/500 + i)*30;
@@ -255,8 +502,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillStyle = 'white';
     ctx.globalAlpha = 0.3;
     for(let i=0; i<100; i++) {
-        const px = (i * 1234 + time * 100) % 10000;
-        const py = (i * 5678 + time * 50) % 8000;
+        const px = (i * 1234 + time * 100) % m_width;
+        const py = (i * 5678 + time * 50) % m_height;
         ctx.beginPath();
         ctx.arc(px, py, 2, 0, Math.PI*2);
         ctx.fill();
@@ -278,7 +525,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   if (style === 'pluto_vortex') {
     ctx.save();
-    ctx.translate(5000, 4000); // Centro del mapa: Vórtice Sombrío
+    ctx.translate(m_width/2, m_height/2); // Centro del mapa: Vórtice Sombrío
     ctx.shadowBlur = 100;
     ctx.shadowColor = '#4400ff';
     const rot = Date.now() / 1500;
@@ -349,7 +596,6 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       
       ctx.fillStyle = grad;
       ctx.strokeStyle = '#ffcc00';
-      ctx.lineWidth = 2;
       ctx.strokeRect(-15, -15, 30, 30);
       ctx.fillRect(-15, -15, 30, 30);
       
@@ -394,14 +640,32 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   gameState.enemies?.forEach(enemy => {
     ctx.save();
     ctx.translate(enemy.x, enemy.y);
-    // Alien shape
-    ctx.fillStyle = '#ff3333';
-    ctx.beginPath();
-    ctx.arc(0, 0, 15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff'; // eyes
-    ctx.beginPath(); ctx.arc(-5, -5, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(5, -5, 3, 0, Math.PI * 2); ctx.fill();
+    
+    // --- NUEVO RENDERIZADO DE ALIENS DINÁMICO ---
+    ctx.save();
+    const name = enemy.name || "";
+    const isHard = enemy.is_hard || false;
+    
+    if (name === "Gryllos") drawGryllos(ctx, isHard);
+    else if (name === "Xylos") drawXylos(ctx, isHard);
+    else if (name === "Nykor") drawNykor(ctx, isHard);
+    else if (name === "Syrith") drawSyrith(ctx, isHard);
+    else if (name === "Vexis") drawVexis(ctx, isHard);
+    else if (name === "Kragos") drawKragos(ctx, isHard);
+    else if (name === "Zoltan") drawZoltan(ctx, isHard);
+    else if (name === "Drakon") drawDrakon(ctx, isHard);
+    else {
+        // Fallback: Alien original mejorado
+        ctx.fillStyle = isHard ? '#ff0000' : '#ff3333';
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(-5, -5, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(5, -5, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
     // Shield bar
     if (enemy.max_shield > 0) {
       ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
@@ -657,8 +921,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.font = '12px Orbitron';
     ctx.textAlign = 'center';
     let displayName = player.user_id || player.id.substring(0,6);
-    if (player.clan && player.clan.tag) {
-      displayName = `[${player.clan.tag}] ` + displayName;
+    if (player.clan_tag) {
+      displayName = `[${player.clan_tag}] ` + displayName;
       ctx.fillStyle = '#00ffcc'; // Resaltar el nombre con clan
     }
     ctx.fillText(displayName, 0, 30);
@@ -744,7 +1008,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         gradient.addColorStop(1, '#ffcc00');
         
         ctx.fillStyle = gradient;
-        ctx.fillText(`+${event.xp} XP  /  +${event.credits} CR`, 0, 0);
+        const palText = event.paladio ? `  /  +${event.paladio} PAL` : "";
+        ctx.fillText(`+${event.xp} XP  /  +${event.credits} CR${palText}`, 0, 0);
         ctx.restore();
       }
     }
@@ -863,15 +1128,42 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     const mmY = height - mmH - margin;
 
     // Fondo del Minimapa
-    ctx.fillStyle = 'rgba(13, 13, 26, 0.8)';
+    ctx.fillStyle = 'rgba(13, 13, 26, 0.85)';
     ctx.fillRect(mmX, mmY, mmW, mmH);
     ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
     ctx.lineWidth = 2;
     ctx.strokeRect(mmX, mmY, mmW, mmH);
 
-    // Escala del Minimapa (Mundo 10000x8000 -> Mini 200x150)
-    const scaleX = mmW / 10000;
-    const scaleY = mmH / 8000;
+    // Escala del Minimapa (Mundo Dinámico)
+    const m_width = gameState.map_width || 10000;
+    const m_height = gameState.map_height || 8000;
+    const scaleX = mmW / m_width;
+    const scaleY = mmH / m_height;
+
+    // --- GRID DEL MINIMAPA ---
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    // Líneas verticales (cada 5000 unidades)
+    for (let gx = 5000; gx < m_width; gx += 5000) {
+      ctx.moveTo(mmX + gx * scaleX, mmY);
+      ctx.lineTo(mmX + gx * scaleX, mmY + mmH);
+    }
+    // Líneas horizontales (cada 4000 unidades)
+    for (let gy = 4000; gy < m_height; gy += 4000) {
+      ctx.moveTo(mmX, mmY + gy * scaleY);
+      ctx.lineTo(mmX + mmW, mmY + gy * scaleY);
+    }
+    ctx.stroke();
+
+    // --- COORDENADAS (TEXTO) ---
+    if (me) {
+      ctx.fillStyle = 'rgba(0, 255, 255, 0.9)';
+      ctx.font = 'bold 11px Orbitron';
+      ctx.textAlign = 'right';
+      ctx.fillText(`X: ${Math.round(me.x)}`, mmX + mmW - 8, mmY + 18);
+      ctx.fillText(`Y: ${Math.round(me.y)}`, mmX + mmW - 8, mmY + 32);
+    }
 
     // Dibujar Base en Minimapa
     if (gameState.base) {
@@ -889,12 +1181,18 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       );
     }
 
-    // Dibujar Enemigos
+    // Dibujar Enemigos (Radar)
+    const radarRange = 3500;
     gameState.enemies?.forEach(en => {
-      ctx.fillStyle = '#ff3333';
-      ctx.beginPath();
-      ctx.arc(mmX + en.x * scaleX, mmY + en.y * scaleY, 2, 0, Math.PI * 2);
-      ctx.fill();
+      if (me) {
+        const dist = Math.hypot(me.x - en.x, me.y - en.y);
+        if (dist < radarRange) {
+          ctx.fillStyle = '#ff3333';
+          ctx.beginPath();
+          ctx.arc(mmX + en.x * scaleX, mmY + en.y * scaleY, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     });
 
     // Dibujar Jugadores

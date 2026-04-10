@@ -11,8 +11,8 @@ class GameState:
         self.projectiles = []
         self.loot_boxes = []
         self.last_alien_spawn = time.time()
-        self.alien_spawn_rate = 1.2 
-        self.max_enemies = 60 
+        self.alien_spawn_rate = 0.8 
+        self.max_enemies = 250 
         self.kill_events = [] 
         self.loot_events = [] 
         self.damage_events = []
@@ -25,8 +25,8 @@ class GameState:
         self.BASE_Y = 1150
         self.SAFE_ZONE_RADIUS = 350
         
-        self.GAME_WIDTH = 10000
-        self.GAME_HEIGHT = 8000
+        self.GAME_WIDTH = 20000
+        self.GAME_HEIGHT = 16000
         
         # --- PORTALES Y MAPAS (SISTEMA DINÁMICO) ---
         self.PORTAL_RADIUS = 150
@@ -36,21 +36,21 @@ class GameState:
         # Portal A: Superior Izquierda (Entrada/Retorno)
         # Portal B: Inferior Derecha (Avance)
         PA_X, PA_Y = 500, 500
-        PB_X, PB_Y = 9500, 7500
+        PB_X, PB_Y = 19500, 15500
 
         self.MAPS = {
             # --- FACCIÓN MARS (Mapa Inicial: Sector de Hierro) ---
             "mars_1": {
                 "name": "Sector de Hierro", "level": 1, "style": "mars",
                 "portals": [
-                    {"x": PB_X, "y": PB_Y, "target": "mars_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cañón del Óxido"}
+                    {"x": 18716, "y": 14834, "target": "mars_2",   "tx": 1532 + 220, "ty": 1066 + 220, "label": "Cañón del Óxido"}
                 ],
                 "station": {"x": 1750, "y": 1150} # Base de Inicio
             },
             "mars_2": {
                 "name": "Cañón del Óxido", "level": 2, "style": "mars",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_1", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Sector de Hierro"},
+                    {"x": 1532, "y": 1066, "target": "mars_1", "tx": 18716 - 220, "ty": 14834 - 220, "label": "Sector de Hierro"},
                     {"x": PB_X, "y": PB_Y, "target": "mars_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Fundición Ares"}
                 ]
             },
@@ -636,6 +636,8 @@ class GameState:
                     "owner_id": client_id,
                     "is_player": True,
                     "is_missile": True,
+                    "target_id": locked_id, # Guardar el ID del objetivo para el homing
+                    "speed": conf["spd"],    # Mantener velocidad constante
                     "x": player["x"],
                     "y": player["y"],
                     "vx": math.cos(angle) * conf["spd"],
@@ -653,8 +655,8 @@ class GameState:
         if now - self.last_alien_spawn > self.alien_spawn_rate:
             for map_id in self.MAPS:
                 map_enemies = [e for e in self.enemies if e.get("map_id") == map_id]
-                # Límite dinámico para evitar LAG en universo de 24 mapas
-                if len(map_enemies) < 6: 
+                # Límite aumentado para mapas ahora 4 veces más grandes
+                if len(map_enemies) < 15: 
                     self.spawn_alien(map_id)
             # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
             self.last_alien_spawn = now
@@ -765,6 +767,26 @@ class GameState:
 
         # 3. Update Projectiles
         for proj in self.projectiles:
+            # --- LÓGICA DE MISILES TELEDIRIGIDOS (HOMING) ---
+            if proj.get("is_missile") and proj.get("target_id"):
+                target = next((e for e in self.enemies if e["id"] == proj["target_id"] and e.get("map_id") == proj.get("map_id")), None)
+                if target and target.get("hp", 0) > 0:
+                    dx = target["x"] - proj["x"]
+                    dy = target["y"] - proj["y"]
+                    dist = math.hypot(dx, dy)
+                    if dist > 5:
+                        target_angle = math.atan2(dy, dx)
+                        current_angle = math.atan2(proj["vy"], proj["vx"])
+                        # Ángulo relativo normalizado
+                        diff = (target_angle - current_angle + math.pi) % (2 * math.pi) - math.pi
+                        # Velocidad de giro: 4.5 radianes por segundo para misiles ágiles
+                        turn_rate = 4.5 * dt 
+                        new_angle = current_angle + max(-turn_rate, min(turn_rate, diff))
+                        
+                        speed = proj.get("speed", 500)
+                        proj["vx"] = math.cos(new_angle) * speed
+                        proj["vy"] = math.sin(new_angle) * speed
+
             proj["x"] += proj["vx"] * dt
             proj["y"] += proj["vy"] * dt
             proj["life"] -= dt
@@ -867,7 +889,9 @@ class GameState:
                     if dist < 20 or (p.get("is_missile") and dist < 45): # Radio colisión mayor para misiles
                         # Solo aplicar daño si NO es munición Sifón
                         if p.get("ammo_type") != "siphon":
-                            e["hp"] -= p["damage"]
+                            # Aplicar Resistencia (Defense)
+                            final_damage = p["damage"] * (1 - e.get("defense", 0))
+                            e["hp"] -= final_damage
                             
                             # Retaliation: Si es un hunter, fijar como target al que le disparó
                             if e.get("ai_type") == "hunter":
@@ -878,7 +902,7 @@ class GameState:
                                 "id": str(random.random()),
                                 "x": e["x"] + random.randint(-15, 15),
                                 "y": e["y"] + random.randint(-15, 15),
-                                "amount": int(p["damage"]),
+                                "amount": int(final_damage), # Mostrar daño real (mitigado)
                                 "time": now,
                                 "owner_id": p["owner_id"]
                             })
@@ -901,6 +925,8 @@ class GameState:
                                 player = self.players[p["owner_id"]]
                                 player["score"] += 100
                                 player["credits"] += 250 
+                                paladio_reward = e.get("level", 1) * (3 if e.get("is_hard") else 1)
+                                player["paladio"] = player.get("paladio", 0) + paladio_reward
                                 self.gain_xp(player, 100) # Award 100 XP per kill
                                 
                                 # Registrar evento de recompensa para el HUD
@@ -910,6 +936,7 @@ class GameState:
                                     "y": e["y"],
                                     "xp": 100,
                                     "credits": 250,
+                                    "paladio": paladio_reward,
                                     "time": now,
                                     "owner_id": p["owner_id"]
                                 })
@@ -943,13 +970,15 @@ class GameState:
                                     if member_id in self.players:
                                         m = self.players[member_id]
                                         if m["current_map"] == e["map_id"]:
+                                            paladio_shared = e.get("level", 1) * (3 if e.get("is_hard") else 1)
                                             m["credits"] += 250
+                                            m["paladio"] = m.get("paladio", 0) + paladio_shared
                                             self.gain_xp(m, 100)
                                             # Evento visual para el compañero
                                             self.kill_events.append({
                                                 "id": str(random.random()),
                                                 "x": e["x"], "y": e["y"],
-                                                "xp": 100, "credits": 250,
+                                                "xp": 100, "credits": 250, "paladio": paladio_shared,
                                                 "time": now, "owner_id": member_id, "is_party_share": True
                                             })
                         break
@@ -1225,6 +1254,15 @@ class GameState:
         map_info = self.MAPS.get(map_id, {"level": 1})
         lvl = map_info["level"]
         level_mult = 1.0 + (lvl - 1) * 0.35 # +35% por nivel extra (más agresivo)
+        
+        # --- BUMPEO DE DIFICULTAD PARA NIVELES 5+ (PEDIDO POR EL USUARIO) ---
+        # "Más vida y más resistencia"
+        defense = 0
+        if lvl >= 5:
+            stats_boost = 1.0 + (lvl - 4) * 0.75 # Multiplicador extra de 1.75x a 4.0x
+            level_mult *= stats_boost
+            defense = min(0.45, (lvl - 4) * 0.12) # Resistencia (Reducción de daño hasta 45%)
+
         speed_mult = 1.0 + (lvl - 1) * 0.15 # Los aliens son más rápidos en niveles altos
         
         alien_id = str(random.random())
@@ -1249,6 +1287,8 @@ class GameState:
             "vx": random.uniform(-60, 60) * speed_mult,
             "vy": random.uniform(-60, 60) * speed_mult,
             "map_id": map_id,
+            "level": lvl, # Guardar nivel para recompensas
+            "defense": defense, # Resistencia porcentual
             "is_hard": is_hard,
             "ai_type": "hunter", # Todos los aliens son agresivos ahora (cazan al usuario enemigo)
             "aggro_target": None,
@@ -1445,6 +1485,8 @@ class GameState:
                 "portals": portals,
                 "current_map_name": map_info["name"],
                 "current_map_style": map_info.get("style", "space"),
+                "map_width": self.GAME_WIDTH,
+                "map_height": self.GAME_HEIGHT,
                 "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id],
                 "destruction_events": self.destruction_events,
                 "party": self.parties.get(me.get("party_id")) if me.get("party_id") else None,

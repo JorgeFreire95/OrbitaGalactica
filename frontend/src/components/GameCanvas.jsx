@@ -95,6 +95,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
     if (e.repeat) return;
     const k = e.key.toLowerCase();
+    // Movimiento desactivado por teclado (Pedido por el usuario)
+    /*
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
       if (k === 'w' || k === 'arrowup') keys.current.up = true;
       if (k === 's' || k === 'arrowdown') keys.current.down = true;
@@ -103,6 +105,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       keys.current.target_x = null;
       keys.current.target_y = null;
     }
+    */
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       if (k === '1' || k === '2' || k === '3' || k === '4') {
         const ammoId = k === '1' ? 'standard' : k === '2' ? 'thermal' : k === '3' ? 'plasma' : 'siphon';
@@ -117,17 +120,27 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       if (keys.current.locked_target_id) keys.current.shoot = !keys.current.shoot;
       else keys.current.shoot = false;
     }
-    if (k === 'e') keys.current.missile_shoot = true;
+    if (k === 'e') {
+      // Solo disparar misiles si hay un objetivo marcado
+      if (keys.current.locked_target_id) {
+        keys.current.missile_shoot = true;
+      } else {
+        keys.current.missile_shoot = false;
+      }
+    }
     if (k === 'j') handleJump();
   }, [handleJump]);
 
   const handleKeyUp = useCallback((e) => {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
     const k = e.key.toLowerCase();
+    // Movimiento desactivado por teclado
+    /*
     if (k === 'w' || k === 'arrowup') keys.current.up = false;
     if (k === 's' || k === 'arrowdown') keys.current.down = false;
     if (k === 'a' || k === 'arrowleft') keys.current.left = false;
     if (k === 'd' || k === 'arrowright') keys.current.right = false;
+    */
     if (k === 'e' || k === '6' || k === '7' || k === '8') keys.current.missile_shoot = false;
   }, []);
 
@@ -141,8 +154,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     const mmX_start = width - mmW - margin, mmY_start = height - mmH - margin;
 
     if (screenX >= mmX_start && screenX <= width - margin && screenY >= mmY_start && screenY <= height - margin) {
-      keys.current.target_x = ((screenX - mmX_start) / mmW) * 10000;
-      keys.current.target_y = ((screenY - mmY_start) / mmH) * 8000;
+      const m_width = gameStateRef.current?.map_width || 10000;
+      const m_height = gameStateRef.current?.map_height || 8000;
+      keys.current.target_x = ((screenX - mmX_start) / mmW) * m_width;
+      keys.current.target_y = ((screenY - mmY_start) / mmH) * m_height;
       return;
     }
 
@@ -365,8 +380,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         if (ctx) {
           const me = gameStateRef.current.players?.find(p => p.is_self);
           if (me) {
-            cameraRef.current.x = Math.max(0, Math.min(10000 - canvas.width, me.x - canvas.width / 2));
-            cameraRef.current.y = Math.max(0, Math.min(8000 - canvas.height, me.y - canvas.height / 2));
+            const m_width = gameStateRef.current.map_width || 10000;
+            const m_height = gameStateRef.current.map_height || 8000;
+            cameraRef.current.x = Math.max(0, Math.min(m_width - canvas.width, me.x - canvas.width / 2));
+            cameraRef.current.y = Math.max(0, Math.min(m_height - canvas.height, me.y - canvas.height / 2));
           }
           drawGame(ctx, { ...gameStateRef.current, selectedTargetId: keys.current.locked_target_id }, cameraRef.current.x, cameraRef.current.y);
         }

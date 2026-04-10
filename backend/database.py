@@ -82,6 +82,17 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS clan_diplomacy (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_tag TEXT NOT NULL,
+            receiver_tag TEXT NOT NULL,
+            type TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     # Migraciones
     try:
@@ -724,6 +735,35 @@ def dissolve_clan_db(clan_tag):
     finally:
         conn.close()
 
+def send_user_message_db(sender, receiver, subject, body, msg_type='user'):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Si el receptor es una circular para todo el clan
+        if receiver.startswith("CLAN:"):
+            clan_tag = receiver.split(":")[1]
+            # Obtener todos los miembros del clan
+            c.execute('SELECT username FROM users WHERE clan_tag = ?', (clan_tag,))
+            members = [r[0] for r in c.fetchall()]
+            for member in members:
+                 # Añadimos un prefijo al asunto para identificar circulares
+                 c.execute('''
+                    INSERT INTO messages (sender, receiver, subject, body, type)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (sender, member, f"[CIRCULAR] {subject}", body, 'clan'))
+        else:
+            c.execute('''
+                INSERT INTO messages (sender, receiver, subject, body, type)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (sender, receiver, subject, body, msg_type))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error sending user messaging: {e}")
+        return False
+    finally:
+        conn.close()
+
 def send_system_message_db(receiver, subject, body):
     conn = get_connection()
     c = conn.cursor()
@@ -866,5 +906,98 @@ def delete_announcement_db(announcement_id):
         c.execute('DELETE FROM announcements WHERE id = ?', (announcement_id,))
         conn.commit()
         return c.rowcount > 0
+    finally:
+        conn.close()
+
+# --- DIPLOMACIA ---
+
+def add_diplomacy_request(sender_tag, receiver_tag, type):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Evitar duplicados pendientes
+        c.execute('SELECT id FROM clan_diplomacy WHERE sender_tag = ? AND receiver_tag = ? AND status = "pending"', (sender_tag, receiver_tag))
+        if c.fetchone():
+            return {"success": False, "error": "Ya existe una petición pendiente a este clan."}
+        
+        c.execute('INSERT INTO clan_diplomacy (sender_tag, receiver_tag, type) VALUES (?, ?, ?)', (sender_tag, receiver_tag, type))
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def respond_diplomacy_request(request_id, response):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        status = "accepted" if response == "accept" else "rejected"
+        c.execute('UPDATE clan_diplomacy SET status = ? WHERE id = ?', (status, request_id))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+def get_clan_diplomacy_status(clan_tag):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Relaciones aceptadas (Alianzas/Guerras)
+        c.execute('''
+            SELECT id, sender_tag, receiver_tag, type, created_at 
+            FROM clan_diplomacy 
+            WHERE (sender_tag = ? OR receiver_tag = ?) AND status = "accepted"
+        ''', (clan_tag, clan_tag))
+        active_rows = c.fetchall()
+        
+        # Peticiones pendientes (Enviadas o Recibidas)
+        c.execute('''
+            SELECT id, sender_tag, receiver_tag, type, created_at, status 
+            FROM clan_diplomacy 
+            WHERE (sender_tag = ? OR receiver_tag = ?) AND status = "pending"
+        ''', (clan_tag, clan_tag))
+        pending_rows = c.fetchall()
+        
+        relations = {"alliances": [], "wars": [], "pending": []}
+        
+        for r in active_rows:
+            other_tag = r[2] if r[1] == clan_tag else r[1]
+            item = {"id": r[0], "tag": other_tag, "type": r[3], "date": r[4]}
+            if r[3] == "war":
+                relations["wars"].append(item)
+            else:
+                relations["alliances"].append(item)
+                
+        for r in pending_rows:
+            is_receiver = (r[2] == clan_tag)
+            relations["pending"].append({
+                "id": r[0],
+                "sender": r[1],
+                "receiver": r[2],
+                "type": r[3],
+                "date": r[4],
+                "is_incoming": is_receiver
+            })
+            
+        return relations
+    finally:
+        conn.close()
+
+def get_all_clans_detailed():
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT tag, name, leader, members_count, logo_url FROM clans ORDER BY members_count DESC')
+        rows = c.fetchall()
+        return [{
+            "tag": r[0],
+            "name": r[1],
+            "leader": r[2],
+            "members": r[3],
+            "logo": r[4]
+        } for r in rows]
     finally:
         conn.close()
