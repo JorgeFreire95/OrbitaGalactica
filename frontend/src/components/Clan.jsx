@@ -16,6 +16,11 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   const [messages, setMessages] = useState([]);
   const [donationAmounts, setDonationAmounts] = useState({});
   const [clanLogs, setClanLogs] = useState([]);
+  const [clanApplications, setClanApplications] = useState([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [joinMessage, setJoinMessage] = useState('');
+  const [showJoinModal, setShowJoinModal] = useState(null); // { tag, name }
+  const [loading, setLoading] = useState(!clan);
   const CLAN_COST = 0;
   const API_URL = 'http://localhost:8000/api';
 
@@ -23,7 +28,6 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   const myRole = currentUserMember?.role || 'Novato';
   const isLeader = clan?.leader === user?.username;
   const canEdit = isLeader || ['Líder', 'Oficial'].includes(myRole);
-  const [loading, setLoading] = useState(!clan);
   
   // States para Diplomacia Interactiva
   const [allDetailedClans, setAllDetailedClans] = useState([]);
@@ -86,7 +90,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
       });
       
       if (resp.ok) {
-        alert('Mensaje enviado con éxito.');
+        // Notificación silenciosa o simplemente cambiar de tab
         setDraftSubject('');
         setDraftBody('');
         setMsgTab('inbox');
@@ -99,10 +103,11 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
     }
   };
 
-  const fetchClanData = async () => {
+  const fetchClanData = async (forceLoading = false) => {
     if (!user) return;
-    setLoading(true);
-    fetchMessages(); // También refrescamos mensajes al pedir data de clan
+    // Solo mostrar loading si no hay datos previos del clan
+    if (forceLoading || !clan) setLoading(true);
+    fetchMessages(); 
     try {
       const resp = await fetch(`${API_URL}/clan/my?username=${user.username}`);
       if (resp.ok) {
@@ -151,28 +156,40 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
 
       setCredits(prev => prev - cost);
       fetchClanData();
-      alert("¡Clan fundado exitosamente!");
+      setEditMode(null); // Salir de modo edición si aplica
     } catch (err) {
       console.error(err);
       alert("Error de conexión con el servidor.");
     }
   };
 
-  const handleJoinClan = async (clanTag) => {
+  const handleJoinClan = async (clanTag, isGated = false) => {
+    if (isGated && !showJoinModal) {
+        const targetClan = clanList.find(c => c.tag === clanTag);
+        setShowJoinModal({ tag: clanTag, name: targetClan?.name || clanTag });
+        return;
+    }
+
     try {
       const resp = await fetch(`${API_URL}/clans/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user.username,
-          clan_tag: clanTag
+        body: JSON.stringify({ 
+          username: user.username, 
+          clan_tag: clanTag,
+          message: joinMessage
         })
       });
 
       if (resp.ok) {
         const data = await resp.json();
-        setClan(data.clan);
-        alert(`Te has unido al clan [${clanTag}] correctamente.`);
+        if (data.status === 'joined') {
+          setClan(data.clan);
+        } else {
+          // Si es una solicitud pendiente, podrías mostrar un pequeño toast o simplemente cerrar el modal
+        }
+        setShowJoinModal(null);
+        setJoinMessage('');
       } else {
         const data = await resp.json();
         alert(data.detail || "Error al unirse.");
@@ -183,18 +200,51 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
     }
   };
 
+  const fetchApplications = async () => {
+    if (!clan || !['Líder', 'Oficial'].includes(myRole)) return;
+    setLoadingApps(true);
+    try {
+      const res = await fetch(`${API_URL}/clans/applications?clan_tag=${clan.tag}`);
+      const data = await res.json();
+      setClanApplications(data.applications || []);
+    } catch (e) {
+      console.error("Error fetching applications:", e);
+    } finally {
+      setLoadingApps(false);
+    }
+  };
+
+  const handleRespondApplication = async (requestId, response) => {
+    try {
+      const res = await fetch(`${API_URL}/clans/applications/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: requestId, response })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchApplications();
+        if (response === 'accept') {
+            fetchClanData(true);
+        }
+      } else {
+        alert(data.detail);
+      }
+    } catch (e) {
+      alert("Error al responder a la solicitud.");
+    }
+  };
+
   React.useEffect(() => {
     // Sincronización inmediata al entrar si hay un usuario
     if (user) {
       fetchClanData();
     }
+    // El polling de 30s ahora es gestionado por App.jsx para evitar redundancia
     
-    // Polling cada 30 segundos (sincronizado con App.js)
-    const interval = setInterval(() => {
-      fetchClanData();
-    }, 30000);
-
-    return () => clearInterval(interval);
+    // Solo mantenemos un polling separado para MENSAJES ya que son locales a este componente
+    const msgInterval = setInterval(fetchMessages, 30000);
+    return () => clearInterval(msgInterval);
   }, [user.username]);
 
   const handleLeaveClan = async () => {
@@ -205,9 +255,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
         body: JSON.stringify({ username: user.username })
       });
       if (resp.ok) {
-        const data = await resp.json();
         setClan(null);
-        alert(data.message || "Has abandonado el clan.");
       } else {
         const error = await resp.json();
         alert(error.detail || "Error al abandonar el clan.");
@@ -228,7 +276,6 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
       });
       if (resp.ok) {
         fetchClanData();
-        alert(`Has expulsado a ${targetUsername}.`);
       } else {
         const error = await resp.json();
         alert(error.detail || "Error al expulsar al miembro.");
@@ -292,7 +339,6 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
         const data = await resp.json();
         setClan({ ...clan, credits: data.new_clan_credits });
         setDonationAmounts({ ...donationAmounts, [targetUsername]: '' });
-        alert(`Has donado ${amount.toLocaleString()} CR a ${targetUsername} con éxito.`);
       } else {
         const err = await resp.json();
         alert(err.detail || "Error al realizar la donación.");
@@ -312,7 +358,8 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
         name: updates.name || clan.name,
         description: updates.description !== undefined ? updates.description : clan.description,
         status: updates.status || clan.status || 'Reclutando',
-        news: JSON.stringify(updates.news || clan.news || []),
+        join_type: updates.join_type || clan.join_type || 'Abierto',
+        news: updates.news ? JSON.stringify(updates.news) : clan.news_json || '[]',
         logo: updates.logo !== undefined ? updates.logo : clan.logo
       };
 
@@ -330,6 +377,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
           name: body.name,
           description: body.description,
           status: body.status,
+          join_type: body.join_type,
           news: updates.news || clan.news || [],
           logo: body.logo
         });
@@ -386,14 +434,13 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
               body: JSON.stringify({ sender_tag: clan.tag, receiver_tag: targetTag, type })
           });
           if (resp.ok) {
-              alert("Propuesta enviada correctamente.");
               fetchDiplomacyData();
           } else {
               const err = await resp.json();
               alert(err.detail || "Error al enviar propuesta.");
           }
-      } catch (err) { alert("Error de conexión."); }
-      setContextMenu({ ...contextMenu, visible: false });
+    } catch (err) { alert("Error de conexión."); }
+    setContextMenu({ ...contextMenu, visible: false });
   };
 
   const handleDiplomacyResponse = async (requestId, response) => {
@@ -404,7 +451,6 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
               body: JSON.stringify({ request_id: requestId, response })
           });
           if (resp.ok) {
-              alert(response === 'accept' ? "Petición aceptada." : "Petición rechazada.");
               fetchDiplomacyData();
           }
       } catch (err) { alert("Error de conexión."); }
@@ -413,6 +459,9 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   useEffect(() => {
     if (activeTab === 'admin' && clan) {
       fetchClanLogs();
+    }
+    if (activeTab === 'requests' && clan) {
+      fetchApplications();
     }
     if (activeTab === 'diplomacy' && clan) {
         fetchDetailedClans();
@@ -429,6 +478,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   const SIDEMENU = [
     { id: 'summary', label: 'INFORMACIÓN' },
     { id: 'members', label: 'MIEMBROS' },
+    ...( (myRole === 'Líder' || myRole === 'Oficial') ? [{ id: 'requests', label: 'SOLICITUDES' }] : []),
     { id: 'admin', label: 'ADMINISTRACIÓN' },
     { id: 'msg', label: 'MENSAJES' },
     { id: 'diplomacy', label: 'DIPLOMACIA' },
@@ -517,7 +567,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           <div style={{ color: '#fff' }}>Todo</div>
                           
                           <div style={{ color: '#888' }}>Tasa de impuestos:</div>
-                          <div style={{ color: '#fff' }}>{clan.tax_rate || 0}% ({ ((clan.members || []).reduce((sum, m) => sum + (m.credits || 0), 0) * ((clan.tax_rate || 0) / 100)).toLocaleString() } CR diarios)</div>
+                          <div style={{ color: '#fff' }}>{clan.tax_rate || 0}% ({ Math.floor((clan.members || []).reduce((sum, m) => sum + (m.credits || 0), 0) * ((clan.tax_rate || 0) / 100)).toLocaleString() } CR diarios)</div>
                           
                           <div style={{ color: '#888' }}>Estado de reclutamiento:</div>
                           {editMode === 'info' ? (
@@ -531,6 +581,20 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                               </select>
                           ) : (
                               <div style={{ color: '#00ffcc' }}>{clan.status || 'Reclutando'}</div>
+                          )}
+
+                          <div style={{ color: '#888' }}>Tipo de solicitud:</div>
+                          {editMode === 'info' ? (
+                              <select 
+                                value={editValues.join_type} 
+                                onChange={e => setEditValues({...editValues, join_type: e.target.value})}
+                                style={{ background: '#0a0f1a', color: '#00ffcc', border: '1px solid #334466', padding: '2px 5px', outline: 'none', cursor: 'pointer' }}
+                              >
+                                  <option value="Abierto">Abierta (Directa)</option>
+                                  <option value="Cerrado">Cerrada (Solicitud)</option>
+                              </select>
+                          ) : (
+                              <div style={{ color: '#fff' }}>{clan.join_type || 'Abierta'}</div>
                           )}
                         </div>
                       </div>
@@ -966,7 +1030,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                             
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                                <span style={{ color: '#888', fontSize: '0.9rem' }}>Ingresos / Día (Estimado):</span>
-                               <span style={{ color: '#00aaff', fontWeight: 'bold' }}>+{((clan.members && clan.members.length > 0 ? clan.members.length : 1) * 10000 * ((clan.tax_rate || 0) / 100)).toLocaleString()} CR</span>
+                               <span style={{ color: '#00aaff', fontWeight: 'bold' }}>+{Math.floor((clan.members && clan.members.length > 0 ? clan.members.length : 1) * 10000 * ((clan.tax_rate || 0) / 100)).toLocaleString()} CR</span>
                             </div>
                         </div>
 
@@ -1104,6 +1168,43 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                     </div>
                   </div>
                 )}
+                {activeTab === 'requests' && (
+                    <div style={{ animation: 'fadeIn 0.3s ease-in' }}>
+                        <h3 style={{ color: '#00ffcc', borderBottom: '1px solid #334466', paddingBottom: '10px' }}>SOLICITUDES DE INGRESO</h3>
+                        {loadingApps ? (
+                            <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>Cargando solicitudes...</div>
+                        ) : clanApplications.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '15px' }}>
+                                {clanApplications.map(app => (
+                                    <div key={app.id} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2a4a', borderRadius: '8px', padding: '15px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                            <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '1.1rem' }}>{app.username}</span>
+                                            <span style={{ color: '#666', fontSize: '0.8rem' }}>{new Date(app.date).toLocaleDateString()}</span>
+                                        </div>
+                                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '4px', marginBottom: '15px', minHeight: '60px', fontStyle: 'italic', fontSize: '0.9rem', color: '#ccc' }}>
+                                            "{app.message || 'Sin mensaje adicional.'}"
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button 
+                                                onClick={() => handleRespondApplication(app.id, 'accept')}
+                                                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #00ffcc', background: 'rgba(0,255,204,0.1)', color: '#00ffcc', cursor: 'pointer', fontWeight: 'bold' }}
+                                            >ACEPTAR</button>
+                                            <button 
+                                                onClick={() => handleRespondApplication(app.id, 'reject')}
+                                                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ff3366', background: 'rgba(255,51,102,0.1)', color: '#ff3366', cursor: 'pointer', fontWeight: 'bold' }}
+                                            >RECHAZAR</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '60px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', color: '#555' }}>
+                                No hay solicitudes pendientes en este momento.
+                            </div>
+                        )}
+                    </div>
+                )}
+
 
               </div>
             </div>
@@ -1202,10 +1303,10 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           </div>
                         </div>
                         <button 
-                          onClick={() => handleJoinClan(cl.tag)}
+                          onClick={() => handleJoinClan(cl.tag, cl.join_type === 'Cerrado')}
                           style={{ background: 'transparent', border: '1px solid #00ffcc', color: '#00ffcc', padding: '8px 15px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
                         >
-                          UNIRSE
+                          {cl.join_type === 'Cerrado' ? 'SOLICITAR' : 'UNIRSE'}
                         </button>
                       </div>
                     ))
@@ -1261,6 +1362,55 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
               Esc para cerrar
             </div>
           </div>
+        )}
+        {/* Modal de Solicitud de Ingreso */}
+        {showJoinModal && (
+            <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                <div className="modal-content" style={{ maxWidth: '450px', border: '1px solid #00ffcc' }}>
+                    <h3 style={{ color: '#00ffcc', marginTop: 0 }}>SOLICITUD DE INGRESO</h3>
+                    <p style={{ color: '#888', fontSize: '0.9rem' }}>
+                        Estás solicitando unirte al clan <span style={{ color: '#fff' }}>[{showJoinModal.tag}] {showJoinModal.name}</span>. 
+                        Este clan requiere aprobación manual.
+                    </p>
+                    
+                    <div style={{ marginTop: '20px' }}>
+                        <label style={{ display: 'block', color: '#ccc', marginBottom: '8px', fontSize: '0.85rem' }}>Mensaje para el Líder (Opcional):</label>
+                        <textarea 
+                            value={joinMessage}
+                            onChange={e => setJoinMessage(e.target.value)}
+                            placeholder="Ej: Hola, soy un jugador activo y busco una alianza competitiva..."
+                            style={{ 
+                                width: '100%', 
+                                height: '100px', 
+                                background: '#0a101a', 
+                                border: '1px solid #1a2a4a', 
+                                borderRadius: '4px', 
+                                color: '#fff', 
+                                padding: '10px',
+                                resize: 'none',
+                                boxSizing: 'border-box'
+                            }}
+                            maxLength={250}
+                        />
+                        <div style={{ textAlign: 'right', color: '#555', fontSize: '0.75rem', marginTop: '5px' }}>
+                            {joinMessage.length}/250
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                        <button 
+                            className="secondary-button" 
+                            style={{ flex: 1 }}
+                            onClick={() => { setShowJoinModal(null); setJoinMessage(''); }}
+                        >CANCELAR</button>
+                        <button 
+                            className="primary-button" 
+                            style={{ flex: 1 }}
+                            onClick={() => handleJoinClan(showJoinModal.tag)}
+                        >ENVIAR SOLICITUD</button>
+                    </div>
+                </div>
+            </div>
         )}
       </main>
     </div>

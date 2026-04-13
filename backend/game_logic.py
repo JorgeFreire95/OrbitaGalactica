@@ -11,8 +11,8 @@ class GameState:
         self.projectiles = []
         self.loot_boxes = []
         self.last_alien_spawn = time.time()
-        self.alien_spawn_rate = 0.8 
-        self.max_enemies = 250 
+        self.alien_spawn_rate = 0.5 
+        self.max_enemies = 1000 
         self.kill_events = [] 
         self.loot_events = [] 
         self.damage_events = []
@@ -51,13 +51,13 @@ class GameState:
                 "name": "Cañón del Óxido", "level": 2, "style": "mars",
                 "portals": [
                     {"x": 1532, "y": 1066, "target": "mars_1", "tx": 18716 - 220, "ty": 14834 - 220, "label": "Sector de Hierro"},
-                    {"x": PB_X, "y": PB_Y, "target": "mars_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Fundición Ares"}
+                    {"x": 18849, "y": 14995, "target": "mars_3", "tx": 1351 + 220, "ty": 900 + 220, "label": "Fundición Ares"}
                 ]
             },
             "mars_3": {
                 "name": "Fundición Ares", "level": 3, "style": "mars",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_2", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cañón del Óxido"},
+                    {"x": 1351, "y": 900, "target": "mars_2", "tx": 18849 - 220, "ty": 14995 - 220, "label": "Cañón del Óxido"},
                     {"x": PB_X, "y": PB_Y, "target": "mars_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Valles de Magma"}
                 ]
             },
@@ -654,11 +654,16 @@ class GameState:
         # 1. Spawn Enemies (Por cada mapa)
         if now - self.last_alien_spawn > self.alien_spawn_rate:
             for map_id in self.MAPS:
-                map_enemies = [e for e in self.enemies if e.get("map_id") == map_id]
-                # Límite aumentado para mapas ahora 4 veces más grandes
-                if len(map_enemies) < 15: 
-                    self.spawn_alien(map_id)
-            # Si el mapa está lleno, reseteamos el temporizador para no spawnear todos de golpe al vaciarse
+                if len(self.enemies) >= self.max_enemies: break
+                
+                map_enemies_count = len([e for e in self.enemies if e.get("map_id") == map_id])
+                # Límite bajado a 35 por mapa por petición del usuario
+                if map_enemies_count < 35: 
+                    # Spawnear hasta 3 aliens si el mapa está muy vacío, o 1 si ya tiene población
+                    num_to_spawn = 3 if map_enemies_count < 15 else 1
+                    for _ in range(num_to_spawn):
+                        if len(self.enemies) < self.max_enemies:
+                            self.spawn_alien(map_id)
             self.last_alien_spawn = now
             
         # Spawn de Cofre Especial (Cada 30 segundos mantenemos 5 por mapa)

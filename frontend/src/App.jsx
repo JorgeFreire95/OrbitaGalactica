@@ -260,7 +260,8 @@ function App() {
           level,
           xp,
           credits,
-          paladio
+          paladio,
+          minerals
         })
       });
     } catch (e) {
@@ -312,7 +313,7 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level]);
+  }, [credits, paladio, xp, level, minerals]);
 
   useEffect(() => {
     if (user && user.faction) {

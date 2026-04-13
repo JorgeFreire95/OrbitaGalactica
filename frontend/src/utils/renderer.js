@@ -22,7 +22,7 @@ const drawGryllos = (ctx, isHard) => {
     // Gryllos: Cúmulo de Gas (Nebulosa verde/gris)
     const color = isHard ? '#00ffaa' : '#aabbaa';
     ctx.save();
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 0; // Optimización de rendimiento
     ctx.shadowColor = color;
     ctx.globalAlpha = 0.4 + Math.sin(Date.now()/400)*0.1;
 
@@ -69,7 +69,7 @@ const drawXylos = (ctx, isHard) => {
     // Núcleo de Hielo
     ctx.globalAlpha = 1.0;
     ctx.fillStyle = '#fff';
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 0;
     ctx.shadowColor = color;
     ctx.beginPath();
     ctx.moveTo(0, -15); ctx.lineTo(10, 5); ctx.lineTo(-10, 5);
@@ -78,31 +78,72 @@ const drawXylos = (ctx, isHard) => {
 };
 
 const drawNykor = (ctx, isHard) => {
-    // Nykor: Sombra del Vacío (Silueta distorsionadora)
-    const color = isHard ? '#ff0000' : '#4444ff';
+    // Nykor: Sombra del Vacío (Rediseño Spectral)
+    const time = Date.now() / 1000;
+    const wingColor = isHard ? '#ff0000' : '#8a2be2'; 
+    const coreColor = isHard ? '#ffffff' : '#00ffff'; 
     
     ctx.save();
-    // Efecto de distorsión (Simple sombra negativa)
-    ctx.shadowBlur = 30;
-    ctx.shadowColor = color;
-    ctx.globalCompositeOperation = 'screen';
     
-    ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    ctx.beginPath();
-    const time = Date.now()/300;
-    for(let i=0; i<6; i++) {
-        const ang = (i/6)*Math.PI*2 + time;
-        const r = 18 + Math.sin(time*2 + i)*4;
-        const x = Math.cos(ang)*r;
-        const y = Math.sin(ang)*r;
-        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    // --- 1. ALAS ESPECTRALES (Orbitando) ---
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+        ctx.save();
+        const ang = (i / 3) * Math.PI * 2 + time * 2;
+        ctx.rotate(ang);
+        
+        // Oscilación de tamaño
+        const scale = 1.0 + Math.sin(time * 5 + i) * 0.2;
+        ctx.scale(scale, scale);
+        
+        // Gradiente del ala
+        const grad = ctx.createLinearGradient(0, 0, 0, -25);
+        grad.addColorStop(0, wingColor);
+        grad.addColorStop(1, 'transparent');
+        
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(-8, 0);
+        ctx.lineTo(8, 0);
+        ctx.lineTo(0, -30);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Brillo del borde
+        ctx.strokeStyle = '#fff';
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.restore();
     }
-    ctx.closePath();
+    
+    // --- 2. NÚCLEO CENTRAL ---
+    const pulse = 1 + Math.sin(time * 8) * 0.1;
+    const coreGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 10 * pulse);
+    coreGrad.addColorStop(0, coreColor);
+    coreGrad.addColorStop(0.5, wingColor);
+    coreGrad.addColorStop(1, 'transparent');
+    
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12 * pulse, 0, Math.PI * 2);
     ctx.fill();
-
-    // "Ojo" del vacío
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+    
+    // --- 3. SENSORES / OJOS (Parpadeo) ---
+    const blink = Math.sin(time * 1.5) > 0.8 ? 0 : 1;
+    if (blink) {
+        ctx.fillStyle = coreColor;
+        ctx.globalAlpha = 0.8;
+        // Ojo izquierdo
+        ctx.beginPath(); ctx.arc(-5, -2, 2, 0, Math.PI * 2); ctx.fill();
+        // Ojo derecho (parpadeo alternado leve)
+        const blink2 = Math.sin(time * 2.2) > 0.85 ? 0 : 1;
+        if (blink2) {
+            ctx.beginPath(); ctx.arc(5, -2, 2, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+    
     ctx.restore();
 };
 
@@ -111,7 +152,7 @@ const drawSyrith = (ctx, isHard) => {
     const color = isHard ? '#ffaa00' : '#ff5500';
     const time = Date.now() / 200;
     
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 0;
     ctx.shadowColor = color;
     ctx.strokeStyle = color;
     ctx.lineWidth = 4;
@@ -150,7 +191,7 @@ const drawVexis = (ctx, isHard) => {
 
     // El Core
     ctx.globalAlpha = 1.0;
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 0;
     ctx.shadowColor = color;
     ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
@@ -159,7 +200,7 @@ const drawVexis = (ctx, isHard) => {
 const drawKragos = (ctx, isHard) => {
     // Kragos: Titán de Magma (Fragmentos de roca)
     ctx.fillStyle = '#222';
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 0;
     ctx.shadowColor = '#ff4400';
 
     // Rocas flotantes
@@ -192,7 +233,7 @@ const drawZoltan = (ctx, isHard) => {
     const time = Date.now() / 200;
     
     ctx.save();
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 0;
     ctx.shadowColor = color;
     
     for(let i=0; i<3; i++) {
@@ -216,7 +257,7 @@ const drawDrakon = (ctx, isHard) => {
     const color = isHard ? '#fff' : '#ff4444';
     const time = Date.now() / 1000;
     
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 0;
     ctx.shadowColor = color;
     
     const points = [];
@@ -552,7 +593,12 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   }
 
   // Draw loot boxes
+  const margin = 150;
   gameState.loot_boxes?.forEach(box => {
+    // Rendereizado solo si está en viewport (Culling)
+    if (box.x < camX - margin || box.x > camX + width + margin || 
+        box.y < camY - margin || box.y > camY + height + margin) return;
+
     ctx.save();
     ctx.translate(box.x, box.y);
     
@@ -638,6 +684,10 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   // Draw enemies (Aliens)
   gameState.enemies?.forEach(enemy => {
+    // Rendereizado solo si está en viewport (Culling)
+    if (enemy.x < camX - margin || enemy.x > camX + width + margin || 
+        enemy.y < camY - margin || enemy.y > camY + height + margin) return;
+
     ctx.save();
     ctx.translate(enemy.x, enemy.y);
     
@@ -755,6 +805,10 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   // Draw projectiles (Rayo Láser)
   gameState.projectiles?.forEach(proj => {
+    // Rendereizado solo si está en viewport (Culling)
+    if (proj.x < camX - margin || proj.x > camX + width + margin || 
+        proj.y < camY - margin || proj.y > camY + height + margin) return;
+
     ctx.save();
     ctx.translate(proj.x, proj.y);
     
@@ -810,7 +864,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       const color = proj.color || (proj.is_player ? (ammoColors[proj.ammo_type] || baseColor) : baseColor);
 
       ctx.fillStyle = color;
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 0;
       ctx.shadowColor = color;
       
       // Cuerpo del rayo
@@ -832,6 +886,10 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   // Draw players
   gameState.players?.forEach(player => {
     if (player.hp <= 0) return; 
+    // Rendereizado solo si está en viewport (Culling)
+    if (player.x < camX - margin || player.x > camX + width + margin || 
+        player.y < camY - margin || player.y > camY + height + margin) return;
+
     ctx.save();
     ctx.translate(player.x, player.y);
     
@@ -842,8 +900,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     // Fake 3D Banking & Depth
     ctx.save();
     
-    // Deep 3D Shadow
-    ctx.shadowBlur = 25;
+    // Deep 3D Shadow - Optimización (Reducido de 25 a 0 para rendimiento)
+    ctx.shadowBlur = 0;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
     ctx.shadowOffsetX = 15 - (player.vx * 0.02);
     ctx.shadowOffsetY = 20 - (player.vy * 0.02);
@@ -901,7 +959,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     
     // Add colored engine glow to the base (thrusters) - ONLY FOR NON-STARTER SHIPS
     if (player.ship_type !== 'starter') {
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 0;
         ctx.shadowColor = baseColor;
         ctx.shadowOffsetY = 0;
         ctx.shadowOffsetX = 0;

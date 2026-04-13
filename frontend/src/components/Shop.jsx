@@ -21,6 +21,7 @@ export default function Shop({
   const [activeCategory, setActiveCategory] = useState('armas');
   const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
   const [successMessage, setSuccessMessage] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleBuyModule = (module) => {
     if (credits < module.cost) return alert('No tienes suficientes créditos');
@@ -62,6 +63,12 @@ export default function Shop({
   };
 
   const handleAction = () => {
+    if (!selectedItem) return;
+    setShowConfirm(true);
+  };
+
+  const executePurchase = () => {
+    setShowConfirm(false);
     if (!selectedItem) return;
     
     // Mineral Sale
@@ -285,6 +292,80 @@ export default function Shop({
         </aside>
 
       </div>
+
+      {/* CONFIRMATION MODAL */}
+      {showConfirm && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 20000, animation: 'fade-in 0.3s ease-out'
+        }}>
+          <style>{`
+            @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes scale-up { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+          `}</style>
+          
+          <div style={{
+            background: 'rgba(10, 15, 25, 0.95)',
+            border: '1px solid #00ffcc44',
+            borderTop: '4px solid #00ffcc',
+            padding: '40px',
+            borderRadius: '15px',
+            maxWidth: '450px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 0 50px rgba(0, 255, 204, 0.15)',
+            animation: 'scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }}>
+            <h2 style={{ fontFamily: 'Orbitron', color: '#00ffcc', marginBottom: '15px', letterSpacing: '2px' }}>
+              REQUERIDA CONFIRMACIÓN
+            </h2>
+            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>
+              {selectedItem?.icon || '📦'}
+            </div>
+            <p style={{ color: '#ccc', marginBottom: '30px', lineHeight: '1.6' }}>
+              ¿Estás seguro de que deseas proceder con la adquisición de 
+              <span style={{ color: '#fff', fontWeight: 'bold' }}> {selectedItem?.name}</span>?
+              <br/>
+              <span style={{ color: '#888', fontSize: '0.9rem' }}>
+                {isMineral ? 'Recibirás' : 'Se descontarán'} 
+                <b style={{ color: isMineral ? '#00ffcc' : '#ffcc00' }}> {isMineral ? (amountOwned * selectedItem.sellPrice).toLocaleString() : (selectedItem.cost || 0).toLocaleString()} </b> 
+                créditos de tu cuenta.
+              </span>
+            </p>
+            
+            <div style={{ display: 'flex', gap: '15px' }}>
+              <button 
+                onClick={executePurchase}
+                style={{
+                  flex: 1, padding: '15px', background: '#00ffcc', color: '#000',
+                  border: 'none', borderRadius: '8px', cursor: 'pointer',
+                  fontFamily: 'Orbitron', fontWeight: 'bold', fontSize: '0.9rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.filter = 'brightness(1.2)'}
+                onMouseOut={(e) => e.target.style.filter = 'none'}
+              >
+                ACEPTAR
+              </button>
+              <button 
+                onClick={() => setShowConfirm(false)}
+                style={{
+                  flex: 1, padding: '15px', background: 'rgba(255,255,255,0.05)', color: '#ff3366',
+                  border: '1px solid #ff336644', borderRadius: '8px', cursor: 'pointer',
+                  fontFamily: 'Orbitron', fontWeight: 'bold', fontSize: '0.9rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => { e.target.style.background = '#ff3366'; e.target.style.color = '#fff'; }}
+                onMouseOut={(e) => { e.target.style.background = 'rgba(255,255,255,0.05)'; e.target.style.color = '#ff3366'; }}
+              >
+                CANCELAR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

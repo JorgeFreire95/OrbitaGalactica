@@ -25,6 +25,7 @@ def init_db():
             xp INTEGER DEFAULT 0,
             credits INTEGER DEFAULT 2000,
             paladio INTEGER DEFAULT 0,
+            minerals_json TEXT DEFAULT '{"titanium": 0, "plutonium": 0, "silicon": 0}',
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
@@ -149,14 +150,24 @@ def init_db():
         c.execute("ALTER TABLE clans ADD COLUMN news TEXT DEFAULT '[]'")
     except sqlite3.OperationalError:
         pass
-
-    # Migraciones para Recuperación de Contraseña
     try:
-        c.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+        c.execute("ALTER TABLE clans ADD COLUMN join_type TEXT DEFAULT 'Abierto'")
     except sqlite3.OperationalError:
         pass
+        
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS clan_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            clan_tag TEXT NOT NULL,
+            username TEXT NOT NULL,
+            message TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     try:
-        c.execute("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT")
+        c.execute("ALTER TABLE users ADD COLUMN minerals_json TEXT DEFAULT '{\"titanium\": 0, \"plutonium\": 0, \"silicon\": 0}'")
     except sqlite3.OperationalError:
         pass
         
@@ -185,9 +196,9 @@ def register_user(username, email, password):
     hashed, salt = hash_password(password)
     try:
         c.execute('''
-            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (username, email, hashed, salt, 1, 0, 2000, 0))
+            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (username, email, hashed, salt, 1, 0, 2000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0}'))
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError as e:
@@ -205,15 +216,23 @@ def get_user_stats_db(username):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('SELECT level, xp, credits, paladio FROM users WHERE username = ?', (username,))
+        c.execute('SELECT level, xp, credits, paladio, minerals_json FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
+        
+        import json
+        try:
+            minerals = json.loads(row[4]) if row[4] else {"titanium": 0, "plutonium": 0, "silicon": 0}
+        except:
+            minerals = {"titanium": 0, "plutonium": 0, "silicon": 0}
+
         return {
             "level": row[0],
             "xp": row[1],
             "credits": row[2],
-            "paladio": row[3]
+            "paladio": row[3],
+            "minerals": minerals
         }
     finally:
         conn.close()
@@ -232,6 +251,8 @@ def login_user(username, password):
     test_hash, _ = hash_password(password, salt)
     
     if test_hash == db_hash:
+        # Recuperar minerales para la sesión inicial
+        stats = get_user_stats_db(db_username)
         return {
             "success": True, 
             "username": db_username, 
@@ -241,7 +262,8 @@ def login_user(username, password):
             "level": level,
             "xp": xp,
             "credits": credits,
-            "paladio": paladio
+            "paladio": paladio,
+            "minerals": stats["minerals"] if stats else {"titanium": 0, "plutonium": 0, "silicon": 0}
         }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
@@ -325,18 +347,28 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
     finally:
         conn.close()
 
-def sync_user_stats(username, level, xp, credits, paladio):
+def sync_user_stats(username, level, xp, credits, paladio, minerals=None):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('''
-            UPDATE users 
-            SET level = ?, xp = ?, credits = ?, paladio = ?
-            WHERE username = ?
-        ''', (level, xp, credits, paladio, username))
+        if minerals is not None:
+            import json
+            minerals_json = json.dumps(minerals)
+            c.execute('''
+                UPDATE users 
+                SET level = ?, xp = ?, credits = ?, paladio = ?, minerals_json = ?
+                WHERE username = ?
+            ''', (level, xp, credits, paladio, minerals_json, username))
+        else:
+            c.execute('''
+                UPDATE users 
+                SET level = ?, xp = ?, credits = ?, paladio = ?
+                WHERE username = ?
+            ''', (level, xp, credits, paladio, username))
         conn.commit()
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Error syncing stats: {e}")
         return False
     finally:
         conn.close()
@@ -427,6 +459,87 @@ def create_clan_db(tag, name, leader):
     finally:
         conn.close()
 
+def send_system_message_db(username, subject, body):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('''
+            INSERT INTO messages (sender, receiver, subject, body)
+            VALUES (?, ?, ?, ?)
+        ''', ("SYSTEM", username, subject, body))
+        conn.commit()
+        return True
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+def create_clan_request_db(clan_tag, username, message):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Verificar si ya tiene una solicitud pendiente
+        c.execute('SELECT id FROM clan_requests WHERE username = ? AND status = "pending"', (username,))
+        if c.fetchone():
+            return {"success": False, "error": "Ya tienes una solicitud pendiente en un clan."}
+        
+        c.execute('''
+            INSERT INTO clan_requests (clan_tag, username, message)
+            VALUES (?, ?, ?)
+        ''', (clan_tag.upper(), username, message))
+        
+        # Notificar al líder
+        c.execute('SELECT leader FROM clans WHERE tag = ?', (clan_tag.upper(),))
+        leader = c.fetchone()
+        if leader:
+            send_system_message_db(
+                leader[0], 
+                "Nueva Solicitud de Ingreso", 
+                f"El piloto {username} ha enviado una solicitud para unirse a tu clan [{clan_tag.upper()}]. Revisa el panel de administración."
+            )
+
+        conn.commit()
+        return {"success": True}
+    finally:
+        conn.close()
+
+def get_clan_requests_db(clan_tag):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT id, username, message, created_at FROM clan_requests WHERE clan_tag = ? AND status = "pending"', (clan_tag.upper(),))
+        rows = c.fetchall()
+        return [{"id": r[0], "username": r[1], "message": r[2], "date": r[3]} for r in rows]
+    finally:
+        conn.close()
+
+def respond_clan_request_db(request_id, response):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT username, clan_tag FROM clan_requests WHERE id = ?', (request_id,))
+        req = c.fetchone()
+        if not req: return {"success": False, "error": "Solicitud no encontrada."}
+        
+        username, clan_tag = req
+        
+        if response == 'accept':
+            # Intentar unir al usuario
+            join_res = join_clan_db(username, clan_tag)
+            if not join_res["success"]:
+                return join_res
+            
+            c.execute('UPDATE clan_requests SET status = "accepted" WHERE id = ?', (request_id,))
+            send_system_message_db(username, "Solicitud Aceptada", f"¡Bienvenido! Tu solicitud para unirte al clan [{clan_tag}] ha sido aceptada.")
+        else:
+            c.execute('UPDATE clan_requests SET status = "rejected" WHERE id = ?', (request_id,))
+            send_system_message_db(username, "Solicitud Rechazada", f"Tu solicitud para unirte al clan [{clan_tag}] ha sido rechazada.")
+
+        conn.commit()
+        return {"success": True}
+    finally:
+        conn.close()
+
 def donate_from_clan_db(clan_tag, target_username, amount, sender_username="UNKNOWN"):
     conn = get_connection()
     c = conn.cursor()
@@ -492,13 +605,13 @@ def get_available_clans(search=None):
     c = conn.cursor()
     if search:
         query = "%" + search.upper() + "%"
-        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits FROM clans WHERE tag LIKE ? OR name LIKE ?', (query, query))
+        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits, join_type FROM clans WHERE tag LIKE ? OR name LIKE ?', (query, query))
     else:
-        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits FROM clans LIMIT 50')
+        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits, join_type FROM clans LIMIT 50')
     
     rows = c.fetchall()
     conn.close()
-    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5]} for r in rows]
+    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5], "join_type": r[6] if len(r) > 6 else "Abierto"} for r in rows]
 
 def join_clan_db(username, clan_tag):
     conn = get_connection()
@@ -554,7 +667,7 @@ def get_user_clan_data(username):
     clan_tag = res[0]
     
     # Obtener metadata del clan
-    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits FROM clans WHERE tag = ?', (clan_tag,))
+    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type FROM clans WHERE tag = ?', (clan_tag,))
     clan = c.fetchone()
     if not clan:
         conn.close()
@@ -581,25 +694,35 @@ def get_user_clan_data(username):
     
     import json
     try:
-        news_data = json.loads(clan[9]) if len(clan) > 9 and clan[9] else []
+        # need to fetch news and logo_url too
+        c = get_connection().cursor()
+        c.execute('SELECT news, logo_url, status FROM clans WHERE tag = ?', (clan_tag,))
+        row = c.fetchone()
+        news_data = json.loads(row[0]) if row and row[0] else []
+        logo_url = row[1] if row else ""
+        status = row[2] if row else "Reclutando"
     except Exception:
         news_data = []
+        logo_url = ""
+        status = "Reclutando"
 
     return {
         "tag": clan[0],
         "name": clan[1],
         "leader": clan[2],
-        "members_count": len(members_list), # Usamos el conteo real de la tabla usuarios
+        "members_count": clan[3],
         "description": clan[4],
         "created_at": clan[5],
         "tax_rate": clan[6],
         "credits": clan[7],
-        "status": clan[8] if len(clan) > 8 else "Reclutando",
+        "join_type": clan[8] or "Abierto",
+        "status": status,
         "news": news_data,
+        "logo": logo_url,
         "members": members_list
     }
 
-def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, logo):
+def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, logo, join_type="Abierto"):
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -613,9 +736,9 @@ def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, l
             # Actualizar clanes
             c.execute('''
                 UPDATE clans 
-                SET tag = ?, name = ?, description = ?, status = ?, news = ?, logo_url = ?
+                SET tag = ?, name = ?, description = ?, status = ?, news = ?, logo_url = ?, join_type = ?
                 WHERE tag = ?
-            ''', (new_tag, name, description, status, news, logo, old_tag))
+            ''', (new_tag, name, description, status, news, logo, join_type, old_tag))
             
             # Actualizar usuarios
             c.execute('UPDATE users SET clan_tag = ? WHERE clan_tag = ?', (new_tag, old_tag))
@@ -626,9 +749,9 @@ def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, l
             # Solo actualizar metadata normal
             c.execute('''
                 UPDATE clans 
-                SET name = ?, description = ?, status = ?, news = ?, logo_url = ?
+                SET name = ?, description = ?, status = ?, news = ?, logo_url = ?, join_type = ?
                 WHERE tag = ?
-            ''', (name, description, status, news, logo, old_tag))
+            ''', (name, description, status, news, logo, join_type, old_tag))
             
         conn.commit()
         return {"success": True}
@@ -724,6 +847,13 @@ def dissolve_clan_db(clan_tag):
 
         # Remover clan de todos los miembros
         c.execute('UPDATE users SET clan_tag = NULL, clan_role = NULL, clan_joined_at = NULL WHERE clan_tag = ?', (clan_tag,))
+        
+        # Borrar logs
+        c.execute('DELETE FROM clan_logs WHERE clan_tag = ?', (clan_tag,))
+        # Borrar diplomacia (tanto si fue emisor como receptor)
+        c.execute('DELETE FROM clan_diplomacy WHERE sender_tag = ? OR receiver_tag = ?', (clan_tag, clan_tag))
+        # Borrar solicitudes pendientes
+        c.execute('DELETE FROM clan_requests WHERE clan_tag = ?', (clan_tag,))
         
         # Borrar el clan
         c.execute('DELETE FROM clans WHERE tag = ?', (clan_tag,))

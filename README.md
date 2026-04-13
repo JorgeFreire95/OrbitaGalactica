@@ -70,6 +70,39 @@ Razas detectadas:
 - **Zoltan**: Comandantes fenomenales (Nvl 7).
 - **Drakon**: Amenaza suprema de nivel 8. Solo para expertos.
 
+### 🌌 Atlas Galáctico (Sectores por Facción)
+Explora la vasta extensión del espacio a través de los diversos sectores controlados por las tres grandes potencias:
+
+#### 🔴 Corporación MARS (Fuerza y Expansión)
+1. **Sector de Hierro** (Mars 1) - Base de Inicio
+2. **Cañón del Óxido** (Mars 2)
+3. **Fundición Ares** (Mars 3)
+4. **Valles de Magma** (Mars 4)
+5. **Base Dust-Storm** (Mars 5)
+6. **Cantera Olympus** (Mars 6)
+7. **Puesto de Avanzada Phobos** (Mars 7)
+8. **Plataforma de Asedio** (Mars 8) - Avanzada Militar
+
+#### 🔵 Orden de la MOON (Tecnología y Orden)
+1. **Bahía de Selene** (Moon 1) - Base de Inicio
+2. **Cráter de Cristal** (Moon 2)
+3. **Estación de Relevo Zenit** (Moon 3)
+4. **Mar de la Tranquilidad** (Moon 4)
+5. **Observatorio L-1** (Moon 5)
+6. **Domos de Biodiversidad** (Moon 6)
+7. **Refinería de Helio-3** (Moon 7)
+8. **Anillo de Plata** (Moon 8) - Avanzada Tecnológica
+
+#### 🟣 Sindicato PLUTO (Supervivencia y Vacío)
+1. **Abismo de Caronte** (Pluto 1) - Base de Inicio
+2. **Glaciar Eterno** (Pluto 2)
+3. **Nébula de Cobalto** (Pluto 3)
+4. **Punta del Horizonte** (Pluto 4)
+5. **Cripta de Escarcha** (Pluto 5)
+6. **Vórtice Sombrío** (Pluto 6)
+7. **Estación Exilio** (Pluto 7)
+8. **Resplandor de Hielo** (Pluto 8) - Avanzada del Vacío
+
 ### ⚔️ Combate y HUD Cinematográfico
 - **Efectos de Destrucción Estelar**: Explosiones dinámicas con destello radial al destruir enemigos.
 - **Protocolo de Emergencia (Reparación)**: Restauración de sistemas por **500 Créditos** con salto a la Sede Central.

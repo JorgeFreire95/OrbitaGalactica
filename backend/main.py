@@ -42,6 +42,7 @@ class SyncRequest(BaseModel):
     xp: int
     credits: int
     paladio: int
+    minerals: dict = None
 
 class ClanCreateRequest(BaseModel):
     tag: str
@@ -51,6 +52,7 @@ class ClanCreateRequest(BaseModel):
 class ClanJoinRequest(BaseModel):
     username: str
     clan_tag: str
+    message: str = ""
 
 class ClanLeaveRequest(BaseModel):
     username: str
@@ -71,6 +73,7 @@ class ClanUpdateInfoRequest(BaseModel):
     status: str = "Reclutando"
     news: str = "[]"
     logo: str = ""
+    join_type: str = "Abierto"
 
 class ClanDonateRequest(BaseModel):
     username: str # El que realiza la donación (admin/líder)
@@ -98,6 +101,10 @@ class MessageSendRequest(BaseModel):
     receiver: str
     subject: str
     body: str
+
+class ClanApplicationResponse(BaseModel):
+    request_id: int
+    response: str # 'accept' or 'reject'
 
 class DiplomacyRequest(BaseModel):
     sender_tag: str
@@ -197,7 +204,8 @@ from database import (
     update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, 
     get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, 
     hash_password, get_leaderboard_db, send_user_message_db,
-    add_diplomacy_request, respond_diplomacy_request, get_clan_diplomacy_status, get_all_clans_detailed
+    add_diplomacy_request, respond_diplomacy_request, get_clan_diplomacy_status, get_all_clans_detailed,
+    create_clan_request_db, get_clan_requests_db, respond_clan_request_db
 )
 
 @app.post("/api/login")
@@ -240,13 +248,28 @@ async def api_create_clan(req: ClanCreateRequest):
 
 @app.post("/api/clans/join")
 async def api_join_clan(req: ClanJoinRequest):
+    # Primero verificar el tipo de ingreso del clan
+    clans = get_available_clans(req.clan_tag)
+    target_clan = next((c for c in clans if c["tag"] == req.clan_tag.upper()), None)
+    
+    if not target_clan:
+        raise HTTPException(status_code=404, detail="El clan no existe.")
+    
+    if target_clan.get("join_type") == "Cerrado":
+        # Crear solicitud en lugar de unirse
+        result = create_clan_request_db(req.clan_tag, req.username, req.message)
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return {"message": "Solicitud enviada exitosamente. Debes esperar a que sea aprobada.", "status": "pending"}
+
+    # Si es abierto, unir directamente
     result = join_clan_db(req.username, req.clan_tag)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     
     # Return updated clan data
     updated_clan = get_user_clan_data(req.username)
-    return {"message": "Te has unido al clan exitosamente.", "clan": updated_clan}
+    return {"message": "Te has unido al clan exitosamente.", "clan": updated_clan, "status": "joined"}
 
 @app.post("/api/clans/leave")
 async def api_leave_clan(req: ClanLeaveRequest):
@@ -272,7 +295,7 @@ async def api_update_clan_tax(req: ClanTaxRequest):
 @app.post("/api/clans/update")
 async def api_update_clan_info(req: ClanUpdateInfoRequest):
     result = update_clan_metadata_db(
-        req.old_tag, req.new_tag, req.name, req.description, req.status, req.news, req.logo
+        req.old_tag, req.new_tag, req.name, req.description, req.status, req.news, req.logo, req.join_type
     )
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -292,6 +315,18 @@ async def api_clan_donate(req: ClanDonateRequest):
 async def api_get_clan_logs(clan_tag: str):
     logs = get_clan_logs_db(clan_tag)
     return {"logs": logs}
+
+@app.get("/api/clans/applications")
+async def api_get_clan_applications(clan_tag: str):
+    apps = get_clan_requests_db(clan_tag)
+    return {"applications": apps}
+
+@app.post("/api/clans/applications/respond")
+async def api_respond_clan_application(req: ClanApplicationResponse):
+    result = respond_clan_request_db(req.request_id, req.response)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return {"message": "Respuesta enviada correctamente."}
 
 # --- ENDPOINTS DE DIPLOMACIA ---
 
@@ -347,9 +382,21 @@ async def api_get_user_stats(username: str):
 
 @app.post("/api/user/sync")
 async def api_user_sync(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, minerals=req.minerals)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar datos.")
+    
+    # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == req.username:
+            if req.minerals is not None:
+                p["minerals"] = req.minerals.copy()
+            p["credits"] = req.credits
+            p["paladio"] = req.paladio
+            p["level"] = req.level
+            p["xp"] = req.xp
+            break
+            
     return {"message": "Sincronización exitosa."}
 
 @app.post("/api/user/repair")
