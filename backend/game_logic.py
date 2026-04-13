@@ -1387,6 +1387,24 @@ class GameState:
         self.recalculate_player_stats(player)
         print(f"Equipamiento sincronizado para {client_id}: {len(player['equipped'])} módulos.")
 
+    def update_timed_upgrades(self, client_id, updates):
+        """Sincroniza las mejoras temporales del laboratorio en tiempo real."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        if not updates or not isinstance(updates, dict):
+            return
+
+        # Actualizar el diccionario de mejoras temporales
+        player["timed_upgrades"] = {
+            "atk": updates.get("atk", []),
+            "shld": updates.get("shld", []),
+            "spd": updates.get("spd", [])
+        }
+        
+        self.recalculate_player_stats(player)
+        print(f"Mejoras de laboratorio sincronizadas para {client_id}.")
+
     def update_resources(self, client_id, ammo_data):
         """Sincroniza munición y otros recursos en tiempo real."""
         if client_id not in self.players: return

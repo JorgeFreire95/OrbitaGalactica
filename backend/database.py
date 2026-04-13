@@ -45,6 +45,7 @@ def init_db():
             credits INTEGER DEFAULT 0,
             status TEXT DEFAULT 'Reclutando',
             news TEXT DEFAULT '[]',
+            faction TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -151,6 +152,10 @@ def init_db():
     except sqlite3.OperationalError:
         pass
     try:
+        c.execute("ALTER TABLE clans ADD COLUMN faction TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
         c.execute("ALTER TABLE clans ADD COLUMN join_type TEXT DEFAULT 'Abierto'")
     except sqlite3.OperationalError:
         pass
@@ -180,6 +185,12 @@ def init_db():
             INSERT INTO users (username, email, password_hash, salt, faction, is_admin)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', ("admin", "admin@orbitagalactica.com", hashed, salt, "MARS", 1))
+
+    # Limpiar diplomacia huérfana al inicio para mantener integridad
+    try:
+        c.execute('DELETE FROM clan_diplomacy WHERE sender_tag NOT IN (SELECT tag FROM clans) OR receiver_tag NOT IN (SELECT tag FROM clans)')
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -301,11 +312,37 @@ def get_all_users():
 def delete_user(username):
     conn = get_connection()
     c = conn.cursor()
-    c.execute('DELETE FROM users WHERE username = ?', (username,))
-    deleted = c.rowcount > 0
-    conn.commit()
-    conn.close()
-    return deleted
+    try:
+        # 1. Verificar si es Líder de un clan
+        c.execute('SELECT clan_tag, clan_role FROM users WHERE username = ?', (username,))
+        res = c.fetchone()
+        if res and res[1] == 'Líder':
+            clan_tag = res[0]
+            # Disolver el clan primero para limpiar todas las tablas relacionadas
+            # No podemos llamar a dissolve_clan_db directamente porque ya cerramos/abrimos conexiones
+            # pero podemos replicar la lógica aquí o simplemente usar la conexión actual
+            
+            # Remover clan de todos los miembros
+            c.execute('UPDATE users SET clan_tag = NULL, clan_role = NULL, clan_joined_at = NULL WHERE clan_tag = ?', (clan_tag,))
+            # Borrar logs
+            c.execute('DELETE FROM clan_logs WHERE clan_tag = ?', (clan_tag,))
+            # Borrar diplomacia
+            c.execute('DELETE FROM clan_diplomacy WHERE sender_tag = ? OR receiver_tag = ?', (clan_tag, clan_tag))
+            # Borrar solicitudes
+            c.execute('DELETE FROM clan_requests WHERE clan_tag = ?', (clan_tag,))
+            # Borrar el clan
+            c.execute('DELETE FROM clans WHERE tag = ?', (clan_tag,))
+
+        # 2. Borrar al usuario
+        c.execute('DELETE FROM users WHERE username = ?', (username,))
+        deleted = c.rowcount > 0
+        conn.commit()
+        return deleted
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        return False
+    finally:
+        conn.close()
 
 def update_user(target_username, new_username, new_email, new_faction, level=None, xp=None, credits=None, paladio=None, is_admin=None, **kwargs):
     conn = get_connection()
@@ -439,11 +476,16 @@ def create_clan_db(tag, name, leader):
     conn = get_connection()
     c = conn.cursor()
     try:
-        # 1. Crear el clan
+        # 0. Obtener la facción del líder
+        c.execute('SELECT faction FROM users WHERE username = ?', (leader,))
+        user_row = c.fetchone()
+        faction = user_row[0] if user_row else "MARS"
+
+        # 1. Crear el clan con la facción del líder
         c.execute('''
-            INSERT INTO clans (tag, name, leader) 
-            VALUES (?, ?, ?)
-        ''', (tag.upper(), name, leader))
+            INSERT INTO clans (tag, name, leader, faction) 
+            VALUES (?, ?, ?, ?)
+        ''', (tag.upper(), name, leader, faction))
         
         # 2. Asignar el clan al usuario líder con su rol
         c.execute('''
@@ -605,13 +647,23 @@ def get_available_clans(search=None):
     c = conn.cursor()
     if search:
         query = "%" + search.upper() + "%"
-        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits, join_type FROM clans WHERE tag LIKE ? OR name LIKE ?', (query, query))
+        c.execute('''
+            SELECT c.tag, c.name, c.leader, 
+                   (SELECT COUNT(*) FROM users u WHERE u.clan_tag = c.tag) as real_count, 
+                   c.tax_rate, c.credits, c.join_type, c.faction 
+            FROM clans c WHERE c.tag LIKE ? OR c.name LIKE ?
+        ''', (query, query))
     else:
-        c.execute('SELECT tag, name, leader, members_count, tax_rate, credits, join_type FROM clans LIMIT 50')
+        c.execute('''
+            SELECT c.tag, c.name, c.leader, 
+                   (SELECT COUNT(*) FROM users u WHERE u.clan_tag = c.tag) as real_count, 
+                   c.tax_rate, c.credits, c.join_type, c.faction 
+            FROM clans c LIMIT 50
+        ''')
     
     rows = c.fetchall()
     conn.close()
-    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5], "join_type": r[6] if len(r) > 6 else "Abierto"} for r in rows]
+    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5], "join_type": r[6] if len(r) > 6 else "Abierto", "faction": r[7] if len(r) > 7 else "MARS"} for r in rows]
 
 def join_clan_db(username, clan_tag):
     conn = get_connection()
@@ -667,7 +719,7 @@ def get_user_clan_data(username):
     clan_tag = res[0]
     
     # Obtener metadata del clan
-    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type FROM clans WHERE tag = ?', (clan_tag,))
+    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type, faction FROM clans WHERE tag = ?', (clan_tag,))
     clan = c.fetchone()
     if not clan:
         conn.close()
@@ -710,12 +762,13 @@ def get_user_clan_data(username):
         "tag": clan[0],
         "name": clan[1],
         "leader": clan[2],
-        "members_count": clan[3],
+        "members_count": len(members_list),
         "description": clan[4],
         "created_at": clan[5],
         "tax_rate": clan[6],
         "credits": clan[7],
         "join_type": clan[8] or "Abierto",
+        "faction": clan[9] or "MARS",
         "status": status,
         "news": news_data,
         "logo": logo_url,
@@ -1129,5 +1182,55 @@ def get_all_clans_detailed():
             "members": r[3],
             "logo": r[4]
         } for r in rows]
+    finally:
+        conn.close()
+
+def get_clan_details_db(clan_tag):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # 1. Metadatos del clan
+        c.execute('''
+            SELECT tag, name, leader, description, created_at, faction, logo_url, join_type, status
+            FROM clans 
+            WHERE tag = ?
+        ''', (clan_tag.upper(),))
+        clan = c.fetchone()
+        if not clan:
+            return None
+            
+        # 2. Miembros reales
+        c.execute('''
+            SELECT username, clan_role, clan_joined_at 
+            FROM users 
+            WHERE clan_tag = ?
+            ORDER BY 
+                CASE clan_role 
+                    WHEN 'Líder' THEN 1 
+                    WHEN 'Oficial' THEN 2 
+                    ELSE 3 
+                END
+        ''', (clan_tag.upper(),))
+        members_rows = c.fetchall()
+        
+        members_list = [{
+            "name": m[0],
+            "role": m[1] or "Miembro",
+            "joined": m[2]
+        } for m in members_rows]
+
+        return {
+            "tag": clan[0],
+            "name": clan[1],
+            "leader": clan[2],
+            "description": clan[3] or "Sin descripción.",
+            "created_at": clan[4],
+            "faction": clan[5] or "MARS",
+            "logo": clan[6] or "",
+            "join_type": clan[7] or "Abierto",
+            "status": clan[8] or "Reclutando",
+            "members_count": len(members_list),
+            "members": members_list
+        }
     finally:
         conn.close()

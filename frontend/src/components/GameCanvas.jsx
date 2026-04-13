@@ -447,10 +447,19 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
       wsRef.current.send(JSON.stringify({ 
         type: 'update_resources', 
-        ammo_data: { ammo: initialAmmo, missiles: {} } // Assuming missiles are also in ammo for now or handled similarly
+        ammo_data: { ammo: initialAmmo, missiles: {} } 
       }));
     }
   }, [initialAmmo, gameStarted]);
+
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'update_upgrades', 
+        upgrades: initialUpgrades 
+      }));
+    }
+  }, [initialUpgrades, gameStarted]);
 
   const me = gameState?.players?.find(p => p.is_self);
   const party = gameState?.party;

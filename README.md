@@ -34,6 +34,7 @@
 - **Recompensas Compartidas**: Pelear en grupo tiene sus beneficios; todas las victorias conseguidas estando en el mismo sector otorgan Créditos compartidos para acelerar el desarrollo del escuadrón.
 
 ### 🛡️ Zonas Seguras y Estaciones
+- **Estación Central: Mega-Estructura Industrial**: Rediseño completo de la base principal. Una imponente estructura isométrica vertical con plataformas de aterrizaje asimétricas, iluminación de balizas dinámica, paneles de advertencia ("hazard stripes") y un puente de mando hexagonal iluminado por neón.
 - **Santuario Galáctico**: Tanto la Estación Central como los Portales Estelares cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
 - **Hangar de Mantenimiento**: La base es el único lugar habilitado para equipar y modificar módulos tácticos de la nave.
 
@@ -114,7 +115,7 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 ### 💰 Economía y Suministros
 - **Packs de Munición Masivos**: Toda la munición (Láser y Misiles) se vende ahora en **Packs de 1000 unidades**, permitiendo misiones de larga duración sin reabastecimientos constantes.
 - **Reequilibrio de Misiles**: Precios de misiles ajustados para ser más competitivos y relativos a la munición láser, facilitando el uso de armamento pesado (M-1, M-2, M-3).
-- **Minerales y Refinería**: Refina recursos (Titanio, Plutonio, Silicio) para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
+- **Minerales y Refinería (Sincronización Total)**: Refina recursos (Titanio, Plutonio, Silicio) para obtener mejoras instantáneas en Ataque, Escudo y Velocidad. El sistema utiliza WebSockets para aplicar los bonos directamente en tu partida activa sin necesidad de reiniciar la sesión.
 
 ### 🎨 Identidad Visual y UI Premium
 - **Nuevo Logo "Galactic Identity"**: Integración de un logo de alta fidelidad con efectos de resplandor neón en la cabecera.

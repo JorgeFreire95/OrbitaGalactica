@@ -293,6 +293,188 @@ const drawDrakon = (ctx, isHard) => {
     ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
 };
 
+const drawSpaceStation = (ctx, x, y, radius, style) => {
+    const time = Date.now() / 1000;
+    
+    // --- 0. PALETA DE COLORES ---
+    let mainColor = '#00ffff'; 
+    let accentColor = '#0088ff';
+    let energyColor = '#ffffff';
+    let industrialGray = '#2c3e50';
+
+    if (style.includes('mars')) {
+        mainColor = '#ff4400'; accentColor = '#ffcc00'; energyColor = '#ffff00';
+    } else if (style.includes('pluto')) {
+        mainColor = '#8a2be2'; accentColor = '#4b0082'; energyColor = '#00ffff';
+    } else if (style.includes('moon')) {
+        mainColor = '#00ffff'; accentColor = '#0088ff'; energyColor = '#ffffff';
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    // --- FUNCIONES INTERNAS DE DIBUJO ---
+    const drawIsometricBox = (ox, oy, w, h, d, color) => {
+        ctx.save();
+        ctx.translate(ox, oy);
+        
+        // Cara Frontal (Sombreada oscuridad)
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.9;
+        ctx.fillRect(-w/2, -h/2, w, h);
+        
+        // Cara Lateral (Sombreada profundidad)
+        ctx.fillStyle = '#000';
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.moveTo(w/2, -h/2);
+        ctx.lineTo(w/2 + d, -h/2 - d/2);
+        ctx.lineTo(w/2 + d, h/2 - d/2);
+        ctx.lineTo(w/2, h/2);
+        ctx.fill();
+        
+        // Cara Superior (Luz)
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.1;
+        ctx.beginPath();
+        ctx.moveTo(-w/2, -h/2);
+        ctx.lineTo(-w/2 + d, -h/2 - d/2);
+        ctx.lineTo(w/2 + d, -h/2 - d/2);
+        ctx.lineTo(w/2, -h/2);
+        ctx.fill();
+        
+        ctx.restore();
+    };
+
+    const drawLandingPad = (ox, oy, w, h, side) => {
+        ctx.save();
+        ctx.translate(ox, oy);
+        const dir = side === 'left' ? -1 : 1;
+        
+        // Base de la plataforma (Trapecio)
+        ctx.fillStyle = '#1a1a2e';
+        ctx.beginPath();
+        ctx.moveTo(0, -h/2);
+        ctx.lineTo(dir * w, -h/4);
+        ctx.lineTo(dir * w, h/4);
+        ctx.lineTo(0, h/2);
+        ctx.fill();
+        
+        // Franjas de Peligro (Hazard Stripes)
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 10;
+        for(let i=-100; i<100; i+=20) {
+            ctx.beginPath();
+            ctx.moveTo(i, -50);
+            ctx.lineTo(i + 40, 50);
+            ctx.stroke();
+        }
+        ctx.restore();
+        
+        // Borde metálico
+        ctx.strokeStyle = mainColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Luces de pista
+        ctx.fillStyle = (Math.sin(time*2) > 0) ? '#00ff00' : '#004400';
+        ctx.beginPath(); ctx.arc(dir * w * 0.8, 0, 3, 0, Math.PI*2); ctx.fill();
+        
+        ctx.restore();
+    };
+
+    // --- 1. RESPLANDOR AMBIENTAL ---
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 180);
+    glow.addColorStop(0, mainColor + '11');
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0, 0, 180, 0, Math.PI * 2); ctx.fill();
+
+    // --- 2. COLUMNA CENTRAL (Módulos apilados) ---
+    // Módulo inferior
+    drawIsometricBox(0, 60, 80, 40, 20, '#16213e');
+    // Módulo medio (Desplazado asimétricamente)
+    drawIsometricBox(-10, 10, 90, 50, 25, '#1a1a2e');
+    // Módulo superior (Donde está el núcleo)
+    drawIsometricBox(0, -50, 70, 60, 30, industrialGray);
+
+    // --- 3. PLATAFORMAS DE ATERRIZAJE ---
+    drawLandingPad(-45, -20, 120, 60, 'left');
+    drawLandingPad(45, 30, 100, 50, 'right');
+    drawLandingPad(35, -70, 80, 40, 'right');
+
+    // --- 4. PUENTE DE MANDO SUPERIOR (Hexágono Azul) ---
+    ctx.save();
+    ctx.translate(0, -90);
+    
+    // Resplandor del puente
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = mainColor;
+    ctx.strokeStyle = mainColor;
+    ctx.lineWidth = 4;
+    
+    // Dibujar hexágono isométrico
+    ctx.beginPath();
+    for(let i=0; i<6; i++) {
+        const ang = (i/6) * Math.PI * 2;
+        const px = Math.cos(ang) * 40;
+        const py = Math.sin(ang) * 20; // Aplastado para perspectiva
+        if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    
+    // Relleno de energía
+    ctx.fillStyle = mainColor + '33';
+    ctx.fill();
+    
+    // Icono de Zona Segura (Simulación rápida)
+    ctx.fillStyle = energyColor;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(-10, -5, 20, 10);
+    ctx.restore();
+
+    // --- 5. DETALLES DE AMBIENTACIÓN ---
+    // Cables inferiores
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    for(let i=0; i<3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-20 + i*20, 80);
+        ctx.lineTo(-20 + i*20 + Math.sin(time + i)*5, 130);
+        ctx.stroke();
+    }
+    
+    // Ventanas iluminadas
+    ctx.fillStyle = '#ffffaa';
+    ctx.globalAlpha = 0.6;
+    for(let j=0; j<5; j++) {
+        ctx.fillRect(-30, 20 + j*10, 4, 3);
+        ctx.fillRect(20, -40 + j*8, 3, 2);
+    }
+    
+    // Naves minúsculas orbitando (Drones)
+    for(let k=0; k<4; k++) {
+        const orbitTime = time * 0.5 + k;
+        const ox = Math.cos(orbitTime) * 140;
+        const oy = Math.sin(orbitTime) * 100;
+        ctx.fillStyle = (k % 2 === 0) ? '#fff' : mainColor;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath(); ctx.arc(ox, oy, 2, 0, Math.PI*2); ctx.fill();
+        // Estela de motor
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(ox - Math.cos(orbitTime)*10, oy - Math.sin(orbitTime)*10);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+};
+
 export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   const { width, height } = ctx.canvas;
   
@@ -388,38 +570,18 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.stroke();
     ctx.restore();
 
-    // 2. Estructura de la Estación
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Date.now() / 2000); // Rotación lenta
-    
-    // Núcleo
-    ctx.fillStyle = '#1a1a2e';
-    ctx.strokeStyle = '#00ffff';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(0, 0, 40, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    
-    // Brazos / Estructura
-    for(let i=0; i<4; i++) {
-        ctx.rotate(Math.PI / 2);
-        ctx.fillStyle = '#16213e';
-        ctx.fillRect(40, -10, 60, 20);
-        ctx.strokeStyle = '#00ffff';
-        ctx.strokeRect(40, -10, 60, 20);
-        // Luces de hangar
-        ctx.fillStyle = (Math.sin(Date.now()/200) > 0) ? '#00ff00' : '#003300';
-        ctx.beginPath(); ctx.arc(90, 0, 3, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.restore();
+    // 2. Estructura de la Estación Rediseñada
+    drawSpaceStation(ctx, x, y, radius, style);
     
     // Etiqueta de la Base
-    ctx.fillStyle = '#00ffff';
-    ctx.font = 'bold 20px Orbitron';
+    // Etiqueta de la Base con sombra para legibilidad
+    ctx.fillStyle = style.includes('mars') ? '#ffaa00' : (style.includes('pluto') ? '#cc99ff' : '#00ffff');
+    ctx.font = 'bold 22px Orbitron';
     ctx.textAlign = 'center';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'black';
     ctx.fillText("ESTACIÓN CENTRAL", x, y - radius - 20);
+    ctx.shadowBlur = 0;
   }
 
   // --- DIBUJAR PORTALES DE SALTO ---

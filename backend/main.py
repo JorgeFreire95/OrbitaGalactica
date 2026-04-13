@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request
 
 class RegisterRequest(BaseModel):
     username: str
@@ -328,6 +328,13 @@ async def api_respond_clan_application(req: ClanApplicationResponse):
         raise HTTPException(status_code=400, detail=result["error"])
     return {"message": "Respuesta enviada correctamente."}
 
+@app.get("/api/clans/details/{tag}")
+async def api_get_clan_details(tag: str):
+    details = get_clan_details_db(tag)
+    if not details:
+        raise HTTPException(status_code=404, detail="Clan no encontrado.")
+    return details
+
 # --- ENDPOINTS DE DIPLOMACIA ---
 
 @app.get("/api/clans/all")
@@ -619,6 +626,10 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "update_resources" and player_added:
                 ammo_data = data.get("ammo_data", {})
                 game_state.update_resources(client_id, ammo_data)
+
+            elif data.get("type") == "update_upgrades" and player_added:
+                upgrades = data.get("upgrades", {})
+                game_state.update_timed_upgrades(client_id, upgrades)
                 
     except WebSocketDisconnect as e:
         logger.info(f"Client disconnected: {client_id} Code: {e.code} Reason: {e.reason}")

@@ -67,13 +67,7 @@ export default function Hangar({
               </div>
             );
           })}
-          {/* Mock extra cards for the "grid" look */}
-          {[1,2,3,4,5,6,7].map(i => (
-            <div key={i} className="ship-inventory-card" style={{ opacity: 0.2, cursor: 'default' }}>
-              <div style={{ fontSize: '2rem' }}>❔</div>
-              <div className="ship-inventory-name">Desconocido</div>
-            </div>
-          ))}
+          {/* Removed mock extra cards as they looked like placeholder errors */}
         </section>
 
         {/* STATS PANEL */}
@@ -124,19 +118,29 @@ export default function Hangar({
              </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '10px' }}>
+          <div style={{ 
+            marginTop: 'auto', 
+            padding: '20px', 
+            background: 'rgba(0,0,0,0.4)', 
+            borderTop: '1px solid rgba(255,255,255,0.05)',
+            display: 'flex', 
+            flexDirection: 'column',
+            gap: '10px' 
+          }}>
             {!isActive && isOwned && (
               <button 
+                className="primary-button"
                 onClick={() => setSelectedShipId(viewedShipId)}
-                style={{ marginBottom: '10px', padding: '12px', background: '#00ffcc', border: 'none', color: 'black', fontWeight: 'bold', cursor: 'pointer', borderRadius: '4px' }}
+                style={{ width: '100%' }}
               >
                 EQUIPAR COMO ACTIVA
               </button>
             )}
             {!isOwned && (
-               <button 
+              <button 
+                className="primary-button"
                 onClick={() => onNavigate('shop')}
-                style={{ marginBottom: '10px', padding: '12px', background: '#ffcc00', border: 'none', color: 'black', fontWeight: 'bold', cursor: 'pointer', borderRadius: '4px' }}
+                style={{ width: '100%', background: 'linear-gradient(to bottom, #ffcc00, #ff8800)', color: 'black' }}
               >
                 ADQUIRIR EN TIENDA ({viewedShip.cost.toLocaleString()} Cr)
               </button>
@@ -145,8 +149,9 @@ export default function Hangar({
               className={`gestionar-button ${isBlocked || !isOwned ? 'blocked' : ''}`} 
               onClick={() => isOwned && setEditMode(true)}
               disabled={!isOwned}
+              style={{ width: '100%' }}
             >
-              {!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR'}
+              {!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR CONFIGURACIÓN'}
             </button>
           </div>
         </aside>

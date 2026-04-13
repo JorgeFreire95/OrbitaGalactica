@@ -33,6 +33,15 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   const [allDetailedClans, setAllDetailedClans] = useState([]);
   const [diplomacy, setDiplomacy] = useState({ alliances: [], wars: [], pending: [] });
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, clanTag: null, clanName: null });
+  const [selectedClanDetails, setSelectedClanDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  
+  const getCompanyName = (f) => {
+    if (f === 'MARS') return 'M.A.R.S.';
+    if (f === 'MOON') return 'M.O.O.N.';
+    if (f === 'PLUTO') return 'P.L.U.T.O.';
+    return 'Multifacción';
+  };
 
   React.useEffect(() => {
     if (!clan) {
@@ -443,6 +452,24 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
     setContextMenu({ ...contextMenu, visible: false });
   };
 
+  const handleShowClanDetails = async (clanTag) => {
+    setLoadingDetails(true);
+    try {
+      const resp = await fetch(`${API_URL}/clans/details/${clanTag}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setSelectedClanDetails(data);
+      } else {
+        const err = await resp.json();
+        alert(err.detail || "Error al obtener detalles del clan.");
+      }
+    } catch (err) {
+      alert("Error de conexión al servidor.");
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
   const handleDiplomacyResponse = async (requestId, response) => {
       try {
           const resp = await fetch(`${API_URL}/clans/diplomacy/respond`, {
@@ -558,13 +585,15 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           <div style={{ color: '#ffcc00' }}>{clan.leader || (user ? user.username : 'PILOTO_ESTELAR')}</div>
                           
                           <div style={{ color: '#888' }}>Nº de miembros:</div>
-                          <div style={{ color: '#fff' }}>{clan.members ? clan.members.length : 1}</div>
+                          <div style={{ color: clan?.members?.length >= 30 ? '#ff3366' : '#fff' }}>
+                            {clan.members ? clan.members.length : 1} / 30
+                          </div>
                           
                           <div style={{ color: '#888' }}>Posición del clan:</div>
                           <div style={{ color: '#fff' }}>0</div>
                           
                           <div style={{ color: '#888' }}>Afiliación a empresa:</div>
-                          <div style={{ color: '#fff' }}>Todo</div>
+                          <div style={{ color: '#fff' }}>{getCompanyName(clan.faction)}</div>
                           
                           <div style={{ color: '#888' }}>Tasa de impuestos:</div>
                           <div style={{ color: '#fff' }}>{clan.tax_rate || 0}% ({ Math.floor((clan.members || []).reduce((sum, m) => sum + (m.credits || 0), 0) * ((clan.tax_rate || 0) / 100)).toLocaleString() } CR diarios)</div>
@@ -1293,7 +1322,10 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                         <div style={{ width: '45px', height: '45px', background: '#0a0f1a', borderRadius: '4px', border: '1px solid #334466', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', marginRight: '20px' }}>
                           🛡️
                         </div>
-                        <div style={{ flex: 1 }}>
+                        <div 
+                          style={{ flex: 1, cursor: 'pointer' }}
+                          onClick={() => handleShowClanDetails(cl.tag)}
+                        >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '1.1rem' }}>[{cl.tag}]</span>
                             <span style={{ color: '#fff' }}>{cl.name}</span>
@@ -1408,6 +1440,136 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                             style={{ flex: 1 }}
                             onClick={() => handleJoinClan(showJoinModal.tag)}
                         >ENVIAR SOLICITUD</button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {/* Modal de Detalles del Clan (Rediseño Premium) */}
+        {selectedClanDetails && (
+            <div className="modal-overlay" style={{ zIndex: 1100, backdropFilter: 'blur(10px)', backgroundColor: 'rgba(0,0,0,0.7)' }}>
+                <div className="modal-content" style={{ 
+                    maxWidth: '650px', 
+                    background: 'rgba(13, 20, 36, 0.95)', 
+                    border: '2px solid rgba(0, 255, 204, 0.4)', 
+                    boxShadow: '0 0 50px rgba(0, 255, 204, 0.15), inset 0 0 20px rgba(0, 255, 204, 0.05)',
+                    position: 'relative',
+                    padding: '40px',
+                    borderRadius: '12px'
+                }}>
+                    <button 
+                        onClick={() => setSelectedClanDetails(null)}
+                        style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#00ffcc', width: '35px', height: '35px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.target.style.background = 'rgba(255,0,0,0.2)'; e.target.style.borderColor = 'red'; }}
+                        onMouseLeave={(e) => { e.target.style.background = 'rgba(255,255,255,0.05)'; e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >&times;</button>
+                    
+                    <div style={{ display: 'flex', gap: '30px', marginBottom: '35px', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '25px' }}>
+                        <div style={{ 
+                            width: '100px', 
+                            height: '100px', 
+                            background: 'radial-gradient(circle at center, #1a2a4a, #050810)', 
+                            borderRadius: '12px', 
+                            border: '2px solid #00ffcc', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '3rem',
+                            boxShadow: '0 0 20px rgba(0, 255, 204, 0.2)'
+                        }}>
+                           🛡️
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <h2 style={{ 
+                                color: '#fff', 
+                                margin: 0, 
+                                fontFamily: 'Orbitron, sans-serif', 
+                                fontSize: '1.8rem', 
+                                textShadow: '0 0 15px rgba(0, 255, 204, 0.5)',
+                                letterSpacing: '1px'
+                            }}>
+                                <span style={{ color: '#00ffcc' }}>[{selectedClanDetails.tag}]</span> {selectedClanDetails.name}
+                            </h2>
+                            <div style={{ color: '#ffcc00', fontSize: '1rem', marginTop: '5px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#888' }}>CENTRAL DE MANDO:</span> {selectedClanDetails.leader}
+                            </div>
+                            <div style={{ color: '#6688aa', fontSize: '0.8rem', marginTop: '8px', letterSpacing: '1px' }}>
+                                FUNDADO EL {new Date(selectedClanDetails.created_at).toLocaleDateString()}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+                        <div style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ color: '#88aaff', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '2px', fontWeight: 'bold' }}>Facción / Empresa</div>
+                            <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 'bold' }}>{getCompanyName(selectedClanDetails.faction)}</div>
+                        </div>
+                        <div style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)', padding: '15px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ color: '#88aaff', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '2px', fontWeight: 'bold' }}>Capacidad de Pilotos</div>
+                            <div style={{ color: selectedClanDetails.members_count >= 30 ? '#ff4444' : '#00ffcc', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                {selectedClanDetails.members_count} <span style={{ color: '#444', fontSize: '0.8rem' }}>/ 30</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '30px' }}>
+                        <div style={{ color: '#88aaff', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '2px', fontWeight: 'bold' }}>Manifiesto del Clan</div>
+                        <div style={{ 
+                            background: 'rgba(0,0,0,0.4)', 
+                            padding: '20px', 
+                            borderRadius: '8px', 
+                            border: '1px solid rgba(0, 255, 204, 0.1)', 
+                            color: '#aabccc', 
+                            minHeight: '90px', 
+                            fontStyle: 'italic',
+                            lineHeight: '1.6',
+                            fontSize: '0.95rem',
+                            boxShadow: 'inset 0 0 15px rgba(0,0,0,0.5)'
+                        }}>
+                            "{selectedClanDetails.description}"
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style={{ color: '#88aaff', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '2px', fontWeight: 'bold' }}>Personal (Registro de Vuelo)</div>
+                        <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead style={{ background: 'rgba(255,255,255,0.03)', position: 'sticky', top: 0 }}>
+                                    <tr>
+                                        <th style={{ padding: '12px', fontSize: '0.7rem', color: '#556688', textTransform: 'uppercase' }}>Piloto</th>
+                                        <th style={{ padding: '12px', fontSize: '0.7rem', color: '#556688', textTransform: 'uppercase', textAlign: 'right' }}>Rango Operativo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {selectedClanDetails.members.map((m, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(0,255,204,0.05)'} onMouseLeave={(e)=>e.currentTarget.style.background='transparent'}>
+                                            <td style={{ padding: '12px', color: '#fff', fontWeight: 'bold' }}>{m.name}</td>
+                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                                <span style={{ 
+                                                    color: m.role === 'Líder' ? '#ffcc00' : (m.role === 'Oficial' ? '#00eeff' : '#88aaff'),
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: 'bold',
+                                                    textTransform: 'uppercase',
+                                                    background: 'rgba(255,255,255,0.05)',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '4px',
+                                                    border: `1px solid ${m.role === 'Líder' ? 'rgba(255,204,0,0.2)' : 'rgba(0,255,204,0.1)'}`
+                                                }}>
+                                                    {m.role}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '35px' }}>
+                        <button 
+                            className="primary-button" 
+                            style={{ width: '100%', padding: '15px', fontSize: '1rem', letterSpacing: '3px' }}
+                            onClick={() => setSelectedClanDetails(null)}
+                        >FINALIZAR CONSULTA</button>
                     </div>
                 </div>
             </div>

@@ -668,7 +668,9 @@ function App() {
         </>
       )}
 
-      {currentView === 'auth' && (
+
+      <div className="main-view-area">
+        {currentView === 'auth' && (
         <Auth onLogin={handleLogin} onRegister={handleRegister} onForgotPassword={handleForgotPassword} />
       )}
 
@@ -807,9 +809,10 @@ function App() {
         <AdminPanel user={user} onBack={() => setCurrentView('menu')} />
       )}
 
-      {currentView === 'ranking' && (
-        <Ranking leaderboard={leaderboard} onBack={() => setCurrentView('menu')} />
-      )}
+        {currentView === 'ranking' && (
+          <Ranking leaderboard={leaderboard} onBack={() => setCurrentView('menu')} />
+        )}
+      </div>
       
       {currentView === 'game' && (
         <>
