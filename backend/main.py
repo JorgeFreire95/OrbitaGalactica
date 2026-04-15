@@ -8,6 +8,10 @@ import logging
 import secrets
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+import os
+import requests
+
+import mercadopago
 
 from game_logic import GameState
 from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request
@@ -115,6 +119,15 @@ class DiplomacyResponse(BaseModel):
     request_id: int
     response: str
 
+class PremiumPaymentRequest(BaseModel):
+    username: str
+    email: str | None = None
+
+class PaladioPaymentRequest(BaseModel):
+    username: str
+    email: str | None = None
+    amount: int
+
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
                     format='%(asctime)s %(levelname)s:%(message)s')
@@ -182,6 +195,14 @@ async def lifespan(app: FastAPI):
     game_loop_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
+
+# Configurar MercadoPago con credenciales de prueba
+MERCADO_PAGO_ACCESS_TOKEN = os.getenv(
+    "MERCADO_PAGO_ACCESS_TOKEN",
+    "APP_USR-3690100384507084-041421-e2103fff4c833950884a07490ea3506d-3335977677"
+)
+
+sdk = mercadopago.SDK(MERCADO_PAGO_ACCESS_TOKEN)
 
 app.add_middleware(
     CORSMiddleware,
@@ -539,6 +560,114 @@ async def delete_announcement(id: int):
     if delete_announcement_db(id):
         return {"message": "Anuncio eliminado"}
     raise HTTPException(status_code=404, detail="Anuncio no encontrado")
+
+# --- ENDPOINTS DE PAGOS ---
+
+@app.post("/api/payment/premium")
+async def create_premium_payment(req: PremiumPaymentRequest):
+    preference_data = {
+        "items": [
+            {
+                "title": "Paquete Premium Órbita Galáctica",
+                "quantity": 1,
+                "unit_price": 9.99,
+                "currency_id": "USD"
+            }
+        ],
+        "payer": {
+            "email": req.email or f"{req.username}@orbita.local"
+        },
+        "payment_methods": {
+            "installments": 1
+        },
+        "back_urls": {
+            "success": "http://localhost:5173/packages",
+            "failure": "http://localhost:5173/packages",
+            "pending": "http://localhost:5173/packages"
+        },
+        "external_reference": f"premium_{req.username}"
+    }
+
+    headers = {
+        "Authorization": f"Bearer {MERCADO_PAGO_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    resp = requests.post(
+        "https://api.mercadopago.com/checkout/preferences",
+        json=preference_data,
+        headers=headers,
+        timeout=30
+    )
+
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=500, detail={
+            "message": "Error al crear la preferencia de pago.",
+            "mercadopago": resp.json()
+        })
+
+    data = resp.json()
+    return {
+        "preference_id": data.get("id"),
+        "init_point": data.get("init_point"),
+        "sandbox_init_point": data.get("sandbox_init_point"),
+        "raw_response": data
+    }
+
+@app.post("/api/payment/paladio")
+async def create_paladio_payment(req: PaladioPaymentRequest):
+    if req.amount <= 0:
+        raise HTTPException(status_code=400, detail="Cantidad inválida")
+    unit_price = 0.01  # $0.01 por paladio
+    total_price = req.amount * unit_price
+    preference_data = {
+        "items": [
+            {
+                "title": f"Compra de {req.amount} Paladio",
+                "quantity": 1,
+                "unit_price": total_price,
+                "currency_id": "USD"
+            }
+        ],
+        "payer": {
+            "email": req.email or f"{req.username}@orbita.local"
+        },
+        "payment_methods": {
+            "installments": 1
+        },
+        "back_urls": {
+            "success": "http://localhost:5173/packages",
+            "failure": "http://localhost:5173/packages",
+            "pending": "http://localhost:5173/packages"
+        },
+        "external_reference": f"paladio_{req.username}_{req.amount}"
+    }
+
+    headers = {
+        "Authorization": f"Bearer {MERCADO_PAGO_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    resp = requests.post(
+        "https://api.mercadopago.com/checkout/preferences",
+        json=preference_data,
+        headers=headers,
+        timeout=30
+    )
+
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=500, detail={
+            "message": "Error al crear la preferencia de pago.",
+            "mercadopago": resp.json()
+        })
+
+    data = resp.json()
+    return {
+        "preference_id": data.get("id"),
+        "init_point": data.get("init_point"),
+        "sandbox_init_point": data.get("sandbox_init_point"),
+        "raw_response": data
+    }
 
 import traceback
 import logging

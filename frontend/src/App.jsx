@@ -12,6 +12,7 @@ import TopBar from './components/TopBar'
 import NavigationBar from './components/NavigationBar'
 import { SHIPS } from './utils/gameData'
 import Ranking from './components/Ranking'
+import Packages from './components/Packages'
 import './index.css'
 
 function App() {
@@ -650,7 +651,7 @@ function App() {
 
   const currentEquippedModules = equippedByShip[selectedShipId] || [];
 
-  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin'].includes(currentView);
+  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages'].includes(currentView);
 
   return (
     <div className="app-container">
@@ -811,6 +812,15 @@ function App() {
 
         {currentView === 'ranking' && (
           <Ranking leaderboard={leaderboard} onBack={() => setCurrentView('menu')} />
+        )}
+
+        {currentView === 'packages' && (
+          <Packages 
+            user={user}
+            paladio={paladio}
+            setPaladio={setPaladio}
+            onBack={() => setCurrentView('menu')}
+          />
         )}
       </div>
       
