@@ -51,50 +51,52 @@ class GameState:
                 "name": "Cañón del Óxido", "level": 2, "style": "mars",
                 "portals": [
                     {"x": 1532, "y": 1066, "target": "mars_1", "tx": 18716 - 220, "ty": 14834 - 220, "label": "Sector de Hierro"},
-                    {"x": 18849, "y": 14995, "target": "mars_3", "tx": 1351 + 220, "ty": 900 + 220, "label": "Fundición Ares"}
+                    {"x": 18849, "y": 14995, "target": "mars_3", "tx": 1134 + 220, "ty": 1134 + 220, "label": "Fundición Ares"}
                 ]
             },
             "mars_3": {
                 "name": "Fundición Ares", "level": 3, "style": "mars",
                 "portals": [
-                    {"x": 1351, "y": 900, "target": "mars_2", "tx": 18849 - 220, "ty": 14995 - 220, "label": "Cañón del Óxido"},
-                    {"x": PB_X, "y": PB_Y, "target": "mars_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Valles de Magma"}
+                    {"x": 1134, "y": 1134, "target": "mars_2", "tx": 18849 - 220, "ty": 14995 - 220, "label": "Cañón del Óxido"},
+                    {"x": 18774, "y": 15149, "target": "mars_4", "tx": 2051 + 220, "ty": 1585 + 220, "label": "Valles de Magma"}
                 ]
             },
             "mars_4": {
                 "name": "Valles de Magma", "level": 4, "style": "mars_hazard",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Fundición Ares"},
-                    {"x": PB_X, "y": PB_Y, "target": "mars_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Base Dust-Storm"}
+                    {"x": 2051, "y": 1585, "target": "mars_3", "tx": 18774 - 220, "ty": 15149 - 220, "label": "Fundición Ares"},
+                    {"x": 18500, "y": 14613, "target": "neutral_1", "tx": 1338 + 220, "ty": 1274 + 220, "label": "Zona Neutral"},
+                    {"x": 2000, "y": 14293, "target": "moon_4", "tx": 1810 + 220, "ty": 14391 + 220, "label": "Mar de la Tranquilidad"},
+                    {"x": 9895, "y": 13867, "target": "pluto_4", "tx": 1700 + 220, "ty": 13547 + 220, "label": "Punta Horizonte"}
                 ]
             },
             "mars_5": {
                 "name": "Base Dust-Storm", "level": 5, "style": "mars_storm",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Valles de Magma"},
-                    {"x": PB_X, "y": PB_Y, "target": "mars_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cantera Olympus"}
+                    {"x": 1207, "y": 1015, "target": "neutral_1", "tx": 9700 - 220, "ty": 7680 - 220, "label": "Zona Neutral"},
+                    {"x": 18657, "y": 14530, "target": "mars_6", "tx": 1852 + 220, "ty": 1556 + 220, "label": "Cantera Olympus"}
                 ]
             },
             "mars_6": {
                 "name": "Cantera Olympus", "level": 6, "style": "mars",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_5", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Base Dust-Storm"},
-                    {"x": PB_X, "y": PB_Y, "target": "mars_7", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Puesto Phobos"}
+                    {"x": 1852, "y": 1556, "target": "mars_5", "tx": 18657 - 220, "ty": 14530 - 220, "label": "Base Dust-Storm"},
+                    {"x": 18238, "y": 14463, "target": "mars_7", "tx": 1833 + 220, "ty": 1680 + 220, "label": "Puesto Phobos"}
                 ]
             },
             "mars_7": {
                 "name": "Puesto de Avanzada Phobos", "level": 7, "style": "mars",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_6", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cantera Olympus"},
-                    {"x": PB_X, "y": PB_Y, "target": "mars_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Plataforma Asedio"}
+                    {"x": 1833, "y": 1680, "target": "mars_6", "tx": 18238 - 220, "ty": 14463 - 220, "label": "Cantera Olympus"},
+                    {"x": 18386, "y": 14805, "target": "mars_8", "tx": 1526 + 220, "ty": 1422 + 220, "label": "Plataforma Asedio"}
                 ]
             },
             "mars_8": {
                 "name": "Plataforma de Asedio", "level": 8, "style": "mars_industrial",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "mars_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Puesto Phobos"}
+                    {"x": 1526, "y": 1422, "target": "mars_7", "tx": 18386 - 220, "ty": 14805 - 220, "label": "Puesto Phobos"}
                 ],
-                "station": {"x": PB_X, "y": PB_Y} # Nueva estación en el punto celeste
+                "station": {"x": 18742, "y": 14911} # Nueva estación en el punto celeste
             },
             # --- FACCIÓN MOON (Mapa Inicial: Bahía de Selene) ---
             "moon_1": {
@@ -123,7 +125,9 @@ class GameState:
                 "name": "Mar de la Tranquilidad", "level": 4, "style": "moon_minimal",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "moon_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Zenit"},
-                    {"x": PB_X, "y": PB_Y, "target": "moon_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Observatorio L-1"}
+                    {"x": PB_X, "y": PB_Y, "target": "moon_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Observatorio L-1"},
+                    {"x": 1810, "y": 14391, "target": "mars_4", "tx": 2000 - 220, "ty": 14293 - 220, "label": "Valles de Magma"},
+                    {"x": 10283, "y": 14189, "target": "pluto_4", "tx": 10000 + 220, "ty": 13333 + 220, "label": "Punta Horizonte"}
                 ]
             },
             "moon_5": {
@@ -181,7 +185,9 @@ class GameState:
                 "name": "Punta del Horizonte", "level": 4, "style": "pluto_void",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "pluto_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Nébula Cobalto"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cripta Escarcha"}
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cripta Escarcha"},
+                    {"x": 1700, "y": 13547, "target": "mars_4", "tx": 9895 - 220, "ty": 13867 - 220, "label": "Valles de Magma"},
+                    {"x": 10000, "y": 13333, "target": "moon_4", "tx": 10283 - 220, "ty": 14189 - 220, "label": "Mar de la Tranquilidad"}
                 ]
             },
             "pluto_5": {
@@ -211,6 +217,14 @@ class GameState:
                     {"x": PA_X, "y": PA_Y, "target": "pluto_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Exilio"}
                 ],
                 "station": {"x": PB_X, "y": PB_Y} # Avanzada de Plutón
+            },
+            # --- MAPAS NEUTRALES ---
+            "neutral_1": {
+                "name": "Zona Neutral 1", "level": 1, "style": "neutral",
+                "portals": [
+                    {"x": 1338, "y": 1274, "target": "mars_4", "tx": 18500 - 220, "ty": 14613 - 220, "label": "Valles de Magma"},
+                    {"x": 9700, "y": 7680, "target": "mars_5", "tx": 1207 + 220, "ty": 1015 + 220, "label": "Base Dust-Storm"}
+                ]
             }
         }
         
@@ -242,7 +256,7 @@ class GameState:
                 "cargo_capacity": 1500
             },
             "fast": {
-                "hp": 80, "shld": 50, "atk": 110, "spd": 180, "color": "#00ccff",
+                "hp": 80, "shld": 50, "atk": 110, "spd": 160, "color": "#00ccff",
                 "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2},
                 "cargo_capacity": 500
             },
@@ -274,8 +288,8 @@ class GameState:
             "id": client_id,
             "user_id": user_id,
             "ship_type": ship_type,
-            "x": 1600,
-            "y": 1050,
+            "x": 1750,
+            "y": 1150,
             "vx": 0,
             "vy": 0,
             "hp": prof["hp"],
@@ -291,8 +305,8 @@ class GameState:
             "atk": prof["atk"],
             "spd": prof["spd"],
             "color": prof["color"],
-            "x": 1600, # Posición inicial segura
-            "y": 1050,
+            "x": 1750, # Posición inicial segura (Base)
+            "y": 1150,
             "target_x": None,
             "target_y": None,
             "score": 0,
@@ -315,7 +329,9 @@ class GameState:
             "current_map": "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"),
             "paladio": initial_paladio,
             "faction": faction, # Mars, Moon, Pluto
-            "clan_tag": clan_tag  # User created clan (e.g. [ABC])
+            "clan_tag": clan_tag,  # User created clan (e.g. [ABC])
+            "repair_accumulated": 0.0,
+            "last_repair_msg_time": 0.0
         }
 
         # Guardar estadísticas base para recálculos
@@ -354,8 +370,8 @@ class GameState:
         # --- RESTAURAR POSICIÓN Y ESTADO PERSISTENTE ---
         if user_id and user_id in self.player_persistence:
             saved = self.player_persistence[user_id]
-            player["x"] = saved.get("x", 1600)
-            player["y"] = saved.get("y", 1050)
+            player["x"] = saved.get("x", 1750)
+            player["y"] = saved.get("y", 1150)
             player["current_map"] = saved.get("current_map", "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"))
             
             # Use provided faction/clan if they are fresh, else use saved
@@ -589,7 +605,22 @@ class GameState:
             actual_damage = (player["atk"] * 0.25 * config["dmg"]) * max(1, num_lasers)
             
             projectile_speed = 1400 # Velocidad de rayo láser
-            angle = player.get("heading", -1.57)
+            locked_id = player.get("locked_target_id")
+            
+            target_enemy = None
+            if locked_id:
+                target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
+                if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
+                    target_enemy = self.players[locked_id]
+                    
+            if target_enemy:
+                dx = target_enemy["x"] - player["x"]
+                dy = target_enemy["y"] - player["y"]
+                angle = math.atan2(dy, dx)
+                target_id_for_proj = locked_id
+            else:
+                angle = player.get("heading", -1.57)
+                target_id_for_proj = None
             
             self.projectiles.append({
                 "id": str(random.random()),
@@ -599,10 +630,13 @@ class GameState:
                 "y": player["y"],
                 "vx": math.cos(angle) * projectile_speed,
                 "vy": math.sin(angle) * projectile_speed,
+                "speed": projectile_speed,
                 "damage": actual_damage,
                 "ammo_type": ammo_type,
                 "life": 1.2, # segundos de vida del rayo
-                "map_id": player["current_map"]
+                "map_id": player["current_map"],
+                "is_homing": True if target_id_for_proj else False,
+                "target_id": target_id_for_proj
             })
 
         # Missile Firing (Tecla E)
@@ -693,8 +727,25 @@ class GameState:
             # Si el jugador estaba muerto (reparado), reseter flag
             if p.get("is_dead"): p["is_dead"] = False
 
-            p["x"] += p["vx"] * dt
-            p["y"] += p["vy"] * dt
+            # Stop exactly at target to prevent overshoot and reverse heading bugs
+            if p.get("target_x") is not None and p.get("target_y") is not None:
+                dx = p["target_x"] - p["x"]
+                dy = p["target_y"] - p["y"]
+                dist = math.hypot(dx, dy)
+                step = math.hypot(p["vx"]*dt, p["vy"]*dt)
+                if step >= dist:
+                    p["x"] = p["target_x"]
+                    p["y"] = p["target_y"]
+                    p["vx"] = 0
+                    p["vy"] = 0
+                    p["target_x"] = None
+                    p["target_y"] = None
+                else:
+                    p["x"] += p["vx"] * dt
+                    p["y"] += p["vy"] * dt
+            else:
+                p["x"] += p["vx"] * dt
+                p["y"] += p["vy"] * dt
             
             # Constrain to screen/world limits
             p["x"] = max(20, min(self.GAME_WIDTH - 20, p["x"]))
@@ -704,6 +755,29 @@ class GameState:
             # Regenerar Escudos si no ha recibido daño en 3 segundos
             if now - p["last_dmg_time"] > 3.0:
                 p["shld"] = min(p["max_shld"], p["shld"] + (20.0 * dt)) # 20 SHLD/s
+            
+            # Regenerar HP (Robot de Reparación)
+            # Solo si lleva 5 segundos sin recibir daño (frente a los 3s de los escudos)
+            if p.get("repair_rate", 0) > 0 and now - p["last_dmg_time"] > 5.0 and p["hp"] < p["max_hp"]:
+                hp_before = p["hp"]
+                p["hp"] = min(p["max_hp"], p["hp"] + (p["repair_rate"] * dt))
+                healed = p["hp"] - hp_before
+                p["repair_accumulated"] += healed
+                p["is_repairing"] = True
+                
+                # Lanzar evento visual cada 25 HP o cada 2 segundos mientras repara
+                if p["repair_accumulated"] >= 25 or (now - p["last_repair_msg_time"] > 2.0 and p["repair_accumulated"] > 0):
+                    self.loot_events.append({
+                        "type": "heal",
+                        "amount": round(p["repair_accumulated"]),
+                        "x": p["x"], "y": p["y"],
+                        "time": now, "owner_id": pid
+                    })
+                    p["repair_accumulated"] = 0
+                    p["last_repair_msg_time"] = now
+            else:
+                p["is_repairing"] = False
+                p["repair_accumulated"] = 0 # Reset si se interrumpe la reparación o termina
             
             # Quitar powerup si expiró
             if p["powerup"] and now > p["powerup_time"]:
@@ -773,8 +847,11 @@ class GameState:
         # 3. Update Projectiles
         for proj in self.projectiles:
             # --- LÓGICA DE MISILES TELEDIRIGIDOS (HOMING) ---
-            if proj.get("is_missile") and proj.get("target_id"):
+            if (proj.get("is_missile") or proj.get("is_homing")) and proj.get("target_id"):
                 target = next((e for e in self.enemies if e["id"] == proj["target_id"] and e.get("map_id") == proj.get("map_id")), None)
+                if not target and proj["target_id"] in self.players and self.players[proj["target_id"]].get("current_map") == proj.get("map_id"):
+                    target = self.players[proj["target_id"]]
+                
                 if target and target.get("hp", 0) > 0:
                     dx = target["x"] - proj["x"]
                     dy = target["y"] - proj["y"]
@@ -784,8 +861,8 @@ class GameState:
                         current_angle = math.atan2(proj["vy"], proj["vx"])
                         # Ángulo relativo normalizado
                         diff = (target_angle - current_angle + math.pi) % (2 * math.pi) - math.pi
-                        # Velocidad de giro: 4.5 radianes por segundo para misiles ágiles
-                        turn_rate = 4.5 * dt 
+                        # Velocidad de giro: 15.0 radianes por sec para misiles, 50.0 para lasers (casi instantáneo)
+                        turn_rate = 50.0 * dt if proj.get("is_homing") else 15.0 * dt 
                         new_angle = current_angle + max(-turn_rate, min(turn_rate, diff))
                         
                         speed = proj.get("speed", 500)
@@ -830,20 +907,34 @@ class GameState:
                 dx = target_player["x"] - enemy["x"]
                 dy = target_player["y"] - enemy["y"]
                 dist = math.hypot(dx, dy)
-                
-                if dist > 50: # Mantener una pequeña distancia
-                    enemy["vx"] = (dx / dist) * 120 # Velocidad de persecución
-                    enemy["vy"] = (dy / dist) * 120
+                # Lógica de Movimiento (Mantener distancia de ~300m)
+                # Si el usuario se aleja de los 300m, el alien lo persigue.
+                if dist > 310:
+                    # Velocidad de persecución incrementada y escalada por nivel
+                    # 180 es una base más agresiva para seguir al jugador
+                    chase_speed = 180 * enemy.get("speed_mult", 1.0)
+                    enemy["vx"] = (dx / dist) * chase_speed
+                    enemy["vy"] = (dy / dist) * chase_speed
+                elif dist < 290 and dist > 0:
+                    # Si el usuario se acerca, el alien mantiene la distancia retrocediendo
+                    retreat_speed = 150 * enemy.get("speed_mult", 1.0)
+                    enemy["vx"] = -(dx / dist) * retreat_speed
+                    enemy["vy"] = -(dy / dist) * retreat_speed
                 else:
+                    # Dentro del rango ideal (~300m), detenerse gradualmente o dist=0
                     enemy["vx"], enemy["vy"] = 0, 0
 
                 # Lógica de Ataque (Disparo) - Cada usuario se denomina enemigo de los aliens
                 map_lvl = self.MAPS.get(m_id, {}).get("level", 1)
                 shot_cooldown = max(0.4, 1.8 - (map_lvl * 0.15)) # Más rápidos en mapas altos
                 
-                if dist < 500 and now - enemy.get("last_shot", 0) > shot_cooldown:
+                # Lógica de Ataque: Rango de láser fijado a 300 metros
+                if dist < 315 and now - enemy.get("last_shot", 0) > shot_cooldown:
                     angle = math.atan2(dy, dx)
-                    p_speed = 400 + (map_lvl * 40) # Balas más rápidas en mapas altos
+                    p_speed = 400 + (map_lvl * 40) 
+                    # El alcance es 300m, por lo que life = 300 / p_speed
+                    laser_life = 300.0 / p_speed
+                    
                     self.projectiles.append({
                         "id": "alien_laser_" + str(random.random()),
                         "owner_id": enemy["id"],
@@ -853,9 +944,9 @@ class GameState:
                         "vx": math.cos(angle) * p_speed,
                         "vy": math.sin(angle) * p_speed,
                         "damage": enemy.get("atk", 15),
-                        "life": 1.5,
+                        "life": laser_life,
                         "map_id": m_id,
-                        "color": "#ff3333" # Rojo para aliens
+                        "color": "#ff3333"
                     })
                     enemy["last_shot"] = now
             
@@ -863,13 +954,21 @@ class GameState:
             enemy["x"] += enemy["vx"] * dt
             enemy["y"] += enemy["vy"] * dt
             
-            # Si salen de los límites del mapa, reaparecen
-            if (enemy["y"] > self.GAME_HEIGHT + 100 or enemy["y"] < -100 or
-                enemy["x"] > self.GAME_WIDTH + 100 or enemy["x"] < -100):
-                enemy["y"] = -50 
-                enemy["x"] = random.randint(50, self.GAME_WIDTH - 50)
-                enemy["vx"] = random.uniform(-50, 50)
-                enemy["vy"] = random.uniform(50, 150)
+            # --- LÓGICA DE BORDES (REBOTE) ---
+            # Si tocan los bordes del mapa, rebotan invirtiendo velocidad (100% permanencia)
+            if enemy["x"] < 50:
+                enemy["x"] = 50
+                enemy["vx"] = abs(enemy["vx"])
+            elif enemy["x"] > self.GAME_WIDTH - 50:
+                enemy["x"] = self.GAME_WIDTH - 50
+                enemy["vx"] = -abs(enemy["vx"])
+                
+            if enemy["y"] < 50:
+                enemy["y"] = 50
+                enemy["vy"] = abs(enemy["vy"])
+            elif enemy["y"] > self.GAME_HEIGHT - 50:
+                enemy["y"] = self.GAME_HEIGHT - 50
+                enemy["vy"] = -abs(enemy["vy"])
         
         # Limpiar eventos antiguos (2.5 segundos)
         self.kill_events = [e for e in self.kill_events if now - e["time"] < 2.5]
@@ -891,11 +990,13 @@ class GameState:
                 for e in self.enemies:
                     if p.get("map_id") != e.get("map_id"): continue
                     dist = math.hypot(p["x"] - e["x"], p["y"] - e["y"])
-                    if dist < 20 or (p.get("is_missile") and dist < 45): # Radio colisión mayor para misiles
+                    # Radio colisión mayor para armas de jugadores (100% efectividad/puntería)
+                    laser_hit_radius = 80 if p.get("is_homing") else 35 
+                    if dist < laser_hit_radius or (p.get("is_missile") and dist < 60): 
                         # Solo aplicar daño si NO es munición Sifón
                         if p.get("ammo_type") != "siphon":
-                            # Aplicar Resistencia (Defense)
-                            final_damage = p["damage"] * (1 - e.get("defense", 0))
+                            # 100% EFECTIVIDAD: Los jugadores ignoran la defensa del alien
+                            final_damage = p["damage"] 
                             e["hp"] -= final_damage
                             
                             # Retaliation: Si es un hunter, fijar como target al que le disparó
@@ -1291,6 +1392,7 @@ class GameState:
             "atk": int(base_atk * (2.2 if is_hard else 1.0)),
             "vx": random.uniform(-60, 60) * speed_mult,
             "vy": random.uniform(-60, 60) * speed_mult,
+            "speed_mult": speed_mult, # Guardar para la lógica de persecución
             "map_id": map_id,
             "level": lvl, # Guardar nivel para recompensas
             "defense": defense, # Resistencia porcentual
@@ -1324,12 +1426,14 @@ class GameState:
         player["lasers"] = 0
         player["engines"] = 0
         player["shields"] = 0
+        player["repair_rate"] = 0 # Reiniciar tasa de reparación
         
         for mod in player.get("equipped", []):
             if "atk" in mod: player["atk"] += mod["atk"]
             if "shld" in mod: player["max_shld"] += mod["shld"]
             if "spd" in mod: player["spd"] += mod["spd"]
             if "hp" in mod: player["max_hp"] += mod["hp"]
+            if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
 
             # Recount for visuals
             m_type = mod.get("type", "")

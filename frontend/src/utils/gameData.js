@@ -33,7 +33,7 @@ export const SHIPS = [
     name: 'Nova Striker (Rápida)',
     hp: 80,
     atk: 110,
-    spd: 180,
+    spd: 160,
     color: '#00ccff',
     desc: 'Frágil pero muy rápida ⚡',
     image: '/nova_striker.png',
@@ -99,6 +99,8 @@ export const MODULES_CATALOG = [
   
   { id: 'util_1',   type: 'utility', name: 'Refuerzo HP',      cost: 500,  hp: 40,   icon: '⚛️' },
   { id: 'util_2',   type: 'utility', name: 'Superviviencia',   cost: 1500, hp: 100,  icon: '⚛️' },
+  { id: 'util_repair_1', type: 'utility', name: 'Robot Reparación I', cost: 1200, repair_rate: 5.0, icon: '🔧' },
+  { id: 'util_repair_2', type: 'utility', name: 'Robot Reparación II', cost: 3500, repair_rate: 7.5, icon: '🛠️' },
 ];
 
 export const AMMO_CATALOG = [

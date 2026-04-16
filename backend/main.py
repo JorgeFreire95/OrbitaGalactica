@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 import os
 import requests
+from typing import Optional, List, Dict
 
 import mercadopago
 
@@ -46,7 +47,11 @@ class SyncRequest(BaseModel):
     xp: int
     credits: int
     paladio: int
-    minerals: dict = None
+    minerals: Optional[dict] = None
+    owned_ships: Optional[list] = None
+    inventory: Optional[list] = None
+    equipped: Optional[dict] = None
+
 
 class ClanCreateRequest(BaseModel):
     tag: str
@@ -127,6 +132,9 @@ class PaladioPaymentRequest(BaseModel):
     username: str
     email: str | None = None
     amount: int
+
+class AdminVipRequest(BaseModel):
+    days: int
 
 # Configurar logging a archivo
 logging.basicConfig(filename='app.log', level=logging.INFO, 
@@ -247,6 +255,12 @@ async def api_login(req: LoginRequest):
         "xp": result.get("xp", 0),
         "credits": result.get("credits", 2000),
         "paladio": result.get("paladio", 0),
+        "selected_ship": result.get("selected_ship", "starter"),
+        "vip_until": result.get("vip_until"),
+        "minerals": result.get("minerals"),
+        "owned_ships": result.get("owned_ships", ["starter"]),
+        "inventory": result.get("inventory", []),
+        "equipped": result.get("equipped", {}),
         "clan": clan_data
     }
 
@@ -389,6 +403,18 @@ async def api_set_faction(req: SetFactionRequest):
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
     return {"message": "Facción actualizada exitosamente."}
 
+class ShipUpdateRequest(BaseModel):
+    username: str
+    ship_id: str
+
+@app.post("/api/user/ship")
+async def api_update_user_ship(req: ShipUpdateRequest):
+    from database import update_user_ship
+    success = update_user_ship(req.username, req.ship_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al actualizar la nave activa en la base de datos.")
+    return {"success": True, "message": "Nave actualizada correctamente."}
+
 @app.get("/api/messages")
 async def api_get_messages(username: str):
     msgs = get_user_messages_db(username)
@@ -409,11 +435,10 @@ async def api_get_user_stats(username: str):
     return stats
 
 @app.post("/api/user/sync")
-async def api_user_sync(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, minerals=req.minerals)
+async def api_sync_stats(req: SyncRequest):
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped)
     if not success:
-        raise HTTPException(status_code=500, detail="Error al sincronizar datos.")
-    
+        raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
     # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
     for pid, p in game_state.players.items():
         if p.get("user_id") == req.username:
@@ -425,7 +450,7 @@ async def api_user_sync(req: SyncRequest):
             p["xp"] = req.xp
             break
             
-    return {"message": "Sincronización exitosa."}
+    return {"success": True, "message": "Sincronización exitosa."}
 
 @app.post("/api/user/repair")
 async def api_repair_ship(req: RepairRequest):
@@ -434,8 +459,19 @@ async def api_repair_ship(req: RepairRequest):
     if not stats:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    if stats["credits"] < REPAIR_COST:
-        raise HTTPException(status_code=400, detail="Créditos insuficientes (500 necesarios)")
+    # Check VIP status for free repair
+    vip_until = stats.get("vip_until")
+    is_vip = False
+    if vip_until:
+        try:
+            is_vip = datetime.fromisoformat(vip_until) > datetime.now()
+        except:
+            pass
+            
+    actual_cost = 0 if is_vip else REPAIR_COST
+    
+    if stats["credits"] < actual_cost:
+        raise HTTPException(status_code=400, detail=f"Créditos insuficientes ({actual_cost} necesarios)")
     
     # Encontrar jugador en la sesión activa si existe
     target_pid = None
@@ -445,7 +481,7 @@ async def api_repair_ship(req: RepairRequest):
             break
             
     # Descontar créditos en DB
-    new_credits = stats["credits"] - REPAIR_COST
+    new_credits = stats["credits"] - actual_cost
     sync_user_stats(req.username, stats["level"], stats["xp"], new_credits, stats["paladio"])
     
     if target_pid:
@@ -543,6 +579,22 @@ async def api_admin_delete_user(username: str):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"message": "Usuario eliminado"}
 
+@app.post("/api/admin/users/{username}/vip")
+async def api_admin_add_vip(username: str, req: AdminVipRequest):
+    from database import add_vip_days_db
+    success = add_vip_days_db(username, req.days)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error actualizando días VIP.")
+    return {"message": f"Añadidos {req.days} días VIP exitosamente."}
+    
+@app.delete("/api/admin/users/{username}/vip")
+async def api_admin_revoke_vip(username: str):
+    from database import revoke_vip_db
+    success = revoke_vip_db(username)
+    if not success:
+        raise HTTPException(status_code=500, detail="Error al revocar estatus VIP.")
+    return {"message": f"Estatus VIP revocado para {username}."}
+
 # --- ENDPOINTS DE ANUNCIOS ---
 
 @app.get("/api/announcements")
@@ -618,8 +670,20 @@ async def create_premium_payment(req: PremiumPaymentRequest):
 async def create_paladio_payment(req: PaladioPaymentRequest):
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="Cantidad inválida")
+    
     unit_price = 0.01  # $0.01 por paladio
     total_price = req.amount * unit_price
+
+    # Check VIP for 10% discount
+    stats = get_user_stats_db(req.username)
+    if stats:
+        vip_until = stats.get("vip_until")
+        if vip_until:
+            try:
+                if datetime.fromisoformat(vip_until) > datetime.now():
+                    total_price *= 0.9  # 10% discount
+            except:
+                pass
     preference_data = {
         "items": [
             {

@@ -2,6 +2,7 @@ import sqlite3
 import hashlib
 import os
 import secrets
+from datetime import datetime, timedelta
 
 DB_FILE = os.path.join(os.path.dirname(__file__), "orbita_galactica.db")
 
@@ -26,11 +27,27 @@ def init_db():
             credits INTEGER DEFAULT 2000,
             paladio INTEGER DEFAULT 0,
             minerals_json TEXT DEFAULT '{"titanium": 0, "plutonium": 0, "silicon": 0}',
+            owned_ships_json TEXT DEFAULT '["starter"]',
+            inventory_json TEXT DEFAULT '[]',
+            equipped_json TEXT DEFAULT '{}',
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
         )
     ''')
+    
+    # Migración: Añadir columnas si no existen
+    columns = [
+        ("owned_ships_json", "TEXT DEFAULT '[\"starter\"]'"),
+        ("inventory_json", "TEXT DEFAULT '[]'"),
+        ("equipped_json", "TEXT DEFAULT '{}'")
+    ]
+    for col_name, col_type in columns:
+        try:
+            c.execute(f'ALTER TABLE users ADD COLUMN {col_name} {col_type}')
+        except sqlite3.OperationalError:
+            pass # Ya existe
+
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS clans (
@@ -175,6 +192,16 @@ def init_db():
         c.execute("ALTER TABLE users ADD COLUMN minerals_json TEXT DEFAULT '{\"titanium\": 0, \"plutonium\": 0, \"silicon\": 0}'")
     except sqlite3.OperationalError:
         pass
+
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN selected_ship TEXT DEFAULT 'starter'")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN vip_until TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass
         
     # Inyectar admin base si no existe
     c.execute("SELECT id FROM users WHERE username = 'admin'")
@@ -206,10 +233,11 @@ def register_user(username, email, password):
     c = conn.cursor()
     hashed, salt = hash_password(password)
     try:
+        vip_until = (datetime.now() + timedelta(days=30)).isoformat()
         c.execute('''
-            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (username, email, hashed, salt, 1, 0, 2000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0}'))
+            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json, owned_ships_json, inventory_json, equipped_json, vip_until) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (username, email, hashed, salt, 1, 0, 2000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0}', '["starter"]', '[]', '{}', vip_until))
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError as e:
@@ -227,7 +255,10 @@ def get_user_stats_db(username):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('SELECT level, xp, credits, paladio, minerals_json FROM users WHERE username = ?', (username,))
+        try:
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json FROM users WHERE username = ?', (username,))
+        except sqlite3.OperationalError:
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\' FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -235,15 +266,25 @@ def get_user_stats_db(username):
         import json
         try:
             minerals = json.loads(row[4]) if row[4] else {"titanium": 0, "plutonium": 0, "silicon": 0}
+            owned_ships = json.loads(row[6]) if row[6] else ["starter"]
+            inventory = json.loads(row[7]) if row[7] else []
+            equipped = json.loads(row[8]) if row[8] else {}
         except:
             minerals = {"titanium": 0, "plutonium": 0, "silicon": 0}
+            owned_ships = ["starter"]
+            inventory = []
+            equipped = {}
 
         return {
             "level": row[0],
             "xp": row[1],
             "credits": row[2],
             "paladio": row[3],
-            "minerals": minerals
+            "minerals": minerals,
+            "vip_until": row[5] if len(row) > 5 else None,
+            "owned_ships": owned_ships,
+            "inventory": inventory,
+            "equipped": equipped
         }
     finally:
         conn.close()
@@ -251,19 +292,24 @@ def get_user_stats_db(username):
 def login_user(username, password):
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt FROM users WHERE username = ?', (username,))
+    try:
+        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json FROM users WHERE username = ?', (username,))
+    except sqlite3.OperationalError:
+        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\' FROM users WHERE username = ?', (username,))
     row = c.fetchone()
     conn.close()
     
     if not row:
         return {"success": False, "error": "Credenciales incorrectas"}
     
-    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt = row
+    # row unpack
+    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json = row
     test_hash, _ = hash_password(password, salt)
     
     if test_hash == db_hash:
         # Recuperar minerales para la sesión inicial
         stats = get_user_stats_db(db_username)
+        import json
         return {
             "success": True, 
             "username": db_username, 
@@ -274,7 +320,12 @@ def login_user(username, password):
             "xp": xp,
             "credits": credits,
             "paladio": paladio,
-            "minerals": stats["minerals"] if stats else {"titanium": 0, "plutonium": 0, "silicon": 0}
+            "selected_ship": selected_ship or "starter",
+            "vip_until": vip_until,
+            "minerals": stats["minerals"] if stats else {"titanium": 0, "plutonium": 0, "silicon": 0},
+            "owned_ships": json.loads(owned_ships_json) if owned_ships_json else ["starter"],
+            "inventory": json.loads(inventory_json) if inventory_json else [],
+            "equipped": json.loads(equipped_json) if equipped_json else {}
         }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
@@ -292,7 +343,10 @@ def set_user_faction(username, faction):
 def get_all_users():
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT username, email, faction, is_admin, is_super_admin, clan_tag, clan_role, level, xp, credits, paladio FROM users')
+    try:
+        c.execute('SELECT username, email, faction, is_admin, is_super_admin, clan_tag, clan_role, level, xp, credits, paladio, vip_until FROM users')
+    except sqlite3.OperationalError:
+        c.execute('SELECT username, email, faction, is_admin, is_super_admin, clan_tag, clan_role, level, xp, credits, paladio, NULL as vip_until FROM users')
     rows = c.fetchall()
     conn.close()
     return [{
@@ -306,8 +360,53 @@ def get_all_users():
         "level": r[7],
         "xp": r[8],
         "credits": r[9],
-        "paladio": r[10]
+        "paladio": r[10],
+        "vip_until": r[11] if len(r) > 11 else None
     } for r in rows]
+
+def add_vip_days_db(username, days):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT vip_until FROM users WHERE username = ?', (username,))
+        row = c.fetchone()
+        if not row:
+            return False
+            
+        current_vip = row[0]
+        now = datetime.now()
+        
+        if current_vip:
+            try:
+                current_date = datetime.fromisoformat(current_vip)
+                if current_date < now:
+                    current_date = now
+            except ValueError:
+                current_date = now
+        else:
+            current_date = now
+            
+        new_vip = (current_date + timedelta(days=days)).isoformat()
+        c.execute('UPDATE users SET vip_until = ? WHERE username = ?', (new_vip, username))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating vip_until: {e}")
+        return False
+    finally:
+        conn.close()
+
+def revoke_vip_db(username):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('UPDATE users SET vip_until = NULL WHERE username = ?', (username,))
+        conn.commit()
+        return c.rowcount > 0
+    except Exception:
+        return False
+    finally:
+        conn.close()
 
 def delete_user(username):
     conn = get_connection()
@@ -384,28 +483,47 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
     finally:
         conn.close()
 
-def sync_user_stats(username, level, xp, credits, paladio, minerals=None):
+def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None):
     conn = get_connection()
     c = conn.cursor()
+    import json
     try:
+        fields = ["level = ?", "xp = ?", "credits = ?", "paladio = ?"]
+        params = [level, xp, credits, paladio]
+        
         if minerals is not None:
-            import json
-            minerals_json = json.dumps(minerals)
-            c.execute('''
-                UPDATE users 
-                SET level = ?, xp = ?, credits = ?, paladio = ?, minerals_json = ?
-                WHERE username = ?
-            ''', (level, xp, credits, paladio, minerals_json, username))
-        else:
-            c.execute('''
-                UPDATE users 
-                SET level = ?, xp = ?, credits = ?, paladio = ?
-                WHERE username = ?
-            ''', (level, xp, credits, paladio, username))
+            fields.append("minerals_json = ?")
+            params.append(json.dumps(minerals))
+        if owned_ships is not None:
+            fields.append("owned_ships_json = ?")
+            params.append(json.dumps(owned_ships))
+        if inventory is not None:
+            fields.append("inventory_json = ?")
+            params.append(json.dumps(inventory))
+        if equipped is not None:
+            fields.append("equipped_json = ?")
+            params.append(json.dumps(equipped))
+            
+        params.append(username)
+        query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"
+        c.execute(query, params)
         conn.commit()
         return True
     except Exception as e:
         print(f"Error syncing stats: {e}")
+        return False
+    finally:
+        conn.close()
+
+def update_user_ship(username, ship_id):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('UPDATE users SET selected_ship = ? WHERE username = ?', (ship_id, username))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating user ship: {e}")
         return False
     finally:
         conn.close()

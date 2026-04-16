@@ -129,6 +129,42 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
     }
   };
 
+  const handleAddVip = async (username) => {
+    if (!window.confirm(`¿Añadir 30 días VIP a ${username}?`)) return;
+    try {
+      const resp = await fetch(`${API_URL}/admin/users/${username}/vip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: 30 })
+      });
+      if (resp.ok) {
+        fetchUsers();
+      } else {
+        const data = await resp.json();
+        alert(data.detail || "Error al otorgar VIP");
+      }
+    } catch (err) {
+      alert("Error de conexión");
+    }
+  };
+  
+  const handleRevokeVip = async (username) => {
+    if (!window.confirm(`¿Estás seguro de REVOCAR el estatus VIP de ${username}?`)) return;
+    try {
+      const resp = await fetch(`${API_URL}/admin/users/${username}/vip`, {
+        method: 'DELETE'
+      });
+      if (resp.ok) {
+        fetchUsers();
+      } else {
+        const data = await resp.json();
+        alert(data.detail || "Error al revocar VIP");
+      }
+    } catch (err) {
+      alert("Error de conexión");
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.username.toLowerCase().includes(search.toLowerCase()) || 
     u.email.toLowerCase().includes(search.toLowerCase())
@@ -248,6 +284,14 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
                     <span className="stat-pill-label">Paladio</span>
                     <span className="stat-pill-value" style={{ color: '#aa88ff' }}>🪐 {u.paladio?.toLocaleString()}</span>
                   </div>
+                  <div className="stat-pill" style={{ gridColumn: '1/-1', background: 'rgba(255, 204, 0, 0.05)', border: '1px solid rgba(255, 204, 0, 0.2)' }}>
+                    <span className="stat-pill-label" style={{ color: '#ffcc00' }}>⭐ ESTADO VIP</span>
+                    <span className="stat-pill-value" style={{ fontSize: '0.7rem', color: u.vip_until && new Date(u.vip_until) > new Date() ? '#00ffcc' : '#555' }}>
+                      {u.vip_until && new Date(u.vip_until) > new Date() 
+                        ? `ACTIVO HASTA ${new Date(u.vip_until).toLocaleDateString()}` 
+                        : 'SIN VIP'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="xp-progress-container">
@@ -259,6 +303,46 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
                     <div className="xp-bar-fill" style={{ width: `${Math.min(100, ((u.xp || 0) / getNextLevelXp(u.level)) * 100)}%` }}></div>
                   </div>
                 </div>
+
+                {!u.is_admin && (
+                  <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
+                    <button 
+                      className="gestionar-button" 
+                      style={{ 
+                        flex: 2,
+                        margin: 0, 
+                        fontSize: '0.7rem', 
+                        padding: '10px', 
+                        background: 'linear-gradient(45deg, #ffcc00, #ff8800)',
+                        color: '#000',
+                        fontWeight: 'bold',
+                        borderColor: '#ffcc00'
+                      }}
+                      onClick={() => handleAddVip(u.username)}
+                    >
+                      🌟 OTORGAR +30 DÍAS VIP
+                    </button>
+                    {u.vip_until && new Date(u.vip_until) > new Date() && (
+                      <button 
+                        className="gestionar-button" 
+                        style={{ 
+                          flex: 1,
+                          margin: 0, 
+                          fontSize: '0.7rem', 
+                          padding: '10px', 
+                          background: 'rgba(255, 51, 102, 0.1)',
+                          color: '#ff3366',
+                          borderColor: '#ff3366',
+                          border: '1px solid'
+                        }}
+                        onClick={() => handleRevokeVip(u.username)}
+                        title="Revocar estatus VIP"
+                      >
+                        🚫
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <button 
                   className="gestionar-button" 

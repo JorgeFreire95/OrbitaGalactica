@@ -6,6 +6,20 @@ const TopBar = ({ credits, paladio, level, user, onLogout, onNavigate }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
         <img src="/logo_og.png" alt="Logo mini" className="game-logo-topbar" />
         <span className="game-title-topbar">ÓRBITA GALÁCTICA</span>
+        {user?.vip_until && new Date(user.vip_until) > new Date() && (
+          <span style={{
+            background: 'linear-gradient(45deg, #ffcc00, #ffaa00)',
+            color: '#000',
+            fontWeight: '900',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            fontSize: '0.9rem',
+            marginLeft: '5px',
+            boxShadow: '0 0 15px rgba(255, 204, 0, 0.8), inset 0 0 5px rgba(255,255,255,0.8)',
+            textShadow: '1px 1px 0px rgba(255,255,255,0.5)',
+            letterSpacing: '1px'
+          }}>VIP</span>
+        )}
       </div>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
         

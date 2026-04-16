@@ -25,7 +25,7 @@
 - **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
 - **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'**, con animación de flash de salto hiperespacial.
 - **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m y detección temprana de naves alienígenas.
-- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Incluye posición exacta (`X, Y`), sector actual, créditos, paladio, nivel, XP y munición. Retoma tu misión exactamente donde la dejaste.
+- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Al unirse por primera vez o elegir empresa, los pilotos aparecen en su **Mapa de Inicio** dedicado (**Sector de Hierro** para MARS, **Bahía de Selene** para MOON, **Abismo de Caronte** para PLUTO) exactamente en las coordenadas de la base (1750, 1150). Retoma tu misión exactamente donde la dejaste.
 
 ### 👥 Sistema de Grupo Táctico (Party System)
 - **Reclutamiento Rápido**: Fija el blanco en las naves de tus aliados haciendo clic en ellas e invítalos de forma remota a tu Grupo Táctico sin salir de la vista de combate.
@@ -54,6 +54,7 @@
 - **Paladio (🪐)**: Recurso valioso recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
+- **Beneficios VIP Premium**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
 
 ### 👾 Bestiario Alienígena y Amenaza Activa
 El universo de Órbita Galáctica es ahora más peligroso. Todos los alienígenas han sido reprogramados con un **Protocolo de Caza Activa**:
@@ -110,6 +111,7 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 - **HUD Dinámico**: Barras de **Vida (❤️)** y **Escudo (🛡️)** animadas con cambios de color según el estado crítico.
 - **Sincronización Autorritativa**: Modificaciones en el Hangar se reflejan instantáneamente en las estadísticas de combate.
 - **Feedback de Daño Dual**: Los daños infligidos por el jugador son blancos/amarillos, mientras que el daño recibido de aliens es **rojo**, mejorando la conciencia táctica.
+- **Sistemas de Bio-Retroalimentación**: Las reparaciones en tiempo real muestran mensajes flotantes de curación (**+HP 💚**) en color turquesa neón, permitiendo monitorear la recuperación de integridad estructural sin apartar la vista del combate.
 - **Sistema de Misiles Inteligentes**: Los misiles ahora son **teledirigidos**. Requieren que un alienígena esté marcado/fijado como blanco para ser disparados (Tecla 'E'), persiguiendo automáticamente al objetivo hasta el impacto.
 
 ### 💰 Economía y Suministros
@@ -125,7 +127,8 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 
 ### ⚙️ Administración y Seguridad
 - **Bases de Facción Autorritativas**: Puntos de reaparición estratégicos para **MARS**, **MOON** y **PLUTO**, cada uno con su propia Zona Segura dedicada.
-- **Panel de Control de Servidor**: Herramientas para moderadores que permiten gestionar el estado de los sectores, expulsar usuarios conflictivos y monitorear la integridad de la base de datos en tiempo real.
+- **Panel de Control de Servidor**: Herramientas para moderadores que permiten gestionar el estado de los sectores, expulsar usuarios conflictivos, revocar beneficios VIP y monitorear la integridad de la base de datos en tiempo real.
+- **Privacidad de Hangar**: Sistema de inventario robusto que asegura que las naves y equipamiento comprados sean exclusivos de cada cuenta, evitando fugas de datos entre perfiles de usuario.
 
 ---
 

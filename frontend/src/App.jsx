@@ -262,7 +262,10 @@ function App() {
           xp,
           credits,
           paladio,
-          minerals
+          minerals,
+          owned_ships: ownedShips,
+          inventory,
+          equipped: equippedByShip
         })
       });
     } catch (e) {
@@ -314,7 +317,7 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level, minerals]);
+  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip]);
 
   useEffect(() => {
     if (user && user.faction) {
@@ -369,6 +372,27 @@ function App() {
       if (data.paladio !== undefined) setPaladio(data.paladio);
       if (data.level !== undefined) setLevel(data.level);
       if (data.xp !== undefined) setXp(data.xp);
+      if (data.selected_ship) {
+        setSelectedShipId(data.selected_ship);
+        localStorage.setItem('selected_ship_id', data.selected_ship);
+      }
+      
+      if (data.owned_ships) {
+        setOwnedShips(data.owned_ships);
+        localStorage.setItem('owned_ships', JSON.stringify(data.owned_ships));
+      }
+      if (data.inventory) {
+        setInventory(data.inventory);
+        localStorage.setItem('game_inventory', JSON.stringify(data.inventory));
+      }
+      if (data.equipped) {
+        setEquippedByShip(data.equipped);
+        localStorage.setItem('equipped_modules', JSON.stringify(data.equipped));
+      }
+      if (data.minerals) {
+        setMinerals(data.minerals);
+        localStorage.setItem('game_minerals', JSON.stringify(data.minerals));
+      }
 
       if (!data.faction) {
         setCurrentView('faction_select');
@@ -393,7 +417,8 @@ function App() {
         alert(error.detail || 'Error al registrarse');
         return;
       }
-      setUser({ username: regData.username, email: regData.email, faction: null });
+      const tempVip = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      setUser({ username: regData.username, email: regData.email, faction: null, vip_until: tempVip });
       setCurrentView('faction_select');
     } catch (e) {
       alert('Error de conexión con el servidor principal.');
@@ -487,7 +512,23 @@ function App() {
     sessionStorage.removeItem('game_ammo');
     sessionStorage.removeItem('game_upgrades');
     localStorage.removeItem('game_clan');
-    sessionStorage.removeItem('orbita_galactica_user_id');
+    localStorage.removeItem('game_credits');
+    localStorage.removeItem('game_paladio');
+    localStorage.removeItem('game_level');
+    localStorage.removeItem('game_xp');
+    localStorage.removeItem('game_minerals');
+    localStorage.removeItem('game_inventory');
+    localStorage.removeItem('equipped_modules');
+    localStorage.removeItem('game_ammo');
+    localStorage.removeItem('game_upgrades');
+    localStorage.removeItem('owned_ships');
+    localStorage.removeItem('selected_ship_id');
+    localStorage.removeItem('og_game_running');
+    localStorage.removeItem('og_player_safe_zone');
+    
+    sessionStorage.clear();
+    localStorage.clear(); // Limpieza total para evitar fugas de datos
+
     
     setUser(null);
     setCurrentView('auth');
@@ -731,6 +772,7 @@ function App() {
 
       {currentView === 'hangar' && (
         <Hangar 
+          user={user}
           selectedShipId={selectedShipId}
           setSelectedShipId={setSelectedShipId}
           equippedByShip={equippedByShip}

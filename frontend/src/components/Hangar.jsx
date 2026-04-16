@@ -4,6 +4,7 @@ import { SlotDisplay, StatRow } from './ShipComponents';
 import NavigationBar from './NavigationBar';
 
 export default function Hangar({ 
+  user,
   selectedShipId, 
   setSelectedShipId, 
   equippedByShip, 
@@ -129,9 +130,19 @@ export default function Hangar({
           }}>
             {!isActive && isOwned && (
               <button 
-                className="primary-button"
-                onClick={() => setSelectedShipId(viewedShipId)}
-                style={{ width: '100%' }}
+                className="gestionar-button"
+                onClick={() => {
+                  setSelectedShipId(viewedShipId);
+                  // Persistir en backend
+                  if (user && user.username) {
+                    fetch('http://localhost:8000/api/user/ship', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ username: user.username, ship_id: viewedShipId })
+                    }).catch(console.error);
+                  }
+                }}
+                style={{ width: '100%', margin: '0' }}
               >
                 EQUIPAR COMO ACTIVA
               </button>
@@ -149,7 +160,7 @@ export default function Hangar({
               className={`gestionar-button ${isBlocked || !isOwned ? 'blocked' : ''}`} 
               onClick={() => isOwned && setEditMode(true)}
               disabled={!isOwned}
-              style={{ width: '100%' }}
+              style={{ width: '100%', margin: '0' }}
             >
               {!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR CONFIGURACIÓN'}
             </button>

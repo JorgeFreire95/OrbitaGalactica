@@ -133,30 +133,44 @@ export default function Packages({ user, paladio, setPaladio, onBack }) {
               </div>
             ) : (
               <div className="packages-grid">
-                {paladioPackages.map(pkg => (
-                  <div
-                    key={pkg.id}
-                    className={`pack-card ${selectedPaladioPackage === pkg.id ? 'active' : ''}`}
-                    onClick={() => setSelectedPaladioPackage(pkg.id)}
-                  >
-                    <div className="pack-card-header">
-                      <div>{pkg.label}</div>
-                      <div>⚛️</div>
-                    </div>
-                    <div className="pack-card-amount">{pkg.amount} PAL</div>
-                    <div className="pack-card-price">${pkg.price.toFixed(2)} USD</div>
-                    <div className="pack-card-caption">Mejor opción para compras recurrentes</div>
-                    <button
-                      className="btn-primary pack-cta"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleBuyPaladio(pkg.amount);
-                      }}
+                {paladioPackages.map(pkg => {
+                  const isVip = user?.vip_until && new Date(user.vip_until) > new Date();
+                  const discountedPrice = isVip ? pkg.price * 0.9 : pkg.price;
+                  
+                  return (
+                    <div
+                      key={pkg.id}
+                      className={`pack-card ${selectedPaladioPackage === pkg.id ? 'active' : ''}`}
+                      onClick={() => setSelectedPaladioPackage(pkg.id)}
                     >
-                      COMPRAR
-                    </button>
-                  </div>
-                ))}
+                      <div className="pack-card-header">
+                        <div>{pkg.label}</div>
+                        <div>{isVip && <span style={{ fontSize: '0.6rem', background: '#ffcc00', color: '#000', padding: '2px 4px', borderRadius: '3px', marginRight: '5px' }}>AHORRO VIP</span>}⚛️</div>
+                      </div>
+                      <div className="pack-card-amount">{pkg.amount} PAL</div>
+                      <div className="pack-card-price">
+                        {isVip ? (
+                          <>
+                            <span style={{ textDecoration: 'line-through', opacity: 0.5, fontSize: '0.8rem', marginRight: '5px' }}>${pkg.price.toFixed(2)}</span>
+                            <span style={{ color: '#00ffcc' }}>${discountedPrice.toFixed(2)} USD</span>
+                          </>
+                        ) : (
+                          `$${pkg.price.toFixed(2)} USD`
+                        )}
+                      </div>
+                      <div className="pack-card-caption">Mejor opción para compras recurrentes</div>
+                      <button
+                        className="btn-primary pack-cta"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBuyPaladio(pkg.amount);
+                        }}
+                      >
+                        COMPRAR
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

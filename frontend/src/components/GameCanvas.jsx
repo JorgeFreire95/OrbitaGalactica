@@ -18,6 +18,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const [isJumping, setIsJumping] = useState(false);
   const [showJumpPrompt, setShowJumpPrompt] = useState(false);
   const joinSentRef = useRef(false);
+  const lastFrameTimeRef = useRef(performance.now());
+  const lastReactRenderRef = useRef(0);
 
   // --- DRAGGABLE HUD STATE ---
   const [hotbarPos, setHotbarPos] = useState(() => {
@@ -278,26 +280,67 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             triggerJumpAnimation();
             keys.current.target_x = null; keys.current.target_y = null;
           }
-          gameStateRef.current = data.state;
-          setGameState(data.state);
-          const me = data.state.players?.find(p => p.is_self);
-          if (me) {
-            // Actualizar HUD estado liviano — dispara re-render garantizado
-            setHudState({
-              hp: me.hp,
-              max_hp: me.max_hp,
-              shld: me.shld,
-              max_shld: me.max_shld,
-              spd: me.spd,
-              xp: me.xp,
-              credits: me.credits,
-              level: me.level,
-              paladio: me.paladio,
-              minerals: me.minerals,
-              max_cargo: me.max_cargo,
-              in_safe_zone: me.in_safe_zone,
-              is_dead: me.hp <= 0,
+
+          // True Visual Interpolation Setup
+          if (gameStateRef.current) {
+            const oldState = gameStateRef.current;
+            
+            data.state.players?.forEach(p => {
+               const oldP = oldState.players?.find(op => op.id === p.id);
+               if (oldP && p.hp > 0) {
+                   p.tx = p.x; p.ty = p.y; // Meta del servidor
+                   p.x = oldP.x; p.y = oldP.y; // Conservar pos visual local actual
+               } else {
+                   p.tx = p.x; p.ty = p.y;
+               }
             });
+
+            data.state.enemies?.forEach(e => {
+               const oldE = oldState.enemies?.find(op => op.id === e.id);
+               if (oldE) {
+                   e.tx = e.x; e.ty = e.y;
+                   e.x = oldE.x; e.y = oldE.y;
+               } else {
+                   e.tx = e.x; e.ty = e.y;
+               }
+            });
+
+            data.state.projectiles?.forEach(pr => {
+               const oldPr = oldState.projectiles?.find(op => op.id === pr.id);
+               if (oldPr) {
+                   pr.tx = pr.x; pr.ty = pr.y;
+                   pr.x = oldPr.x; pr.y = oldPr.y;
+               } else {
+                   pr.tx = pr.x; pr.ty = pr.y;
+               }
+            });
+          }
+
+          gameStateRef.current = data.state;
+          const me = data.state.players?.find(p => p.is_self);
+          
+          const nowMs = performance.now();
+          if (nowMs - lastReactRenderRef.current > 100) {
+              setGameState(data.state);
+              if (me) {
+                // Actualizar HUD estado liviano — dispara re-render garantizado
+                setHudState({
+                  hp: me.hp, max_hp: me.max_hp,
+                  shld: me.shld, max_shld: me.max_shld,
+                  spd: me.spd,
+                  xp: me.xp, credits: me.credits, level: me.level,
+                  paladio: me.paladio,
+                  minerals: me.minerals, max_cargo: me.max_cargo,
+                  in_safe_zone: me.in_safe_zone,
+                  is_dead: me.hp <= 0,
+                  repair_rate: me.repair_rate,
+                  is_repairing: me.is_repairing,
+                });
+              }
+              lastReactRenderRef.current = nowMs;
+          }
+
+          if (me) {
             // Persist safe zone status for other views (Hangar)
             if (localStorage.getItem('og_player_safe_zone') !== String(me.in_safe_zone)) {
               localStorage.setItem('og_player_safe_zone', me.in_safe_zone);
@@ -360,8 +403,61 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     };
 
     const renderLoop = () => {
-      const now = Date.now();
-      if (wsRef.current?.readyState === WebSocket.OPEN && now - lastInputTime > 50) {
+      const now = performance.now();
+      const dt = (now - lastFrameTimeRef.current) / 1000;
+      lastFrameTimeRef.current = now;
+
+      // --- CLIENT-SIDE PREDICTION / INTERPOLATION ---
+      if (gameStateRef.current) {
+        const state = gameStateRef.current;
+        const M_WIDTH = state.map_width || 20800;
+        const M_HEIGHT = state.map_height || 15150;
+
+        // Smooth Chasing / Interpolation for Players
+        state.players?.forEach(p => {
+          if (p.hp > 0 && p.tx !== undefined) {
+             const dist = Math.hypot(p.tx - p.x, p.ty - p.y);
+             // Si hay demasiada diferencia (lag spike), hacer salto instantáneo (snap)
+             if (dist > 500) {
+                 p.x = p.tx; p.y = p.ty;
+             } else {
+                 // Perseguir suavemente el objetivo del servidor (interpolate visualmente)
+                 // Se ajusta el factor según el framerate real (dt) para siempre deslizarse continuo
+                 const glide = Math.min(1.0, dt * 25.0); 
+                 p.x += (p.tx - p.x) * glide;
+                 p.y += (p.ty - p.y) * glide;
+             }
+             p.x = Math.max(20, Math.min(M_WIDTH - 20, p.x));
+             p.y = Math.max(20, Math.min(M_HEIGHT - 20, p.y));
+          }
+        });
+
+        // Move Enemies smoothly
+        state.enemies?.forEach(e => {
+            if (e.tx !== undefined) {
+                const dist = Math.hypot(e.tx - e.x, e.ty - e.y);
+                if (dist > 500) {
+                    e.x = e.tx; e.y = e.ty;
+                } else {
+                    const glide = Math.min(1.0, dt * 15.0);
+                    e.x += (e.tx - e.x) * glide;
+                    e.y += (e.ty - e.y) * glide;
+                }
+            }
+        });
+
+        // Move Projectiles smoothly
+        state.projectiles?.forEach(pr => {
+            if (pr.tx !== undefined) {
+                const glide = Math.min(1.0, dt * 30.0);
+                pr.x += (pr.tx - pr.x) * glide;
+                pr.y += (pr.ty - pr.y) * glide;
+            }
+        });
+      }
+
+      const inputNow = Date.now();
+      if (wsRef.current?.readyState === WebSocket.OPEN && inputNow - lastInputTime > 50) {
         // --- CLEAN ARRIVAL: Limpieza de destino si ya llegamos ---
         const me = gameStateRef.current?.players?.find(p => p.is_self);
         if (me && keys.current.target_x !== null && keys.current.target_y !== null) {
@@ -505,7 +601,18 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           letterSpacing: '1px', pointerEvents: 'none', zIndex: 100,
           animation: 'pulse-safe 2s infinite ease-in-out'
         }}>
-          <style>{`@keyframes pulse-safe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }`}</style>
+          <style>{`
+            @keyframes pulse-safe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+            @keyframes pulse-repair {
+              0% { box-shadow: 0 0 5px #00ff66; border-color: #00ff66; }
+              50% { box-shadow: 0 0 20px #00ff66; border-color: #ffffff; }
+              100% { box-shadow: 0 0 5px #00ff66; border-color: #00ff66; }
+            }
+            .hotbar-slot.repairing-active {
+              animation: pulse-repair 1.5s infinite ease-in-out;
+              background: rgba(0, 255, 100, 0.2) !important;
+            }
+          `}</style>
           <span>🛡️</span>
           <span>ZONA SEGURA</span>
         </div>
@@ -729,14 +836,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
                         { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
                         { id: 'blank_8', key: '8', disabled: true },
-                        { id: 'blank_9', key: '9', disabled: true },
+                        hudState?.repair_rate > 0 
+                            ? { id: 'repair_bot', type: 'utility', icon: '🔧', key: '9', repairing: hudState.is_repairing }
+                            : { id: 'blank_9', key: '9', disabled: true },
                         { id: 'blank_0', key: '0', disabled: true },
                     ].map((slot) => {
-                        const isActive = (slot.type === 'laser' && me.ammo_type === slot.id) || (slot.type === 'missile' && me.missile_type === slot.id);
-                        const count = slot.type === 'laser' ? me.ammo[slot.id] : slot.type === 'missile' ? (me.missiles?.[slot.id] || 0) : null;
+                        const isActive = (slot.type === 'laser' && me?.ammo_type === slot.id) || (slot.type === 'missile' && me?.missile_type === slot.id);
+                        const count = slot.type === 'laser' ? me?.ammo?.[slot.id] : slot.type === 'missile' ? (me?.missiles?.[slot.id] || 0) : null;
                         return (
-                            <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} onClick={() => !slot.disabled && wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }))}>
-                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: isActive ? '100%' : '20%', opacity: isActive ? 1 : 0.3 }} /></div>
+                            <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.repairing ? 'repairing-active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} onClick={() => !slot.disabled && slot.type !== 'utility' && wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }))}>
+                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || slot.repairing) ? '100%' : '20%', opacity: (isActive || slot.repairing) ? 1 : 0.3, background: slot.repairing ? '#00ff66' : '' }} /></div>
                                 <div className="slot-icon" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                     {slot.image ? <img src={slot.image} alt="ammo icon" style={{ width: '80%', height: '80%', objectFit: 'contain' }} /> : slot.icon}
                                 </div>
@@ -783,7 +892,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         className="battle-button" 
                         style={{ padding: '18px 40px', background: '#00ffcc', color: '#000', width: '100%', fontSize: '1.1rem' }}
                     >
-                        🔧 RECONSTRUIR (500 CR)
+                        🔧 RECONSTRUIR {user?.vip_until && new Date(user.vip_until) > new Date() ? '(GRATIS)' : '(500 CR)'}
                     </button>
                     
                     <button 

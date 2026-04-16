@@ -66,7 +66,30 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, min
               <div className="pilot-profile">
                 <div className="pilot-avatar">👨‍🚀</div>
                 <div className="pilot-stats">
-                  <div className="pilot-name">{user ? user.username : 'PILOTO_ESTELAR'}</div>
+                  <div className="pilot-name" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {user ? user.username : 'PILOTO_ESTELAR'}
+                    {user?.vip_until && new Date(user.vip_until) > new Date() ? (
+                      <span style={{
+                        background: 'linear-gradient(45deg, #ffcc00, #ffaa00)',
+                        color: '#000',
+                        fontSize: '0.6rem',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: '900',
+                        boxShadow: '0 0 10px rgba(255,204,0,0.6)'
+                      }}>VIP</span>
+                    ) : (
+                      <span style={{
+                        background: 'rgba(255,255,255,0.1)',
+                        color: '#aaa',
+                        fontSize: '0.6rem',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 'bold',
+                        border: '1px solid #444'
+                      }}>FREE</span>
+                    )}
+                  </div>
                   <div className="pilot-rank">{getRank(level)}</div>
                   <div style={{ color: user?.faction === 'MARS' ? '#ff3333' : user?.faction === 'MOON' ? '#33ccff' : '#cc33ff', fontSize: '0.75rem', fontWeight: 'bold', marginTop: '4px' }}>
                     {user?.faction || 'Sin Empresa'}
