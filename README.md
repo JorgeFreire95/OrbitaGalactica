@@ -23,10 +23,11 @@
 
 ### 🛸 Navegación y Mundo Galáctico
 - **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
-- **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'**, con animación de flash de salto hiperespacial.
+- **Portales Estelares (Standardized Gateway Network)**: Red de portales optimizada con coordenadas estandarizadas para facilitar la navegación táctica. Los portales de retroceso se ubican en **(1600, 1920)** y los de avance en **(17532, 14300)** en la mayoría de los sectores. Además, se han habilitado **Atajos de Salto de Emergencia** que conectan sectores estratégicos (como Nvl 5 directamente con Nvl 7), optimizando las rutas comerciales y militares. Los saltos requieren activación manual mediante la tecla **'J'**.
 - **Zona Neutral 1 (Hub Central)**: Mapa central estratégico que actúa como nexo entre las tres facciones (**MARS, MOON, PLUTO**). Este sector ha sido designado como **Zona de Paz total**, donde no aparecen naves alienígenas hostiles, permitiendo el encuentro entre pilotos y la transición segura entre sistemas.
 - **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m y detección temprana de naves alienígenas.
-- **Persistencia de Sesión y Sincronización Multi-Ventana**: Tu progreso (Nivel, XP, Créditos, Paladio, Naves y Equipo) se guarda automáticamente tanto en base de datos como en tiempo real. Se ha implementado un sistema de **Sincronización Multi-Pestaña** que asegura que, si realizas compras o cambios en una ventana, todas las demás se actualicen inmediatamente, evitando la pérdida de datos o sobrescrituras accidentales. Además, el guardado cuenta con un sistema de **Debounce** contra fallos de red para garantizar la integridad de las transacciones.
+- **Persistencia de Sesión y Sincronización Multi-Ventana**: Tu progreso (Nivel, XP, Créditos, Paladio, Naves y Equipo) se guarda automáticamente tanto en base de datos como en tiempo real. Se ha implementado un sistema de **Sincronización Multi-Pestaña** que asegura que, si realizas compras o cambios en una ventana, todas las demás se actualicen inmediatamente.
+- **Sistema de Experiencia Total Acumulada**: Se ha refactorizado el sistema de progresión para que los puntos de experiencia (XP) sean un **total acumulado** de por vida. Al subir de nivel, los puntos no se consumen ni se reinician a cero, permitiendo una visualización continua del esfuerzo del piloto. Se ha implementado una fórmula de escalado cuadrático para los umbrales de nivel, asegurando un reto constante mientras se mantiene la integridad de los puntos ganados.
 - **Inicio de Carrera Autorritativo**: Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Al unirse por primera vez o elegir empresa, los pilotos aparecen en su **Mapa de Inicio** dedicado (**Sector de Hierro** para MARS, **Bahía de Selene** para MOON, **Abismo de Caronte** para PLUTO) exactamente en las coordenadas de la base (1750, 1150).
 
 ### 👥 Sistema de Grupo Táctico (Party System)
@@ -53,10 +54,17 @@
     - **Panel de Relaciones**: Seguimiento en tiempo real de alianzas estratégicas y hostilidades activas directamente desde el dashboard.
 
 ### 💰 Economía y Recursos
-- **Paladio (🪐)**: Recurso valioso recolectable mediante **Cofres Especiales** que aparecen aleatoriamente por la galaxia.
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
+- **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda y mejoras de élite.
 - **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
 - **Beneficios VIP Premium**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
+
+### 📦 Cofres Especiales (Botín de Exploración)
+Los **Cofres Especiales** (resaltados en el radar) aparecen de forma aleatoria en todos los sectores. Al recolectarlos, otorgan de forma aleatoria una de las siguientes recompensas:
+- **💰 Créditos (40%)**: Entre **1,000 y 5,000** Créditos.
+- **🔫 Munición Láser (25%)**: Entre **50 y 150** unidades de munición Térmica, Plasma o Sifón.
+- **🚀 Misiles (15%)**: Entre **5 y 15** misiles (M-1, M-2 o M-3).
+- **🪐 Paladio (20%)**: Entre **2 y 10** unidades de Paladio.
 
 ### 👾 Bestiario Alienígena y Amenaza Activa
 El universo de Órbita Galáctica es ahora más peligroso. Todos los alienígenas han sido reprogramados con un **Protocolo de Caza Activa**:

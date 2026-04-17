@@ -74,7 +74,8 @@ class GameState:
                 "name": "Base Dust-Storm", "level": 5, "style": "mars_storm",
                 "portals": [
                     {"x": 1207, "y": 1015, "target": "neutral_1", "tx": 1338 + 220, "ty": 1274 + 220, "label": "Zona Neutral"},
-                    {"x": 18657, "y": 14530, "target": "mars_6", "tx": 1852 + 220, "ty": 1556 + 220, "label": "Cantera Olympus"}
+                    {"x": 18657, "y": 14530, "target": "mars_6", "tx": 1852 + 220, "ty": 1556 + 220, "label": "Cantera Olympus"},
+                    {"x": 2200, "y": 13653, "target": "mars_7", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Puesto Phobos"}
                 ]
             },
             "mars_6": {
@@ -88,13 +89,14 @@ class GameState:
                 "name": "Puesto de Avanzada Phobos", "level": 7, "style": "mars",
                 "portals": [
                     {"x": 1833, "y": 1680, "target": "mars_6", "tx": 18238 - 220, "ty": 14463 - 220, "label": "Cantera Olympus"},
-                    {"x": 18386, "y": 14805, "target": "mars_8", "tx": 1526 + 220, "ty": 1422 + 220, "label": "Plataforma Asedio"}
+                    {"x": 17532, "y": 14300, "target": "mars_8", "tx": 1526 + 220, "ty": 1422 + 220, "label": "Plataforma Asedio"},
+                    {"x": 1600, "y": 1920, "target": "mars_5", "tx": 2200 + 220, "ty": 13653 + 220, "label": "Base Dust-Storm"}
                 ]
             },
             "mars_8": {
                 "name": "Plataforma de Asedio", "level": 8, "style": "mars_industrial",
                 "portals": [
-                    {"x": 1526, "y": 1422, "target": "mars_7", "tx": 18386 - 220, "ty": 14805 - 220, "label": "Puesto Phobos"}
+                    {"x": 1526, "y": 1422, "target": "mars_7", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Puesto Phobos"}
                 ],
                 "station": {"x": 18742, "y": 14911} # Nueva estación en el punto celeste
             },
@@ -102,38 +104,39 @@ class GameState:
             "moon_1": {
                 "name": "Bahía de Selene", "level": 1, "style": "moon",
                 "portals": [
-                    {"x": 17880, "y": 14793, "target": "moon_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cráter de Cristal"}
+                    {"x": 17880, "y": 14793, "target": "moon_2",   "tx": 1600 + 220, "ty": 1920 + 220, "label": "Cráter de Cristal"}
                 ],
                 "station": {"x": 1750, "y": 1150} # Base de Inicio (Luna)
             },
             "moon_2": {
                 "name": "Cráter de Cristal", "level": 2, "style": "moon_crystal",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "moon_1", "tx": 17880 - 220, "ty": 14793 - 220, "label": "Bahía de Selene"},
-                    {"x": PB_X, "y": PB_Y, "target": "moon_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Estación Zenit"}
+                    {"x": 1600, "y": 1920, "target": "moon_1", "tx": 17880 - 220, "ty": 14793 - 220, "label": "Bahía de Selene"},
+                    {"x": 17532, "y": 14300, "target": "moon_3", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Estación Zenit"}
                 ]
             },
             "moon_3": {
                 "name": "Estación de Relevo Zenit", "level": 3, "style": "moon_tech",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "moon_2", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cráter de Cristal"},
-                    {"x": PB_X, "y": PB_Y, "target": "moon_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Mar de la Tranquilidad"}
+                    {"x": 1600, "y": 1920, "target": "moon_2", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Cráter de Cristal"},
+                    {"x": 17532, "y": 14300, "target": "moon_4", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Mar de la Tranquilidad"}
                 ]
             },
             "moon_4": {
                 "name": "Mar de la Tranquilidad", "level": 4, "style": "moon_minimal",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "moon_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Zenit"},
+                    {"x": 1600, "y": 1920, "target": "moon_3", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Estación Zenit"},
                     {"x": 1810, "y": 14391, "target": "mars_4", "tx": 2000 - 220, "ty": 14293 - 220, "label": "Valles de Magma"},
                     {"x": 10283, "y": 14189, "target": "pluto_4", "tx": 10000 + 220, "ty": 13333 + 220, "label": "Punta Horizonte"},
-                    {"x": 18341, "y": 14676, "target": "neutral_1", "tx": 8954 + 220, "ty": 8141 + 220, "label": "Zona Neutral"}
+                    {"x": 17532, "y": 14300, "target": "neutral_1", "tx": 8954 + 220, "ty": 8141 + 220, "label": "Zona Neutral"}
                 ]
             },
             "moon_5": {
                 "name": "Observatorio L-1", "level": 5, "style": "moon_space",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "neutral_1", "tx": 2000 + 220, "ty": 14400 + 220, "label": "Zona Neutral 1"},
-                    {"x": PB_X, "y": PB_Y, "target": "moon_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Domos de Biodiversidad"}
+                    {"x": PB_X, "y": PB_Y, "target": "moon_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Domos de Biodiversidad"},
+                    {"x": 2200, "y": 13653, "target": "moon_7", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Refinería Helio-3"}
                 ]
             },
             "moon_6": {
@@ -147,13 +150,14 @@ class GameState:
                 "name": "Refinería de Helio-3", "level": 7, "style": "moon_industrial",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "moon_6", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Domos de Biodiversidad"},
-                    {"x": PB_X, "y": PB_Y, "target": "moon_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Anillo de Plata"}
+                    {"x": 17532, "y": 14300, "target": "moon_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Anillo de Plata"},
+                    {"x": 1600, "y": 1920, "target": "moon_5", "tx": 2200 + 220, "ty": 13653 + 220, "label": "Observatorio L-1"}
                 ]
             },
             "moon_8": {
                 "name": "Anillo de Plata", "level": 8, "style": "moon_racing",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "moon_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Refinería Helio-3"}
+                    {"x": PA_X, "y": PA_Y, "target": "moon_7", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Refinería Helio-3"}
                 ],
                 "station": {"x": PB_X, "y": PB_Y} # Avanzada de la Luna
             },
@@ -161,59 +165,61 @@ class GameState:
             "pluto_1": {
                 "name": "Abismo de Caronte", "level": 1, "style": "pluto",
                 "portals": [
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_2",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Glaciar Eterno"}
+                    {"x": 17900, "y": 14080, "target": "pluto_2",  "tx": 1996 + 220, "ty": 1597 + 220, "label": "Glaciar Eterno"}
                 ],
                 "station": {"x": 1750, "y": 1150} # Base de Inicio (Plutón)
             },
             "pluto_2": {
                 "name": "Glaciar Eterno", "level": 2, "style": "pluto_ice",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_1", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Abismo Caronte"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Nébula Cobalto"}
+                    {"x": 1996, "y": 1597, "target": "pluto_1", "tx": 17900 - 220, "ty": 14080 - 220, "label": "Abismo Caronte"},
+                    {"x": 17900, "y": 14080, "target": "pluto_3", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Nébula Cobalto"}
                 ]
             },
             "pluto_3": {
                 "name": "Nébula de Cobalto", "level": 3, "style": "pluto_nebula",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_2", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Glaciar Eterno"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_4", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Punta Horizonte"}
+                    {"x": 1600, "y": 1920, "target": "pluto_2", "tx": 17900 - 220, "ty": 14080 - 220, "label": "Glaciar Eterno"},
+                    {"x": 17532, "y": 14300, "target": "pluto_4", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Punta Horizonte"}
                 ]
             },
             "pluto_4": {
                 "name": "Punta del Horizonte", "level": 4, "style": "pluto_void",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Nébula Cobalto"},
+                    {"x": 1600, "y": 1920, "target": "pluto_3", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Nébula Cobalto"},
                     {"x": 1700, "y": 13547, "target": "mars_4", "tx": 9895 - 220, "ty": 13867 - 220, "label": "Valles de Magma"},
                     {"x": 10000, "y": 13333, "target": "moon_4", "tx": 10283 - 220, "ty": 14189 - 220, "label": "Mar de la Tranquilidad"},
-                    {"x": 17601, "y": 13867, "target": "neutral_1", "tx": 10371 + 220, "ty": 8333 + 220, "label": "Zona Neutral"}
+                    {"x": 17532, "y": 14300, "target": "neutral_1", "tx": 10371 + 220, "ty": 8333 + 220, "label": "Zona Neutral"}
                 ]
             },
             "pluto_5": {
                 "name": "Cripta de Escarcha", "level": 5, "style": "pluto_ancient",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Punta Horizonte"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Vórtice Sombrío"},
-                    {"x": 10000, "y": 8000, "target": "neutral_1", "tx": 18000 + 220, "ty": 14000 + 220, "label": "Zona Neutral"}
+                    {"x": 17532, "y": 14300, "target": "pluto_6", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Vórtice Sombrío"},
+                    {"x": 1600, "y": 1920, "target": "neutral_1", "tx": 18000 + 220, "ty": 14000 + 220, "label": "Zona Neutral"},
+                    {"x": 2200, "y": 13653, "target": "pluto_7", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Estación Exilio"}
                 ]
             },
             "pluto_6": {
                 "name": "Vórtice Sombrío", "level": 6, "style": "pluto_vortex",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_5", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Cripta Escarcha"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_7", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Estación Exilio"}
+                    {"x": 1600, "y": 1920, "target": "pluto_5", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Cripta Escarcha"},
+                    {"x": 17532, "y": 14300, "target": "pluto_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Resplandor Hielo"},
+                    {"x": 18000, "y": 14000, "target": "pluto_7", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Estación Exilio"}
                 ]
             },
             "pluto_7": {
                 "name": "Estación Exilio", "level": 7, "style": "pluto_prison",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_6", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Vórtice Sombrío"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Resplandor Hielo"}
+                    {"x": 1600, "y": 1920, "target": "pluto_6", "tx": 18000 + 220, "ty": 14000 + 220, "label": "Vórtice Sombrío"},
+                    {"x": 17532, "y": 14300, "target": "pluto_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Resplandor Hielo"},
+                    {"x": 1600, "y": 2500, "target": "pluto_5", "tx": 2200 + 220, "ty": 13653 + 220, "label": "Cripta Escarcha"}
                 ]
             },
             "pluto_8": {
                 "name": "Resplandor de Hielo", "level": 8, "style": "pluto_glow",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_7", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Exilio"}
+                    {"x": PA_X, "y": PA_Y, "target": "pluto_7", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Estación Exilio"}
                 ],
                 "station": {"x": PB_X, "y": PB_Y} # Avanzada de Plutón
             },
@@ -223,10 +229,10 @@ class GameState:
                 "portals": [
                     {"x": 9700, "y": 7680, "target": "mars_4", "tx": 18500 - 220, "ty": 14613 - 220, "label": "Valles de Magma"},
                     {"x": 1338, "y": 1274, "target": "mars_5", "tx": 1207 + 220, "ty": 1015 + 220, "label": "Base Dust-Storm"},
-                    {"x": 8954, "y": 8141, "target": "moon_4", "tx": 18341 - 220, "ty": 14676 - 220, "label": "Mar de la Tranquilidad"},
+                    {"x": 8954, "y": 8141, "target": "moon_4", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Mar de la Tranquilidad"},
                     {"x": 2000, "y": 14400, "target": "moon_5", "tx": 500 + 220, "ty": 500 + 220, "label": "Observatorio L-1"},
-                    {"x": 10371, "y": 8333, "target": "pluto_4", "tx": 17601 - 220, "ty": 13867 - 220, "label": "Punta Horizonte"},
-                    {"x": 18000, "y": 14000, "target": "pluto_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cripta de Escarcha"}
+                    {"x": 10371, "y": 8333, "target": "pluto_4", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Punta Horizonte"},
+                    {"x": 18000, "y": 14000, "target": "pluto_5", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Cripta de Escarcha"}
                 ]
             }
         }
@@ -325,8 +331,8 @@ class GameState:
             "last_missile_shot": 0,
             "ammo_type": "standard",
             "level": initial_level,
-            "xp": initial_xp,
-            "xp_next": initial_level * 1000,
+            "xp": initial_xp + (((initial_level - 1) * initial_level // 2) * 1000) if initial_xp < (((initial_level - 1) * initial_level // 2) * 1000) else initial_xp,
+            "xp_next": (initial_level * (initial_level + 1) // 2) * 1000,
             "minerals": initial_minerals if (initial_minerals and isinstance(initial_minerals, dict)) else {"titanium": 0, "plutonium": 0, "silicon": 0},
             "max_cargo": prof.get("cargo_capacity", 1500), # Capacidad aumentada significativamente
             "current_map": "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"),
@@ -373,6 +379,18 @@ class GameState:
         # --- RESTAURAR POSICIÓN Y ESTADO PERSISTENTE ---
         if user_id and user_id in self.player_persistence:
             saved = self.player_persistence[user_id]
+            player["level"] = saved.get("level", initial_level)
+            current_xp = saved.get("xp", initial_xp)
+            
+            # Migración: Si la XP guardada es menor al umbral acumulado del nivel anterior, 
+            # asumimos que es el sistema antiguo (residuo) y lo convertimos a total.
+            threshold_lvl_prev = ((player["level"] - 1) * player["level"] // 2) * 1000
+            if current_xp < threshold_lvl_prev:
+                player["xp"] = current_xp + threshold_lvl_prev
+            else:
+                player["xp"] = current_xp
+                
+            player["xp_next"] = (player["level"] * (player["level"] + 1) // 2) * 1000
             player["x"] = saved.get("x", 1750)
             player["y"] = saved.get("y", 1150)
             player["current_map"] = saved.get("current_map", "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"))
@@ -1547,11 +1565,12 @@ class GameState:
 
     def gain_xp(self, player, amount):
         player["xp"] += amount
-        # Level up logic
+        # Level up logic (Cumulative System)
         while player["xp"] >= player["xp_next"]:
-            player["xp"] -= player["xp_next"]
             player["level"] += 1
-            player["xp_next"] = player["level"] * 1000
+            # Next threshold: Sum of all requirements up to current level
+            # Formula: (L * (L + 1) / 2) * 1000
+            player["xp_next"] = (player["level"] * (player["level"] + 1) // 2) * 1000
             
             # Bonus per level up (Example: heal a bit)
             player["hp"] = min(player["max_hp"], player["hp"] + 25)
