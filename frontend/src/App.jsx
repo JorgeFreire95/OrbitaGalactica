@@ -195,6 +195,7 @@ function App() {
         case 'game_inventory': if (e.newValue) setInventory(JSON.parse(e.newValue)); break;
         case 'equipped_modules': if (e.newValue) setEquippedByShip(JSON.parse(e.newValue)); break;
         case 'selected_ship_id': if (e.newValue) setSelectedShipId(e.newValue); break;
+        case 'owned_ships': if (e.newValue) setOwnedShips(JSON.parse(e.newValue)); break;
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -249,28 +250,34 @@ function App() {
     localStorage.setItem('game_clan', JSON.stringify(clan));
   }, [clan]);
 
-  // SYNC STATS WITH BACKEND
+  // SYNC STATS WITH BACKEND (Debounced to prevent race conditions during multiple state updates)
   const syncStats = async () => {
     if (!user || currentView === 'auth') return;
-    try {
-      await fetch(`${API_URL}/user/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: user.username,
-          level,
-          xp,
-          credits,
-          paladio,
-          minerals,
-          owned_ships: ownedShips,
-          inventory,
-          equipped: equippedByShip
-        })
-      });
-    } catch (e) {
-      console.log("Sync error:", e);
-    }
+    
+    // Clear existing timer
+    if (window.syncTimer) clearTimeout(window.syncTimer);
+    
+    window.syncTimer = setTimeout(async () => {
+      try {
+        await fetch(`${API_URL}/user/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: user.username,
+            level,
+            xp,
+            credits,
+            paladio,
+            minerals,
+            owned_ships: ownedShips,
+            inventory,
+            equipped: equippedByShip
+          })
+        });
+      } catch (e) {
+        console.log("Sync error:", e);
+      }
+    }, 500); // 500ms debounce
   };
 
   const refreshStats = async () => {
@@ -283,6 +290,20 @@ function App() {
         if (data.paladio !== paladio) setPaladio(data.paladio);
         if (data.level !== level) setLevel(data.level);
         if (data.xp !== xp) setXp(data.xp);
+        
+        // Refresh complex state if they differ
+        if (data.owned_ships && JSON.stringify(data.owned_ships) !== JSON.stringify(ownedShips)) {
+          setOwnedShips(data.owned_ships);
+        }
+        if (data.inventory && JSON.stringify(data.inventory) !== JSON.stringify(inventory)) {
+          setInventory(data.inventory);
+        }
+        if (data.equipped && JSON.stringify(data.equipped) !== JSON.stringify(equippedByShip)) {
+          setEquippedByShip(data.equipped);
+        }
+        if (data.minerals && JSON.stringify(data.minerals) !== JSON.stringify(minerals)) {
+          setMinerals(data.minerals);
+        }
       }
       // Also refresh clan data periodically
       fetchClanData(user.username);
@@ -881,7 +902,7 @@ function App() {
             initialPaladio={paladio}
             initialMinerals={minerals}
             initialUpgrades={upgrades}
-            initialClan={clan}
+            initialClan={user?.faction}
             initialClanTag={clan?.tag}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}
             onUpdateProgress={handleUpdateProgress}

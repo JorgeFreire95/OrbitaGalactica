@@ -24,8 +24,10 @@
 ### 🛸 Navegación y Mundo Galáctico
 - **Multimapa y Sectores**: Sistema de múltiples sectores (**Sector Alfa** y **Sector Beta**) con escalado de dificultad. El Sector Beta contiene enemigos de élite con blindaje pesado.
 - **Portales Estelares (Wormholes)**: Agujeros de gusano funcionales para viajar entre sectores. Requieren activación manual mediante la tecla **'J'**, con animación de flash de salto hiperespacial.
+- **Zona Neutral 1 (Hub Central)**: Mapa central estratégico que actúa como nexo entre las tres facciones (**MARS, MOON, PLUTO**). Este sector ha sido designado como **Zona de Paz total**, donde no aparecen naves alienígenas hostiles, permitiendo el encuentro entre pilotos y la transición segura entre sistemas.
 - **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m y detección temprana de naves alienígenas.
-- **Persistencia de Sesión (Autoritativa)**: Tu progreso se guarda automáticamente. Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Al unirse por primera vez o elegir empresa, los pilotos aparecen en su **Mapa de Inicio** dedicado (**Sector de Hierro** para MARS, **Bahía de Selene** para MOON, **Abismo de Caronte** para PLUTO) exactamente en las coordenadas de la base (1750, 1150). Retoma tu misión exactamente donde la dejaste.
+- **Persistencia de Sesión y Sincronización Multi-Ventana**: Tu progreso (Nivel, XP, Créditos, Paladio, Naves y Equipo) se guarda automáticamente tanto en base de datos como en tiempo real. Se ha implementado un sistema de **Sincronización Multi-Pestaña** que asegura que, si realizas compras o cambios en una ventana, todas las demás se actualicen inmediatamente, evitando la pérdida de datos o sobrescrituras accidentales. Además, el guardado cuenta con un sistema de **Debounce** contra fallos de red para garantizar la integridad de las transacciones.
+- **Inicio de Carrera Autorritativo**: Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Al unirse por primera vez o elegir empresa, los pilotos aparecen en su **Mapa de Inicio** dedicado (**Sector de Hierro** para MARS, **Bahía de Selene** para MOON, **Abismo de Caronte** para PLUTO) exactamente en las coordenadas de la base (1750, 1150).
 
 ### 👥 Sistema de Grupo Táctico (Party System)
 - **Reclutamiento Rápido**: Fija el blanco en las naves de tus aliados haciendo clic en ellas e invítalos de forma remota a tu Grupo Táctico sin salir de la vista de combate.
@@ -104,6 +106,15 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 6. **Vórtice Sombrío** (Pluto 6)
 7. **Estación Exilio** (Pluto 7)
 8. **Resplandor de Hielo** (Pluto 8) - Avanzada del Vacío
+
+#### ⚪ Zona Neutral (Hub de Interconexión)
+1. **Zona Neutral 1** (Neutral 1) - **Santuario sin Aliens**. Conecta directamente con:
+   - **Valles de Magma** (Mars 4)
+   - **Base Dust-Storm** (Mars 5)
+   - **Mar de la Tranquilidad** (Moon 4)
+   - **Observatorio L-1** (Moon 5)
+   - **Punta del Horizonte** (Pluto 4)
+   - **Cripta de Escarcha** (Pluto 5)
 
 ### ⚔️ Combate y HUD Cinematográfico
 - **Efectos de Destrucción Estelar**: Explosiones dinámicas con destello radial al destruir enemigos.

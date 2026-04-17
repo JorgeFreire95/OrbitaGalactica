@@ -65,7 +65,7 @@ class GameState:
                 "name": "Valles de Magma", "level": 4, "style": "mars_hazard",
                 "portals": [
                     {"x": 2051, "y": 1585, "target": "mars_3", "tx": 18774 - 220, "ty": 15149 - 220, "label": "Fundición Ares"},
-                    {"x": 18500, "y": 14613, "target": "neutral_1", "tx": 1338 + 220, "ty": 1274 + 220, "label": "Zona Neutral"},
+                    {"x": 18500, "y": 14613, "target": "neutral_1", "tx": 9700 + 220, "ty": 7680 + 220, "label": "Zona Neutral"},
                     {"x": 2000, "y": 14293, "target": "moon_4", "tx": 1810 + 220, "ty": 14391 + 220, "label": "Mar de la Tranquilidad"},
                     {"x": 9895, "y": 13867, "target": "pluto_4", "tx": 1700 + 220, "ty": 13547 + 220, "label": "Punta Horizonte"}
                 ]
@@ -73,7 +73,7 @@ class GameState:
             "mars_5": {
                 "name": "Base Dust-Storm", "level": 5, "style": "mars_storm",
                 "portals": [
-                    {"x": 1207, "y": 1015, "target": "neutral_1", "tx": 9700 - 220, "ty": 7680 - 220, "label": "Zona Neutral"},
+                    {"x": 1207, "y": 1015, "target": "neutral_1", "tx": 1338 + 220, "ty": 1274 + 220, "label": "Zona Neutral"},
                     {"x": 18657, "y": 14530, "target": "mars_6", "tx": 1852 + 220, "ty": 1556 + 220, "label": "Cantera Olympus"}
                 ]
             },
@@ -102,15 +102,14 @@ class GameState:
             "moon_1": {
                 "name": "Bahía de Selene", "level": 1, "style": "moon",
                 "portals": [
-                    {"x": PB_X, "y": PB_Y, "target": "moon_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cráter de Cristal"},
-                    {"x": 1000, "y": 1000, "target": "pluto_1",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Abismo de Caronte"}
+                    {"x": 17880, "y": 14793, "target": "moon_2",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cráter de Cristal"}
                 ],
                 "station": {"x": 1750, "y": 1150} # Base de Inicio (Luna)
             },
             "moon_2": {
                 "name": "Cráter de Cristal", "level": 2, "style": "moon_crystal",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "moon_1", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Bahía de Selene"},
+                    {"x": PA_X, "y": PA_Y, "target": "moon_1", "tx": 17880 - 220, "ty": 14793 - 220, "label": "Bahía de Selene"},
                     {"x": PB_X, "y": PB_Y, "target": "moon_3", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Estación Zenit"}
                 ]
             },
@@ -125,15 +124,15 @@ class GameState:
                 "name": "Mar de la Tranquilidad", "level": 4, "style": "moon_minimal",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "moon_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Estación Zenit"},
-                    {"x": PB_X, "y": PB_Y, "target": "moon_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Observatorio L-1"},
                     {"x": 1810, "y": 14391, "target": "mars_4", "tx": 2000 - 220, "ty": 14293 - 220, "label": "Valles de Magma"},
-                    {"x": 10283, "y": 14189, "target": "pluto_4", "tx": 10000 + 220, "ty": 13333 + 220, "label": "Punta Horizonte"}
+                    {"x": 10283, "y": 14189, "target": "pluto_4", "tx": 10000 + 220, "ty": 13333 + 220, "label": "Punta Horizonte"},
+                    {"x": 18341, "y": 14676, "target": "neutral_1", "tx": 8954 + 220, "ty": 8141 + 220, "label": "Zona Neutral"}
                 ]
             },
             "moon_5": {
                 "name": "Observatorio L-1", "level": 5, "style": "moon_space",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "moon_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Mar de la Tranquilidad"},
+                    {"x": PA_X, "y": PA_Y, "target": "neutral_1", "tx": 2000 + 220, "ty": 14400 + 220, "label": "Zona Neutral 1"},
                     {"x": PB_X, "y": PB_Y, "target": "moon_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Domos de Biodiversidad"}
                 ]
             },
@@ -162,8 +161,7 @@ class GameState:
             "pluto_1": {
                 "name": "Abismo de Caronte", "level": 1, "style": "pluto",
                 "portals": [
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_2",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Glaciar Eterno"},
-                    {"x": 1000, "y": 1000, "target": "moon_1",   "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Bahía de Selene"}
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_2",  "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Glaciar Eterno"}
                 ],
                 "station": {"x": 1750, "y": 1150} # Base de Inicio (Plutón)
             },
@@ -185,16 +183,17 @@ class GameState:
                 "name": "Punta del Horizonte", "level": 4, "style": "pluto_void",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "pluto_3", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Nébula Cobalto"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cripta Escarcha"},
                     {"x": 1700, "y": 13547, "target": "mars_4", "tx": 9895 - 220, "ty": 13867 - 220, "label": "Valles de Magma"},
-                    {"x": 10000, "y": 13333, "target": "moon_4", "tx": 10283 - 220, "ty": 14189 - 220, "label": "Mar de la Tranquilidad"}
+                    {"x": 10000, "y": 13333, "target": "moon_4", "tx": 10283 - 220, "ty": 14189 - 220, "label": "Mar de la Tranquilidad"},
+                    {"x": 17601, "y": 13867, "target": "neutral_1", "tx": 10371 + 220, "ty": 8333 + 220, "label": "Zona Neutral"}
                 ]
             },
             "pluto_5": {
                 "name": "Cripta de Escarcha", "level": 5, "style": "pluto_ancient",
                 "portals": [
                     {"x": PA_X, "y": PA_Y, "target": "pluto_4", "tx": PB_X - 220, "ty": PB_Y - 220, "label": "Punta Horizonte"},
-                    {"x": PB_X, "y": PB_Y, "target": "pluto_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Vórtice Sombrío"}
+                    {"x": PB_X, "y": PB_Y, "target": "pluto_6", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Vórtice Sombrío"},
+                    {"x": 10000, "y": 8000, "target": "neutral_1", "tx": 18000 + 220, "ty": 14000 + 220, "label": "Zona Neutral"}
                 ]
             },
             "pluto_6": {
@@ -222,8 +221,12 @@ class GameState:
             "neutral_1": {
                 "name": "Zona Neutral 1", "level": 1, "style": "neutral",
                 "portals": [
-                    {"x": 1338, "y": 1274, "target": "mars_4", "tx": 18500 - 220, "ty": 14613 - 220, "label": "Valles de Magma"},
-                    {"x": 9700, "y": 7680, "target": "mars_5", "tx": 1207 + 220, "ty": 1015 + 220, "label": "Base Dust-Storm"}
+                    {"x": 9700, "y": 7680, "target": "mars_4", "tx": 18500 - 220, "ty": 14613 - 220, "label": "Valles de Magma"},
+                    {"x": 1338, "y": 1274, "target": "mars_5", "tx": 1207 + 220, "ty": 1015 + 220, "label": "Base Dust-Storm"},
+                    {"x": 8954, "y": 8141, "target": "moon_4", "tx": 18341 - 220, "ty": 14676 - 220, "label": "Mar de la Tranquilidad"},
+                    {"x": 2000, "y": 14400, "target": "moon_5", "tx": 500 + 220, "ty": 500 + 220, "label": "Observatorio L-1"},
+                    {"x": 10371, "y": 8333, "target": "pluto_4", "tx": 17601 - 220, "ty": 13867 - 220, "label": "Punta Horizonte"},
+                    {"x": 18000, "y": 14000, "target": "pluto_5", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Cripta de Escarcha"}
                 ]
             }
         }
@@ -418,7 +421,7 @@ class GameState:
                 self.player_persistence[user_id] = {
                     "x": player["x"],
                     "y": player["y"],
-                    "current_map": player.get("current_map", "pluto_1" if player.get("clan") == "PLUTO" else ("moon_1" if player.get("clan") == "MOON" else "mars_1")),
+                    "current_map": player.get("current_map", "pluto_1" if player.get("faction") == "PLUTO" else ("moon_1" if player.get("faction") == "MOON" else "mars_1")),
                     "paladio": player.get("paladio", 0),
                     "credits": player.get("credits", 0),
                     "xp": player.get("xp", 0),
@@ -1336,6 +1339,8 @@ class GameState:
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
     def spawn_alien(self, map_id="mars_1"):
+        if map_id == "neutral_1":
+            return
         # Determinar nombre del alien según el mapa
         if map_id in ["mars_1", "moon_1", "pluto_1"]:
             alien_name = "Gryllos"
