@@ -1,7 +1,7 @@
 import math
 import random
 import time
-from database import sync_user_stats
+from database import sync_user_stats, get_missions_db, update_mission_progress_db, claim_mission_reward_db
 
 class GameState:
     def __init__(self):
@@ -204,22 +204,21 @@ class GameState:
                 "name": "Vórtice Sombrío", "level": 6, "style": "pluto_vortex",
                 "portals": [
                     {"x": 1600, "y": 1920, "target": "pluto_5", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Cripta Escarcha"},
-                    {"x": 17532, "y": 14300, "target": "pluto_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Resplandor Hielo"},
-                    {"x": 18000, "y": 14000, "target": "pluto_7", "tx": 1600 + 220, "ty": 1920 + 220, "label": "Estación Exilio"}
+                    {"x": 17532, "y": 14300, "target": "pluto_8", "tx": 1999 + 220, "ty": 2024 + 220, "label": "Resplandor Hielo"}
                 ]
             },
             "pluto_7": {
                 "name": "Estación Exilio", "level": 7, "style": "pluto_prison",
                 "portals": [
-                    {"x": 1600, "y": 1920, "target": "pluto_6", "tx": 18000 + 220, "ty": 14000 + 220, "label": "Vórtice Sombrío"},
-                    {"x": 17532, "y": 14300, "target": "pluto_8", "tx": PA_X + 220, "ty": PA_Y + 220, "label": "Resplandor Hielo"},
+                    {"x": 17532, "y": 14300, "target": "pluto_8", "tx": 2012 + 220, "ty": 14088 + 220, "label": "Resplandor Hielo"},
                     {"x": 1600, "y": 2500, "target": "pluto_5", "tx": 2200 + 220, "ty": 13653 + 220, "label": "Cripta Escarcha"}
                 ]
             },
             "pluto_8": {
                 "name": "Resplandor de Hielo", "level": 8, "style": "pluto_glow",
                 "portals": [
-                    {"x": PA_X, "y": PA_Y, "target": "pluto_7", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Estación Exilio"}
+                    {"x": 2012, "y": 14088, "target": "pluto_7", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Estación Exilio"},
+                    {"x": 1999, "y": 2024, "target": "pluto_6", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Vórtice Sombrío"}
                 ],
                 "station": {"x": PB_X, "y": PB_Y} # Avanzada de Plutón
             },
@@ -340,8 +339,18 @@ class GameState:
             "faction": faction, # Mars, Moon, Pluto
             "clan_tag": clan_tag,  # User created clan (e.g. [ABC])
             "repair_accumulated": 0.0,
-            "last_repair_msg_time": 0.0
+            "last_repair_msg_time": 0.0,
+            "active_missions": [],
+            "needs_mission_sync": True # Enviar misiones al unirse
         }
+        
+        # Cargar misiones desde DB si hay user_id
+        if user_id:
+            try:
+                mission_data = get_missions_db(user_id)
+                player["active_missions"] = mission_data.get("active", [])
+            except Exception as e:
+                print(f"Error loading missions for {user_id}: {e}")
 
         # Guardar estadísticas base para recálculos
         player["base_atk"] = prof["atk"]
@@ -1068,6 +1077,9 @@ class GameState:
                                     "owner_id": p["owner_id"]
                                 })
                                 
+                                # Actualizar progreso de misión para el jugador
+                                self._update_mission_progress(player, e["name"])
+                                
                                 # Chance de recuperar un poco de munición térmica (5%)
                                 if random.random() < 0.05:
                                     player["ammo"]["thermal"] += 5
@@ -1101,6 +1113,8 @@ class GameState:
                                             m["credits"] += 250
                                             m["paladio"] = m.get("paladio", 0) + paladio_shared
                                             self.gain_xp(m, 100)
+                                            # Actualizar progreso de misión para el compañero de grupo
+                                            self._update_mission_progress(m, e["name"])
                                             # Evento visual para el compañero
                                             self.kill_events.append({
                                                 "id": str(random.random()),
@@ -1354,6 +1368,19 @@ class GameState:
                         "y": e["y"] + random.randint(-10, 10),
                         "amount": 50, "time": now, "owner_id": pid # Blanco por defecto
                     })
+                    
+                    # Si la colisión mata al alien, contar progreso de misión
+                    if e["hp"] <= 0:
+                        self._update_mission_progress(p, e["name"])
+                        # Si está en grupo, dar crédito a los demás también
+                        if p.get("party_id") and p["party_id"] in self.parties:
+                            party = self.parties[p["party_id"]]
+                            for member_id in party["members"]:
+                                if member_id == pid: continue
+                                if member_id in self.players:
+                                    m = self.players[member_id]
+                                    if m["current_map"] == e["map_id"]:
+                                        self._update_mission_progress(m, e["name"])
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
     def spawn_alien(self, map_id="mars_1"):
@@ -1436,6 +1463,26 @@ class GameState:
             "map_id": map_id
         })
         print(f"¡Cofre Especial spawneado en {map_id}!")
+    
+    def _apply_mission_rewards(self, player, rewards):
+        """Aplica las recompensas de una misión al jugador en memoria."""
+        player["xp"] += rewards.get("xp", 0)
+        player["credits"] += rewards.get("credits", 0)
+        player["paladio"] = player.get("paladio", 0) + rewards.get("paladio", 0)
+        
+        # Munición
+        if "ammo" in rewards:
+            for k, v in rewards["ammo"].items():
+                if k.startswith("missile_"):
+                    # Asegurar que missiles existe
+                    if "missiles" not in player: player["missiles"] = {}
+                    player["missiles"][k] = player["missiles"].get(k, 0) + v
+                else:
+                    if "ammo" not in player: player["ammo"] = {}
+                    player["ammo"][k] = player["ammo"].get(k, 0) + v
+        
+        # Recalcular estadísticas por si subió de nivel
+        self.recalculate_player_stats(player)
 
     def recalculate_player_stats(self, player):
         """Recalcula las estadísticas finales sumando base + módulos + mejoras temporales."""
@@ -1576,6 +1623,48 @@ class GameState:
             player["hp"] = min(player["max_hp"], player["hp"] + 25)
             # You could also add a notification flag here if needed
 
+    def _update_mission_progress(self, player, alien_name):
+        """Actualiza el progreso de las misiones activas si el alien coincide."""
+        if not player.get("active_missions"): return
+        
+        updated = False
+        for mission in player["active_missions"]:
+            if mission["status"] == "active" and mission.get("target_alien") == alien_name:
+                mission["progress"] += 1
+                updated = True
+                
+                # Verificar si se completó
+                status = "active"
+                if mission["progress"] >= mission["target_count"]:
+                    status = "completed"
+                    mission["status"] = "completed"
+                
+                try:
+                    update_mission_progress_db(player["user_id"], mission["id"], mission["progress"], status)
+                except Exception as e:
+                    print(f"Error updating mission progress for {player['user_id']}: {e}")
+                
+                # COBRO AUTOMÁTICO DE RECOMPENSAS
+                if status == "completed":
+                    try:
+                        result = claim_mission_reward_db(player["user_id"], mission["id"])
+                        if result.get("success"):
+                            rewards = result.get("rewards", {})
+                            self._apply_mission_rewards(player, rewards)
+                            # Eliminar de la lista de activas del HUD
+                            player["active_missions"] = [am for am in player["active_missions"] if am["id"] != mission["id"]]
+                            print(f"Misión {mission['id']} auto-cobrada para {player['user_id']}")
+                    except Exception as e:
+                        print(f"Error en auto-cobro de misión {mission['id']}: {e}")
+        
+        if updated:
+            # Enviar actualización al cliente
+            self._send_mission_update(player)
+
+    def _send_mission_update(self, player):
+        """Marca al jugador para enviar el estado actual de las misiones en el próximo tick de estado."""
+        player["needs_mission_sync"] = True
+
     def update_player_input(self, client_id, keys):
         if client_id in self.players:
             player = self.players[client_id]
@@ -1625,7 +1714,7 @@ class GameState:
             # Portales dinámicos según el mapa
             portals = map_info.get("portals", [])
 
-            return {
+            state = {
                 "players": [{**p, "is_self": p["id"] == client_id} for p in players_list if p["current_map"] == m_id],
                 "enemies": [e for e in self.enemies if e.get("map_id") == m_id],
                 "projectiles": [p for p in self.projectiles if p.get("map_id") == m_id],
@@ -1641,8 +1730,15 @@ class GameState:
                 "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id],
                 "destruction_events": self.destruction_events,
                 "party": self.parties.get(me.get("party_id")) if me.get("party_id") else None,
-                "party_invites": self.party_invites.get(client_id, {})
+                "party_invites": self.party_invites.get(client_id, {}),
+                "active_missions": me["active_missions"] if me.get("needs_mission_sync") else None
             }
+            
+            # Resetear flag tras incluirlo en el estado
+            if me.get("needs_mission_sync"):
+                me["needs_mission_sync"] = False
+                
+            return state
 
         return {
             "players": players_list,

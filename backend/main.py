@@ -15,7 +15,7 @@ from typing import Optional, List, Dict
 import mercadopago
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request
+from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db
 
 class RegisterRequest(BaseModel):
     username: str
@@ -100,7 +100,14 @@ class ResetPasswordRequest(BaseModel):
 class AnnouncementRequest(BaseModel):
     title: str
     content: str
-    type: str = "info"
+
+class MissionAcceptRequest(BaseModel):
+    username: str
+    mission_id: int
+
+class MissionClaimRequest(BaseModel):
+    username: str
+    mission_id: int
 
 class RepairRequest(BaseModel):
     username: str
@@ -832,6 +839,71 @@ async def websocket_endpoint(websocket: WebSocket):
         if player_added:
             logger.info(f"Removing player: {client_id}")
             game_state.remove_player(client_id)
+
+# --- ENDPOINTS DE MISIONES ---
+
+@app.get("/api/missions/{username}")
+async def list_missions(username: str):
+    try:
+        return get_missions_db(username)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/missions/accept")
+async def accept_mission(req: MissionAcceptRequest):
+    try:
+        result = accept_mission_db(req.username, req.mission_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Error desconocido"))
+        
+        message = "Misión aceptada"
+            
+        # Actualizar el GameState si el jugador está conectado
+        player = None
+        for p in game_state.players.values():
+            if p.get("user_id") == req.username:
+                player = p
+                break
+        
+        if player:
+            mission_data = get_missions_db(req.username)
+            player["active_missions"] = mission_data.get("active", [])
+            player["needs_mission_sync"] = True
+            
+        return {"status": "success", "message": message}
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/missions/claim")
+async def claim_mission(req: MissionClaimRequest):
+    try:
+        result = claim_mission_reward_db(req.username, req.mission_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Error al reclamar recompensa"))
+            
+        rewards = result.get("rewards", {})
+        message = "Recompensa reclamada exitosamente"
+            
+        # Actualizar el GameState si el jugador está conectado
+        player = None
+        for p in game_state.players.values():
+            if p.get("user_id") == req.username:
+                player = p
+                break
+        
+        if player:
+            # Eliminar de misiones activas en el GameState
+            player["active_missions"] = [m for m in player["active_missions"] if m["id"] != req.mission_id]
+            
+            # Usar el helper centralizado del GameState para aplicar recompensas
+            game_state._apply_mission_rewards(player, rewards)
+            player["needs_mission_sync"] = True
+            
+        return {"status": "success", "message": message, "rewards": rewards}
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

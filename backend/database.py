@@ -113,6 +113,34 @@ def init_db():
         )
     ''')
     
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS missions (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            target_alien TEXT NOT NULL,
+            target_count INTEGER NOT NULL,
+            min_level INTEGER DEFAULT 1,
+            reward_xp INTEGER DEFAULT 0,
+            reward_credits INTEGER DEFAULT 0,
+            reward_paladio INTEGER DEFAULT 0,
+            reward_ammo_json TEXT DEFAULT '{}',
+            next_mission_id INTEGER
+        )
+    ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_missions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            mission_id INTEGER NOT NULL,
+            progress INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'active',
+            accepted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(mission_id) REFERENCES missions(id)
+        )
+    ''')
+    
     # Migraciones
     try:
         c.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
@@ -220,7 +248,32 @@ def init_db():
         pass
 
     conn.commit()
+    
+    # Initialize missions
+    init_missions(conn)
+    
     conn.close()
+
+def init_missions(conn):
+    import json
+    c = conn.cursor()
+    # Check if missions already exist
+    c.execute("SELECT COUNT(*) FROM missions")
+    if c.fetchone()[0] == 0:
+        missions = [
+            (1, "Bautismo de Fuego", "Elimina 10 alienígenas Gryllos para demostrar tu valía.", "Gryllos", 10, 1, 1000, 5000, 10, json.dumps({"standard": 1000}), 2),
+            (2, "Limpieza de Selene", "Los Xylos están invadiendo sectores lunares. Acaba con 15 de ellos.", "Xylos", 15, 2, 2500, 12000, 25, json.dumps({"thermal": 200}), 3),
+            (3, "Nebulosa Hostil", "Caza 20 Nykor en las zonas de gas denso.", "Nykor", 20, 3, 6000, 25000, 50, json.dumps({"plasma": 100}), 4),
+            (4, "Punta del Horizonte", "El vacío es peligroso. Elimina 25 Syrith para asegurar la ruta.", "Syrith", 25, 4, 12000, 50000, 100, json.dumps({"siphon": 50, "missile_1": 20}), 5),
+            (5, "Tormenta sobre Marte", "Caza 30 Vexis bajo las tormentas de polvo.", "Vexis", 30, 5, 25000, 100000, 250, json.dumps({"plasma": 500, "missile_2": 50}), 6),
+            (6, "Desafío de los Antiguos", "Elimina 40 Kragos en las ruinas de Plutón.", "Kragos", 40, 6, 50000, 250000, 500, json.dumps({"plasma": 1000, "missile_3": 25}), None)
+        ]
+        c.executemany('''
+            INSERT INTO missions (id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, next_mission_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', missions)
+        conn.commit()
+        print("Misiones inicializadas correctamente.")
 
 def hash_password(password, salt=None):
     if salt is None:
@@ -1349,6 +1402,179 @@ def get_clan_details_db(clan_tag):
             "status": clan[8] or "Reclutando",
             "members_count": len(members_list),
             "members": members_list
+        }
+    finally:
+        conn.close()
+
+# --- MISSION FUNCTIONS ---
+
+def get_missions_db(username):
+    conn = get_connection()
+    c = conn.cursor()
+    import json
+    try:
+        # Get active missions
+        c.execute('''
+            SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
+                   m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
+                   um.progress, um.status
+            FROM missions m
+            JOIN user_missions um ON m.id = um.mission_id
+            WHERE um.username = ? AND um.status IN ('active', 'completed')
+        ''', (username,))
+        active_rows = c.fetchall()
+        
+        active_missions = []
+        completed_mission_ids = []
+        for r in active_rows:
+            active_missions.append({
+                "id": r[0], "title": r[1], "description": r[2], 
+                "target_alien": r[3], "target_count": r[4],
+                "reward_xp": r[5], "reward_credits": r[6], "reward_paladio": r[7],
+                "reward_ammo": json.loads(r[8]),
+                "progress": r[9], "status": r[10]
+            })
+            if r[10] == 'completed': completed_mission_ids.append(r[0])
+            
+        # Get all completed/claimed missions for this user to know what to offer next
+        c.execute('SELECT mission_id FROM user_missions WHERE username = ? AND status = "claimed"', (username,))
+        claimed_ids = [row[0] for row in c.fetchall()]
+        
+        # Get first mission if none accepted/claimed, or next mission after claimed ones
+        # For a progressive system, we offer the first mission, or if mission X is claimed, offer X+1
+        available_missions = []
+        
+        # If no missions at all, offer level 1
+        if not claimed_ids and not active_missions:
+            c.execute('SELECT * FROM missions WHERE id = 1')
+            first = c.fetchone()
+            if first:
+                available_missions.append({
+                    "id": first[0], "title": first[1], "description": first[2],
+                    "target_alien": first[3], "target_count": first[4], "min_level": first[5],
+                    "reward_xp": first[6], "reward_credits": first[7], "reward_paladio": first[8],
+                    "reward_ammo": json.loads(first[9])
+                })
+        else:
+            # Offer next missions for any claimed mission that has a next_mission_id
+            # and that next mission isn't already active/claimed
+            placeholders = ','.join(['?'] * len(claimed_ids)) if claimed_ids else '0'
+            claimed_params = list(claimed_ids)
+            
+            # Find next missions
+            query = f'''
+                SELECT next_mission_id FROM missions 
+                WHERE id IN ({placeholders}) AND next_mission_id IS NOT NULL
+            '''
+            c.execute(query, claimed_params)
+            next_potential = [row[0] for row in c.fetchall()]
+            
+            # Filter out already active/claimed
+            already_begun = set(claimed_ids) | set(m["id"] for m in active_missions)
+            next_to_offer = [mid for mid in next_potential if mid not in already_begun]
+            
+            if next_to_offer:
+                for mid in next_to_offer:
+                    c.execute('SELECT * FROM missions WHERE id = ?', (mid,))
+                    m = c.fetchone()
+                    if m:
+                        available_missions.append({
+                            "id": m[0], "title": m[1], "description": m[2],
+                            "target_alien": m[3], "target_count": m[4], "min_level": m[5],
+                            "reward_xp": m[6], "reward_credits": m[7], "reward_paladio": m[8],
+                            "reward_ammo": json.loads(m[9])
+                        })
+
+        return {"active": active_missions, "available": available_missions}
+    finally:
+        conn.close()
+
+def accept_mission_db(username, mission_id):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Check active limit (2)
+        c.execute('SELECT COUNT(*) FROM user_missions WHERE username = ? AND status IN ("active", "completed")', (username,))
+        if c.fetchone()[0] >= 2:
+            return {"success": False, "error": "Ya tienes el máximo de 2 misiones activas."}
+            
+        # Check if already accepted
+        c.execute('SELECT id FROM user_missions WHERE username = ? AND mission_id = ?', (username, mission_id))
+        if c.fetchone():
+            return {"success": False, "error": "Ya has aceptado esta misión."}
+            
+        c.execute('INSERT INTO user_missions (username, mission_id) VALUES (?, ?)', (username, mission_id))
+        conn.commit()
+        return {"success": True}
+    finally:
+        conn.close()
+
+def update_mission_progress_db(username, mission_id, progress, status='active'):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('UPDATE user_missions SET progress = ?, status = ? WHERE username = ? AND mission_id = ?', (progress, status, username, mission_id))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def claim_mission_reward_db(username, mission_id):
+    conn = get_connection()
+    c = conn.cursor()
+    import json
+    try:
+        # 1. Verify it's completed but not claimed
+        c.execute('SELECT status FROM user_missions WHERE username = ? AND mission_id = ?', (username, mission_id))
+        row = c.fetchone()
+        if not row or row[0] != 'completed':
+            return {"success": False, "error": "La misión no está completada."}
+            
+        # 2. Get rewards
+        c.execute('SELECT reward_xp, reward_credits, reward_paladio, reward_ammo_json FROM missions WHERE id = ?', (mission_id,))
+        rew = c.fetchone()
+        if not rew: return {"success": False, "error": "Misión no encontrada."}
+        
+        rxp, rcre, rpal, rammo_json = rew
+        rammo = json.loads(rammo_json)
+        
+        # 3. Apply rewards to user
+        # We need current stats
+        c.execute('SELECT level, xp, credits, paladio, inventory_json FROM users WHERE username = ?', (username,))
+        u = c.fetchone()
+        ulvl, uxp, ucre, upal, uinv_json = u
+        
+        # Update user stats
+        new_cre = ucre + rcre
+        new_pal = upal + rpal
+        
+        # XP and Level up (simplified, we should use similar logic as gain_xp)
+        new_xp = uxp + rxp
+        new_lvl = ulvl
+        xp_next = (new_lvl * (new_lvl + 1) // 2) * 1000
+        while new_xp >= xp_next:
+            new_lvl += 1
+            xp_next = (new_lvl * (new_lvl + 1) // 2) * 1000
+            
+        # Ammo/Items (we'll just update inventory/ammo in users if needed, 
+        # but in this game ammo is handled in a dict in memory and synced back.
+        # Actually, let's just use the sync_user_stats or equivalent if possible.
+        # For simplicity here, we'll update the users table directly.)
+        
+        c.execute('''
+            UPDATE users 
+            SET credits = ?, paladio = ?, xp = ?, level = ?
+            WHERE username = ?
+        ''', (new_cre, new_pal, new_xp, new_lvl, username))
+        
+        # 4. Mark as claimed
+        c.execute('UPDATE user_missions SET status = "claimed" WHERE username = ? AND mission_id = ?', (username, mission_id))
+        
+        conn.commit()
+        return {
+            "success": True, 
+            "rewards": {"xp": rxp, "credits": rcre, "paladio": rpal, "ammo": rammo},
+            "new_stats": {"xp": new_xp, "level": new_lvl, "credits": new_cre, "paladio": new_pal}
         }
     finally:
         conn.close()

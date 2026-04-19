@@ -13,6 +13,7 @@ import NavigationBar from './components/NavigationBar'
 import { SHIPS } from './utils/gameData'
 import Ranking from './components/Ranking'
 import Packages from './components/Packages'
+import Missions from './components/Missions'
 import './index.css'
 
 function App() {
@@ -713,7 +714,7 @@ function App() {
 
   const currentEquippedModules = equippedByShip[selectedShipId] || [];
 
-  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages'].includes(currentView);
+  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages', 'missions'].includes(currentView);
 
   return (
     <div className="app-container">
@@ -790,6 +791,17 @@ function App() {
           isGameActive={isGameActive}
         />
       )}
+
+       {currentView === 'missions' && (
+         <Missions 
+           user={user}
+           onNavigate={(view) => setCurrentView(view)}
+           credits={credits}
+           paladio={paladio}
+           level={level}
+           xp={xp}
+         />
+       )}
 
       {currentView === 'hangar' && (
         <Hangar 

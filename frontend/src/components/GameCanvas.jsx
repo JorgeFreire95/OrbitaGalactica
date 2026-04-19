@@ -17,6 +17,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const [error, setError] = useState(null);
   const [isJumping, setIsJumping] = useState(false);
   const [showJumpPrompt, setShowJumpPrompt] = useState(false);
+  const [activeMissions, setActiveMissions] = useState([]);
+  const [missionTrackerExpanded, setMissionTrackerExpanded] = useState(false);
   const joinSentRef = useRef(false);
   const lastFrameTimeRef = useRef(performance.now());
   const lastReactRenderRef = useRef(0);
@@ -394,8 +396,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     keys.current.shoot = false;
                 }
             }
+            // Sync missions if present in state (on-demand sync)
+            if (data.state.active_missions && isMounted) {
+              setActiveMissions(data.state.active_missions);
+            }
           }
-        }
+         } else if (data.type === 'mission_update') {
+           if (isMounted) {
+             setActiveMissions(data.active_missions || []);
+           }
+         }
 
       };
 
@@ -725,6 +735,70 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     </div>
                 </div>
             </div>
+
+            {/* MISSION TRACKER HUD */}
+            {activeMissions && activeMissions.length > 0 && (
+              <div 
+                className={`mission-tracker-hud ${missionTrackerExpanded ? 'expanded' : ''}`}
+                onMouseEnter={() => !missionTrackerExpanded && setMissionTrackerExpanded(true)}
+                onMouseLeave={() => missionTrackerExpanded && setMissionTrackerExpanded(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMissionTrackerExpanded(!missionTrackerExpanded);
+                }}
+              >
+                <div className="mission-hud-header">
+                  <div className="mission-hud-title">
+                    {missionTrackerExpanded ? '📜 BITÁCORA DE MISIONES' : '🎯 OBJETIVOS'}
+                  </div>
+                  <div className="mission-hud-toggle">▼</div>
+                </div>
+
+                <div className="mission-hud-content">
+                  {activeMissions.map((m, idx) => (
+                    <div key={m.id || idx} className="mission-hud-item">
+                      <span className="mission-hud-mtitle">{m.title}</span>
+                      
+                      {missionTrackerExpanded && (
+                        <div className="mission-hud-desc">{m.description}</div>
+                      )}
+
+                      <div className="mission-hud-row">
+                        <span>{m.target_alien}:</span>
+                        <span style={{ color: m.progress >= m.target_count ? '#00ffcc' : '#ffcc00', fontWeight: 'bold' }}>
+                          {m.progress} / {m.target_count}
+                        </span>
+                      </div>
+
+                      <div className="mission-hud-progress-bg">
+                        <div className="mission-hud-progress-fill" style={{ 
+                          width: `${Math.min(100, (m.progress / m.target_count) * 100)}%`,
+                          background: m.progress >= m.target_count ? '#00ffcc' : '',
+                          boxShadow: m.progress >= m.target_count ? '0 0 10px #00ffcc' : 'none'
+                        }} />
+                      </div>
+
+                      {missionTrackerExpanded && (
+                        <div className="mission-hud-reward-mini">
+                          <div className="reward-tag">XP <span>+{m.reward_xp}</span></div>
+                          <div className="reward-tag">CR <span>+{m.reward_credits}</span></div>
+                          {m.reward_paladio > 0 && <div className="reward-tag">PAL <span>+{m.reward_paladio}</span></div>}
+                          {m.reward_ammo && Object.entries(m.reward_ammo).map(([ammo, qty]) => (
+                            <div key={ammo} className="reward-tag ammo">
+                              {ammo.replace('missile_', 'M').toUpperCase()} <span>+{qty}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {m.progress >= m.target_count && (
+                        <div style={{ fontSize: '0.6rem', color: '#00ffcc', textAlign: 'right', marginTop: '5px', fontWeight: 'bold', textShadow: '0 0 5px #00ffcc' }}>¡LISTA PARA COBRAR!</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* PARTY HUD IN-GAME */}
             <div className="party-hud-overlay" style={{ position: 'fixed', top: '80px', left: '20px', zIndex: 1000, pointerEvents: 'auto' }}>

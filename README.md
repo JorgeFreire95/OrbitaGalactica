@@ -36,6 +36,12 @@
 - **Gestor de Invitaciones Dinámico**: Recibe solicitudes de grupo directamente en tu Interfaz (HUD). Acepta o rechaza inmediatamente mediante notificaciones emergentes in-game.
 - **Recompensas Compartidas**: Pelear en grupo tiene sus beneficios; todas las victorias conseguidas estando en el mismo sector otorgan Créditos compartidos para acelerar el desarrollo del escuadrón.
 
+### 🎯 Sistema de Misiones Tácticas
+- **HUD de Seguimiento en Tiempo Real**: Nueva mini-ventana persistente en la cabina de combate que monitorea el progreso de tus misiones activas (tipo de alien, contador de bajas y recompensas). Su diseño *glassmorphism* permite leer los objetivos sin obstruir la vista del espacio.
+- **Cobro Automático de Recompensas**: Las misiones ahora aplican sus beneficios (XP, Créditos, Munición) de forma **instantánea** al alcanzar el objetivo. Ya no es necesario navegar por los menús para cobrar tus premios.
+- **Bitácora Dinámica**: La lista de objetivos se actualiza en tiempo real; las misiones completadas y cobradas desaparecen automáticamente del HUD para mantener una interfaz limpia y enfocada en el combate.
+- **Sincronización Optimizada (On-Demand Sync)**: Sistema de comunicación inteligente que actualiza los datos de misiones solo cuando hay cambios significativos, garantizando que el HUD esté siempre al día con el mínimo impacto en la latencia.
+
 ### 🛡️ Zonas Seguras y Estaciones
 - **Estación Central: Mega-Estructura Industrial**: Rediseño completo de la base principal. Una imponente estructura isométrica vertical con plataformas de aterrizaje asimétricas, iluminación de balizas dinámica, paneles de advertencia ("hazard stripes") y un puente de mando hexagonal iluminado por neón.
 - **Santuario Galáctico**: Tanto la Estación Central como los Portales Estelares cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.
