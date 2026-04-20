@@ -37,6 +37,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   
   const [inviteIdText, setInviteIdText] = useState('');
   const [showPartyMenu, setShowPartyMenu] = useState(false);
+  const [missionNotification, setMissionNotification] = useState(null);
 
   // Keyboard state
   const keys = useRef({
@@ -329,6 +330,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 setHudState({
                   hp: me.hp, max_hp: me.max_hp,
                   shld: me.shld, max_shld: me.max_shld,
+                  atk: me.atk,
                   spd: me.spd,
                   xp: me.xp, credits: me.credits, level: me.level,
                   paladio: me.paladio,
@@ -340,6 +342,22 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 });
               }
               lastReactRenderRef.current = nowMs;
+          }
+
+          // Gestionar notificaciones de misión completada
+          if (data.state.mission_events?.length > 0) {
+              const lastMission = data.state.mission_events[data.state.mission_events.length - 1];
+              // Evitar duplicados si ya la estamos mostrando
+              if (!missionNotification || missionNotification.id !== lastMission.id) {
+                  setMissionNotification(lastMission);
+                  // Auto-ocultar con animación
+                  setTimeout(() => {
+                      setMissionNotification(prev => prev?.id === lastMission.id ? { ...prev, exiting: true } : prev);
+                      setTimeout(() => {
+                          setMissionNotification(prev => prev?.id === lastMission.id ? null : prev);
+                      }, 500);
+                  }, 6000);
+              }
           }
 
           if (me) {
@@ -645,6 +663,42 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         <style>{`@keyframes jump-flash { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }`}</style>
       </div>}
 
+      {/* --- MISSION COMPLETION NOTIFICATION --- */}
+      {missionNotification && (
+          <div className={`mission-notification-overlay ${missionNotification.exiting ? 'mission-notif-exit' : ''}`}>
+              <div className="mission-notification-card">
+                  <h3 className="mission-notification-title">¡MISIÓN COMPLETADA!</h3>
+                  <div className="mission-notification-name">{missionNotification.title}</div>
+                  <div className="mission-notification-rewards">
+                      {missionNotification.rewards.xp > 0 && (
+                          <div className="notif-reward-item">
+                              <span className="notif-reward-icon" style={{color: '#33ccff'}}>⭐</span>
+                              <span className="notif-reward-value">{missionNotification.rewards.xp.toLocaleString()} XP</span>
+                          </div>
+                      )}
+                      {missionNotification.rewards.credits > 0 && (
+                          <div className="notif-reward-item">
+                              <span className="notif-reward-icon" style={{color: '#ffcc00'}}>🪙</span>
+                              <span className="notif-reward-value">{missionNotification.rewards.credits.toLocaleString()} CR</span>
+                          </div>
+                      )}
+                      {missionNotification.rewards.paladio > 0 && (
+                          <div className="notif-reward-item">
+                              <span className="notif-reward-icon" style={{color: '#00ffcc'}}>💎</span>
+                              <span className="notif-reward-value">{missionNotification.rewards.paladio.toLocaleString()} PLD</span>
+                          </div>
+                      )}
+                      {missionNotification.rewards.ammo && Object.keys(missionNotification.rewards.ammo).length > 0 && (
+                          <div className="notif-reward-item">
+                              <span className="notif-reward-icon" style={{color: '#ff4444'}}>🔋</span>
+                              <span className="notif-reward-value">MUNICIÓN</span>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="ui-overlay">
         {(me || hudState) && (
           <>
@@ -665,6 +719,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             <span style={{ fontSize: '0.65rem', color: '#ff4466', fontWeight: 'bold', fontFamily: 'Orbitron' }}>❤️ CASCO</span>
                             <span style={{ fontSize: '0.65rem', color: '#fff', fontFamily: 'Orbitron' }}>
                                 {Math.floor(hudState?.hp ?? 0)} / {hudState?.max_hp ?? 0}
+                                {gameState?.timed_bonuses?.hp > 0 && <span style={{ color: '#ff4466', fontSize: '0.6rem', marginLeft: '4px' }}>(+{gameState.timed_bonuses.hp})</span>}
                             </span>
                         </div>
                         <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255,68,102,0.2)' }}>
@@ -684,6 +739,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             <span style={{ fontSize: '0.65rem', color: '#00aaff', fontWeight: 'bold', fontFamily: 'Orbitron' }}>🛡️ ESCUDO</span>
                             <span style={{ fontSize: '0.65rem', color: '#fff', fontFamily: 'Orbitron' }}>
                                 {Math.floor(hudState?.shld ?? 0)} / {hudState?.max_shld ?? 0}
+                                {gameState?.timed_bonuses?.shld > 0 && <span style={{ color: '#00aaff', fontSize: '0.6rem', marginLeft: '4px' }}>(+{gameState.timed_bonuses.shld})</span>}
                             </span>
                         </div>
                         <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(0,170,255,0.2)' }}>
@@ -698,9 +754,21 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     </div>
 
                     {/* Speed */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.65rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Orbitron' }}>🚀 VELOCIDAD</span>
-                        <span style={{ fontSize: '0.7rem', color: '#fff', fontFamily: 'Orbitron' }}>{hudState?.spd ?? 0}</span>
+                        <span style={{ fontSize: '0.7rem', color: '#fff', fontFamily: 'Orbitron' }}>
+                            {hudState?.spd ?? 0}
+                            {gameState?.timed_bonuses?.spd > 0 && <span style={{ color: '#00ffcc', fontSize: '0.6rem', marginLeft: '4px' }}>(+{gameState.timed_bonuses.spd})</span>}
+                        </span>
+                    </div>
+
+                    {/* Attack Damage */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.65rem', color: '#ffcc00', fontWeight: 'bold', fontFamily: 'Orbitron' }}>🔥 ATAQUE</span>
+                        <span style={{ fontSize: '0.7rem', color: '#fff', fontFamily: 'Orbitron' }}>
+                            {hudState?.atk ?? 0}
+                            {gameState?.timed_bonuses?.atk > 0 && <span style={{ color: '#ffcc00', fontSize: '0.6rem', marginLeft: '4px' }}>(+{gameState.timed_bonuses.atk})</span>}
+                        </span>
                     </div>
                 </div>
 
@@ -726,10 +794,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             return <div style={{ width: `${pct}%`, height: '100%', background: barColor, boxShadow: `0 0 8px ${barColor}66`, transition: 'width 0.3s ease-out' }} />;
                         })()}
                     </div>
-                    <div style={{ display: 'flex', gap: '5px', marginTop: '4px' }}>
-                        {hudState?.minerals && Object.entries(hudState.minerals).map(([type, amount]) => amount > 0 && (
-                            <span key={type} style={{ fontSize: '0.6rem', color: '#aaa' }}>
-                                {type === 'titanium' ? '💎' : type === 'plutonium' ? '🏮' : '💾'}{amount}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        {[
+                            { type: 'titanium', icon: '🔹' },
+                            { type: 'plutonium', icon: '🏮' },
+                            { type: 'silicon', icon: '💾' },
+                            { type: 'iridium', icon: '☄️' }
+                        ].map(m => (
+                            <span key={m.type} style={{ fontSize: '0.65rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                <span style={{ fontSize: '0.8rem' }}>{m.icon}</span>
+                                <span style={{ color: '#aaa' }}>{hudState?.minerals?.[m.type] || 0}</span>
                             </span>
                         ))}
                     </div>

@@ -26,10 +26,11 @@ def init_db():
             xp INTEGER DEFAULT 0,
             credits INTEGER DEFAULT 2000,
             paladio INTEGER DEFAULT 0,
-            minerals_json TEXT DEFAULT '{"titanium": 0, "plutonium": 0, "silicon": 0}',
+            minerals_json TEXT DEFAULT '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}',
             owned_ships_json TEXT DEFAULT '["starter"]',
             inventory_json TEXT DEFAULT '[]',
             equipped_json TEXT DEFAULT '{}',
+            timed_upgrades_json TEXT DEFAULT '{"atk": [], "shld": [], "spd": [], "hp": []}',
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
@@ -40,7 +41,8 @@ def init_db():
     columns = [
         ("owned_ships_json", "TEXT DEFAULT '[\"starter\"]'"),
         ("inventory_json", "TEXT DEFAULT '[]'"),
-        ("equipped_json", "TEXT DEFAULT '{}'")
+        ("equipped_json", "TEXT DEFAULT '{}'"),
+        ("timed_upgrades_json", "TEXT DEFAULT '{\"atk\": [], \"shld\": [], \"spd\": [], \"hp\": []}'")
     ]
     for col_name, col_type in columns:
         try:
@@ -290,7 +292,7 @@ def register_user(username, email, password):
         c.execute('''
             INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json, owned_ships_json, inventory_json, equipped_json, vip_until) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (username, email, hashed, salt, 1, 0, 2000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0}', '["starter"]', '[]', '{}', vip_until))
+        ''', (username, email, hashed, salt, 1, 0, 2000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}', '["starter"]', '[]', '{}', vip_until))
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError as e:
@@ -309,24 +311,26 @@ def get_user_stats_db(username):
     c = conn.cursor()
     try:
         try:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json FROM users WHERE username = ?', (username,))
         except sqlite3.OperationalError:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\' FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\' FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
         
         import json
         try:
-            minerals = json.loads(row[4]) if row[4] else {"titanium": 0, "plutonium": 0, "silicon": 0}
+            minerals = json.loads(row[4]) if row[4] else {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
             owned_ships = json.loads(row[6]) if row[6] else ["starter"]
             inventory = json.loads(row[7]) if row[7] else []
             equipped = json.loads(row[8]) if row[8] else {}
+            timed_upgrades = json.loads(row[9]) if (len(row) > 9 and row[9]) else {"atk":[], "shld":[], "spd":[], "hp":[]}
         except:
-            minerals = {"titanium": 0, "plutonium": 0, "silicon": 0}
+            minerals = {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
             owned_ships = ["starter"]
             inventory = []
             equipped = {}
+            timed_upgrades = {"atk":[], "shld":[], "spd":[], "hp":[]}
 
         return {
             "level": row[0],
@@ -337,7 +341,8 @@ def get_user_stats_db(username):
             "vip_until": row[5] if len(row) > 5 else None,
             "owned_ships": owned_ships,
             "inventory": inventory,
-            "equipped": equipped
+            "equipped": equipped,
+            "timed_upgrades": timed_upgrades
         }
     finally:
         conn.close()
@@ -375,10 +380,11 @@ def login_user(username, password):
             "paladio": paladio,
             "selected_ship": selected_ship or "starter",
             "vip_until": vip_until,
-            "minerals": stats["minerals"] if stats else {"titanium": 0, "plutonium": 0, "silicon": 0},
+            "minerals": stats["minerals"] if stats else {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0},
             "owned_ships": json.loads(owned_ships_json) if owned_ships_json else ["starter"],
             "inventory": json.loads(inventory_json) if inventory_json else [],
-            "equipped": json.loads(equipped_json) if equipped_json else {}
+            "equipped": json.loads(equipped_json) if equipped_json else {},
+            "timed_upgrades": stats["timed_upgrades"] if (stats and "timed_upgrades" in stats) else {"atk":[], "shld":[], "spd":[], "hp":[]}
         }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
@@ -536,7 +542,7 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
     finally:
         conn.close()
 
-def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None):
+def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None):
     conn = get_connection()
     c = conn.cursor()
     import json
@@ -556,6 +562,9 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
         if equipped is not None:
             fields.append("equipped_json = ?")
             params.append(json.dumps(equipped))
+        if timed_upgrades is not None:
+            fields.append("timed_upgrades_json = ?")
+            params.append(json.dumps(timed_upgrades))
             
         params.append(username)
         query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"
@@ -1416,7 +1425,7 @@ def get_missions_db(username):
         # Get active missions
         c.execute('''
             SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
-                   m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
+                   m.min_level, m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
                    um.progress, um.status
             FROM missions m
             JOIN user_missions um ON m.id = um.mission_id
@@ -1430,62 +1439,56 @@ def get_missions_db(username):
             active_missions.append({
                 "id": r[0], "title": r[1], "description": r[2], 
                 "target_alien": r[3], "target_count": r[4],
-                "reward_xp": r[5], "reward_credits": r[6], "reward_paladio": r[7],
-                "reward_ammo": json.loads(r[8]),
-                "progress": r[9], "status": r[10]
+                "min_level": r[5], "reward_xp": r[6], "reward_credits": r[7], "reward_paladio": r[8],
+                "reward_ammo": json.loads(r[9]),
+                "progress": r[10], "status": r[11]
             })
             if r[10] == 'completed': completed_mission_ids.append(r[0])
             
         # Get all completed/claimed missions for this user to know what to offer next
-        c.execute('SELECT mission_id FROM user_missions WHERE username = ? AND status = "claimed"', (username,))
-        claimed_ids = [row[0] for row in c.fetchall()]
+        c.execute('''
+            SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
+                   m.min_level, m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
+                   um.progress, um.status
+            FROM missions m
+            JOIN user_missions um ON m.id = um.mission_id
+            WHERE um.username = ? AND um.status = "claimed"
+        ''', (username,))
+        claimed_rows = c.fetchall()
         
-        # Get first mission if none accepted/claimed, or next mission after claimed ones
-        # For a progressive system, we offer the first mission, or if mission X is claimed, offer X+1
+        completed_missions = []
+        claimed_ids = []
+        for r in claimed_rows:
+            completed_missions.append({
+                "id": r[0], "title": r[1], "description": r[2], 
+                "target_alien": r[3], "target_count": r[4],
+                "min_level": r[5], "reward_xp": r[6], "reward_credits": r[7], "reward_paladio": r[8],
+                "reward_ammo": json.loads(r[9]),
+                "progress": r[10], "status": r[11]
+            })
+            claimed_ids.append(r[0])
+        
+        # Obtener todas las misiones que NO han sido aceptadas ni completadas
         available_missions = []
+        already_interacted_ids = set(claimed_ids) | set(m["id"] for m in active_missions)
         
-        # If no missions at all, offer level 1
-        if not claimed_ids and not active_missions:
-            c.execute('SELECT * FROM missions WHERE id = 1')
-            first = c.fetchone()
-            if first:
-                available_missions.append({
-                    "id": first[0], "title": first[1], "description": first[2],
-                    "target_alien": first[3], "target_count": first[4], "min_level": first[5],
-                    "reward_xp": first[6], "reward_credits": first[7], "reward_paladio": first[8],
-                    "reward_ammo": json.loads(first[9])
-                })
+        if already_interacted_ids:
+            placeholders = ','.join(['?'] * len(already_interacted_ids))
+            query = f"SELECT * FROM missions WHERE id NOT IN ({placeholders}) ORDER BY id ASC"
+            c.execute(query, list(already_interacted_ids))
         else:
-            # Offer next missions for any claimed mission that has a next_mission_id
-            # and that next mission isn't already active/claimed
-            placeholders = ','.join(['?'] * len(claimed_ids)) if claimed_ids else '0'
-            claimed_params = list(claimed_ids)
+            c.execute("SELECT * FROM missions ORDER BY id ASC")
             
-            # Find next missions
-            query = f'''
-                SELECT next_mission_id FROM missions 
-                WHERE id IN ({placeholders}) AND next_mission_id IS NOT NULL
-            '''
-            c.execute(query, claimed_params)
-            next_potential = [row[0] for row in c.fetchall()]
-            
-            # Filter out already active/claimed
-            already_begun = set(claimed_ids) | set(m["id"] for m in active_missions)
-            next_to_offer = [mid for mid in next_potential if mid not in already_begun]
-            
-            if next_to_offer:
-                for mid in next_to_offer:
-                    c.execute('SELECT * FROM missions WHERE id = ?', (mid,))
-                    m = c.fetchone()
-                    if m:
-                        available_missions.append({
-                            "id": m[0], "title": m[1], "description": m[2],
-                            "target_alien": m[3], "target_count": m[4], "min_level": m[5],
-                            "reward_xp": m[6], "reward_credits": m[7], "reward_paladio": m[8],
-                            "reward_ammo": json.loads(m[9])
-                        })
+        rows = c.fetchall()
+        for m in rows:
+            available_missions.append({
+                "id": m[0], "title": m[1], "description": m[2],
+                "target_alien": m[3], "target_count": m[4], "min_level": m[5],
+                "reward_xp": m[6], "reward_credits": m[7], "reward_paladio": m[8],
+                "reward_ammo": json.loads(m[9])
+            })
 
-        return {"active": active_missions, "available": available_missions}
+        return {"active": active_missions, "available": available_missions, "completed": completed_missions}
     finally:
         conn.close()
 

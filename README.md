@@ -62,7 +62,7 @@
 ### 💰 Economía y Recursos
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda y mejoras de élite.
-- **Laboratorio de Minerales**: Refina recursos (Titanio, Plutonio, Silicio) recolectados de restos enemigos para obtener mejoras permanentes en Ataque, Escudo y Velocidad.
+- **Laboratorio de Minerales (Sincronización Total y Persistencia)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras **acumulables** en Ataque, Escudo, Velocidad e Integridad de Casco (HP). Ahora el sistema es 100% autorritativo: las mejoras se guardan en el servidor y persisten entre sesiones, aplicándose instantáneamente a tu nave activa mediante WebSockets y APIs de sincronización.
 - **Beneficios VIP Premium**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
 
 ### 📦 Cofres Especiales (Botín de Exploración)
@@ -142,7 +142,7 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 ### 💰 Economía y Suministros
 - **Packs de Munición Masivos**: Toda la munición (Láser y Misiles) se vende ahora en **Packs de 1000 unidades**, permitiendo misiones de larga duración sin reabastecimientos constantes.
 - **Reequilibrio de Misiles**: Precios de misiles ajustados para ser más competitivos y relativos a la munición láser, facilitando el uso de armamento pesado (M-1, M-2, M-3).
-- **Minerales y Refinería (Sincronización Total)**: Refina recursos (Titanio, Plutonio, Silicio) para obtener mejoras instantáneas en Ataque, Escudo y Velocidad. El sistema utiliza WebSockets para aplicar los bonos directamente en tu partida activa sin necesidad de reiniciar la sesión.
+- **Minerales y Refinería (Arquitectura de Persistencia)**: Refina recursos (Titanio, Plutonio, Silicio e Iridio) para obtener mejoras instantáneas. El sistema utiliza una arquitectura **Server-Side** donde cada mejora se persiste en la base de datos y se sincroniza en tiempo real con el motor de físicas del servidor, garantizando que el incremento en velocidad, daño o resistencia sea inmediato y permanente hasta su expiración (2 horas).
 
 ### 🎨 Identidad Visual y UI Premium
 - **Nuevo Logo "Galactic Identity"**: Integración de un logo de alta fidelidad con efectos de resplandor neón en la cabecera.

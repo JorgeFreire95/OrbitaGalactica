@@ -80,7 +80,7 @@ function App() {
 
   const [minerals, setMinerals] = useState(() => {
     const saved = localStorage.getItem('game_minerals');
-    return saved ? JSON.parse(saved) : { titanium: 0, plutonium: 0, silicon: 0 };
+    return saved ? JSON.parse(saved) : { titanium: 0, plutonium: 0, silicon: 0, iridium: 0 };
   });
 
   const [upgrades, setUpgrades] = useState(() => {
@@ -88,10 +88,10 @@ function App() {
     // Si es el formato viejo (número), resetear a objeto
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (typeof parsed.atk === 'number') return { atk: [], shld: [], spd: [] };
+      if (typeof parsed.atk === 'number' || !parsed.hp) return { atk: [], shld: [], spd: [], hp: [] };
       return parsed;
     }
-    return { atk: [], shld: [], spd: [] };
+    return { atk: [], shld: [], spd: [], hp: [] };
   });
 
   const [paladio, setPaladio] = useState(() => {
@@ -272,7 +272,8 @@ function App() {
             minerals,
             owned_ships: ownedShips,
             inventory,
-            equipped: equippedByShip
+            equipped: equippedByShip,
+            timed_upgrades: upgrades
           })
         });
       } catch (e) {
@@ -339,7 +340,7 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip]);
+  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades]);
 
   useEffect(() => {
     if (user && user.faction) {
@@ -354,7 +355,7 @@ function App() {
       let changed = false;
       const nextUpgrades = { ...upgrades };
 
-      ['atk', 'shld', 'spd'].forEach(stat => {
+      ['atk', 'shld', 'spd', 'hp'].forEach(stat => {
         const filtered = nextUpgrades[stat].filter(u => u.expires > now);
         if (filtered.length !== nextUpgrades[stat].length) {
           nextUpgrades[stat] = filtered;
@@ -414,6 +415,10 @@ function App() {
       if (data.minerals) {
         setMinerals(data.minerals);
         localStorage.setItem('game_minerals', JSON.stringify(data.minerals));
+      }
+      if (data.timed_upgrades) {
+        setUpgrades(data.timed_upgrades);
+        localStorage.setItem('game_upgrades', JSON.stringify(data.timed_upgrades));
       }
 
       if (!data.faction) {

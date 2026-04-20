@@ -16,6 +16,7 @@ class GameState:
         self.kill_events = [] 
         self.loot_events = [] 
         self.damage_events = []
+        self.mission_events = []
         self.destruction_events = []
         self.last_special_spawn = time.time()
         self.special_spawn_rate = 30.0 # Más constante: cada 30 segundos
@@ -302,8 +303,10 @@ class GameState:
             "vy": 0,
             "hp": prof["hp"],
             "max_hp": prof["hp"],
+            "base_max_hp": prof["hp"],
             "shld": prof["shld"],
             "max_shld": prof["shld"],
+            "base_max_shld": prof["shld"],
             "last_dmg_time": 0,
             "lasers": 0,
             "shields": 0,
@@ -311,7 +314,9 @@ class GameState:
             "slots": prof["slots"],
             "equipped": [], # List of modules
             "atk": prof["atk"],
+            "base_atk": prof["atk"],
             "spd": prof["spd"],
+            "base_spd": prof["spd"],
             "color": prof["color"],
             "x": 1750, # Posición inicial segura (Base)
             "y": 1150,
@@ -344,13 +349,20 @@ class GameState:
             "needs_mission_sync": True # Enviar misiones al unirse
         }
         
-        # Cargar misiones desde DB si hay user_id
+        # Cargar datos desde DB si hay user_id (misiones y mejoras)
         if user_id:
             try:
+                # Cargar misiones
                 mission_data = get_missions_db(user_id)
                 player["active_missions"] = mission_data.get("active", [])
+                
+                # Cargar mejoras temporales (AHORA DESDE DB PARA QUE SEA 100% PERSISTENTE)
+                db_stats = get_user_stats_db(user_id)
+                if db_stats and "timed_upgrades" in db_stats:
+                    initial_upgrades = db_stats["timed_upgrades"]
+                    print(f"Mejoras cargadas desde DB para {user_id}: {initial_upgrades}")
             except Exception as e:
-                print(f"Error loading missions for {user_id}: {e}")
+                print(f"Error loading missions/upgrades for {user_id}: {e}")
 
         # Guardar estadísticas base para recálculos
         player["base_atk"] = prof["atk"]
@@ -363,7 +375,8 @@ class GameState:
         player["timed_upgrades"] = {
             "atk": raw_upg.get("atk", []) if isinstance(raw_upg.get("atk"), list) else [],
             "shld": raw_upg.get("shld", []) if isinstance(raw_upg.get("shld"), list) else [],
-            "spd": raw_upg.get("spd", []) if isinstance(raw_upg.get("spd"), list) else []
+            "spd": raw_upg.get("spd", []) if isinstance(raw_upg.get("spd"), list) else [],
+            "hp": raw_upg.get("hp", []) if isinstance(raw_upg.get("hp"), list) else []
         }
 
         # Convertir formato viejo si es necesario (retrocompatibilidad por si acaso)
@@ -815,18 +828,25 @@ class GameState:
 
             # --- GESTIÓN DE MEJORAS TEMPORALES (2 HORAS) ---
             upg_changed = False
-            for stat in ["atk", "shld", "spd"]:
+            for stat in ["atk", "shld", "spd", "hp"]:
                 current_list = p["timed_upgrades"].get(stat, [])
-                # expires está en ms desde el frontend, convertir a s para time.time() o viceversa
-                # El frontend envía Date.now() que es ms.
-                # time.time() es segundos.
-                active = [u for u in current_list if (u["expires"] / 1000.0) > now]
+                active = [u for u in current_list if (u.get("expires", 0) / 1000.0) > now]
                 if len(active) != len(current_list):
                     p["timed_upgrades"][stat] = active
                     upg_changed = True
             
             if upg_changed:
                 self.recalculate_player_stats(p)
+                # Persistir limpieza en DB para que no vuelvan al reconectar
+                if "guest" not in pid and p.get("user_id"):
+                    try:
+                        sync_user_stats(
+                            p["user_id"], 
+                            p["level"], p["xp"], p["credits"], p["paladio"],
+                            timed_upgrades=p["timed_upgrades"]
+                        )
+                        print(f"Limpieza de mejoras expiradas persistida para {pid}")
+                    except: pass
                 
             # --- DETECCIÓN DE ZONA SEGURA (BASE Y PORTAL) ---
             # Localizar portales y estación del mapa actual
@@ -1000,11 +1020,12 @@ class GameState:
                 enemy["y"] = self.GAME_HEIGHT - 50
                 enemy["vy"] = -abs(enemy["vy"])
         
-        # Limpiar eventos antiguos (2.5 segundos)
+        # Limpiar eventos antiguos
         self.kill_events = [e for e in self.kill_events if now - e["time"] < 2.5]
         self.loot_events = [e for e in self.loot_events if now - e["time"] < 2.5]
-        self.damage_events = [e for e in self.damage_events if now - e["time"] < 1.0] # Daño dura 1 seg
-        self.destruction_events = [e for e in self.destruction_events if now - e["time"] < 2.0] # Explosión dura 2 seg
+        self.damage_events = [e for e in self.damage_events if now - e["time"] < 1.0]
+        self.mission_events = [e for e in self.mission_events if now - e["time"] < 6.0]
+        self.destruction_events = [e for e in self.destruction_events if now - e["time"] < 3.0]
                 
         # 5. Collisions
         self._check_collisions(now)
@@ -1093,7 +1114,8 @@ class GameState:
                                     "minerals": {
                                         "titanium": random.randint(5, 12),
                                         "plutonium": random.randint(2, 6),
-                                        "silicon": random.randint(1, 4)
+                                        "silicon": random.randint(1, 4),
+                                        "iridium": random.randint(1, 3)
                                     },
                                     "spawn_time": now,
                                     "map_id": e["map_id"]
@@ -1207,7 +1229,7 @@ class GameState:
                         can_take = min(box["amount"], player["max_cargo"] - current_cargo)
                         if can_take > 0:
                             m_type = box["mineral_type"]
-                            player["minerals"][m_type] += can_take
+                            player["minerals"][m_type] = player["minerals"].get(m_type, 0) + can_take
                             self.loot_events.append({
                                 "id": str(random.random()),
                                 "x": box["x"], "y": box["y"],
@@ -1233,7 +1255,7 @@ class GameState:
                         minerals_dict = player.get("minerals", {})
                         # Asegurar que sea un dict
                         if not isinstance(minerals_dict, dict):
-                            minerals_dict = {"titanium": 0, "plutonium": 0, "silicon": 0}
+                            minerals_dict = {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
                             player["minerals"] = minerals_dict
                         
                         current_shared_cargo = sum(minerals_dict.values())
@@ -1246,7 +1268,7 @@ class GameState:
                             if current_shared_cargo < player["max_cargo"]:
                                 can_take = min(amount, player["max_cargo"] - current_shared_cargo)
                                 if can_take > 0:
-                                    minerals_dict[m_type] += can_take
+                                    minerals_dict[m_type] = minerals_dict.get(m_type, 0) + can_take
                                     current_shared_cargo += can_take
                                     collected_info[m_type] = can_take
                                     box_minerals[m_type] -= can_take # Restar de la caja
@@ -1487,10 +1509,11 @@ class GameState:
     def recalculate_player_stats(self, player):
         """Recalcula las estadísticas finales sumando base + módulos + mejoras temporales."""
         # Reiniciar a base
-        player["atk"] = player.get("base_atk", player.get("atk", 70))
-        player["spd"] = player.get("base_spd", player.get("spd", 60))
-        player["max_shld"] = player.get("base_max_shld", player.get("max_shld", 150))
-        player["max_hp"] = player.get("base_max_hp", player.get("max_hp", 180))
+        # Reiniciar a base usando valores persistentes si existen, de lo contrario fallback a defaults
+        player["atk"] = player.get("base_atk", 70)
+        player["spd"] = player.get("base_spd", 60)
+        player["max_shld"] = player.get("base_max_shld", 150)
+        player["max_hp"] = player.get("base_max_hp", 180)
 
         # 1. Sumar Módulos Equipados
         player["lasers"] = 0
@@ -1511,12 +1534,14 @@ class GameState:
             if m_type == "engines": player["engines"] += 1
             if m_type == "shields": player["shields"] += 1
 
-        # 2. Sumar Mejoras Temporales (Laboratorio)
+        # 2. Sumar Mejoras Temporales (Laboratorio) - ACUMULATIVO
         if "timed_upgrades" in player:
-            for stat_key in ["atk", "shld", "spd"]:
-                bonus_total = sum(u["amount"] for u in player["timed_upgrades"].get(stat_key, []))
+            for stat_key in ["atk", "shld", "spd", "hp"]:
+                bonus_total = sum(u.get("amount", 0) for u in player["timed_upgrades"].get(stat_key, []))
                 if stat_key == "shld":
                     player["max_shld"] += bonus_total
+                elif stat_key == "hp":
+                    player["max_hp"] += bonus_total
                 else:
                     player[stat_key] += bonus_total
 
@@ -1562,22 +1587,53 @@ class GameState:
         print(f"Equipamiento sincronizado para {client_id}: {len(player['equipped'])} módulos.")
 
     def update_timed_upgrades(self, client_id, updates):
-        """Sincroniza las mejoras temporales del laboratorio en tiempo real."""
+        """Sincroniza las mejoras temporales del laboratorio en tiempo real (pestaña Lab -> Juego)."""
         if client_id not in self.players: return
         player = self.players[client_id]
         
         if not updates or not isinstance(updates, dict):
             return
 
-        # Actualizar el diccionario de mejoras temporales
+        # Guardar máximos actuales antes del cambio para aplicar el "curado" proporcional o directo
+        old_max_shld = player.get("max_shld", 0)
+        old_max_hp = player.get("max_hp", 0)
+
+        # Actualizar el diccionario de mejoras temporales (Ahora incluye HP)
         player["timed_upgrades"] = {
             "atk": updates.get("atk", []),
             "shld": updates.get("shld", []),
-            "spd": updates.get("spd", [])
+            "spd": updates.get("spd", []),
+            "hp": updates.get("hp", [])
         }
         
+        # Persistir en base de datos inmediatamente para que sea "acumulable" y no se pierda
+        if "guest" not in client_id:
+             try:
+                from database import sync_user_stats
+                # Usar los valores actuales del jugador
+                sync_user_stats(
+                    client_id, 
+                    player["level"], player["xp"], player["credits"], player["paladio"],
+                    timed_upgrades=player["timed_upgrades"]
+                )
+                print(f"Mejoras persistidas en DB para {client_id}")
+             except Exception as e:
+                print(f"Error persistiendo mejoras para {client_id}: {e}")
+
+        # Aplicar cambios a las estadísticas máximas
         self.recalculate_player_stats(player)
-        print(f"Mejoras de laboratorio sincronizadas para {client_id}.")
+
+        # SI EL MÁXIMO AUMENTÓ (por el nuevo refinamiento), sumar la diferencia al actual
+        # Esto cumple con: "si tenía 230 y refino +50, pásame a 280"
+        if player["max_shld"] > old_max_shld:
+            diff = player["max_shld"] - old_max_shld
+            player["shld"] = min(player["max_shld"], player["shld"] + diff)
+            
+        if player["max_hp"] > old_max_hp:
+            diff = player["max_hp"] - old_max_hp
+            player["hp"] = min(player["max_hp"], player["hp"] + diff)
+        
+        print(f"Mejoras de laboratorio sincronizadas (+Salud/Escudo aplicado) para {client_id}.")
 
     def update_resources(self, client_id, ammo_data):
         """Sincroniza munición y otros recursos en tiempo real."""
@@ -1654,6 +1710,15 @@ class GameState:
                             # Eliminar de la lista de activas del HUD
                             player["active_missions"] = [am for am in player["active_missions"] if am["id"] != mission["id"]]
                             print(f"Misión {mission['id']} auto-cobrada para {player['user_id']}")
+                            
+                            # Registrar evento de misión completada para la UI
+                            self.mission_events.append({
+                                "id": f"mission_{mission['id']}_{time.time()}",
+                                "owner_id": player["id"],
+                                "title": mission.get("title", "Misión"),
+                                "rewards": rewards,
+                                "time": time.time()
+                            })
                     except Exception as e:
                         print(f"Error en auto-cobro de misión {mission['id']}: {e}")
         
@@ -1728,10 +1793,15 @@ class GameState:
                 "map_width": self.GAME_WIDTH,
                 "map_height": self.GAME_HEIGHT,
                 "damage_events": [e for e in self.damage_events if e.get("owner_id") == client_id],
+                "mission_events": [e for e in self.mission_events if e.get("owner_id") == client_id],
                 "destruction_events": self.destruction_events,
                 "party": self.parties.get(me.get("party_id")) if me.get("party_id") else None,
                 "party_invites": self.party_invites.get(client_id, {}),
-                "active_missions": me["active_missions"] if me.get("needs_mission_sync") else None
+                "active_missions": me["active_missions"] if me.get("needs_mission_sync") else None,
+                "timed_bonuses": {
+                    k: sum(u.get("amount", 0) for u in me.get("timed_upgrades", {}).get(k, []))
+                    for k in ["atk", "shld", "spd", "hp"]
+                }
             }
             
             # Resetear flag tras incluirlo en el estado

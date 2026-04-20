@@ -9,6 +9,7 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
     { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', color: '#ff3333', amount: 50, bonus: 5, desc: 'Aumenta el daño base de todos tus láseres' },
     { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', color: '#00c8ff', amount: 50, bonus: 10, desc: 'Refuerza la capacidad máxima de tus escudos' },
     { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', color: '#00ffcc', amount: 50, bonus: 8, desc: 'Mejora la propulsión y velocidad de maniobra' },
+    { id: 'iridium',   name: 'Iridio',    stat: 'hp',   icon: '🧲', color: '#ff4466', amount: 50, bonus: 15, desc: 'Aumenta la integridad estructural de tu casco (Vida)' },
   ];
 
   return (
@@ -74,7 +75,14 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                     <h3 style={{ margin: 0, color: min.color, fontSize: '1.5rem' }}>{min.name}</h3>
-                    <span style={{ fontSize: '1.2rem' }}>Disponibles: <b>{minerals[min.id]}</b></span>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.2rem' }}>Disponibles: <b>{minerals[min.id] || 0}</b></div>
+                      {totalBonus > 0 && (
+                        <div style={{ color: min.color, fontSize: '0.8rem', fontWeight: 'bold' }}>
+                          BONO TOTAL ACUMULADO: +{totalBonus}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <p style={{ color: '#666', margin: '5px 0 15px 0' }}>{min.desc}</p>
                   

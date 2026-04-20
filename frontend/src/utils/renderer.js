@@ -1261,15 +1261,15 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
           text = `💚 +${event.amount} HP`;
           color = "#00ffcc";
         } else if (event.type === 'mineral') {
-          const mIcons = { titanium: '💎', plutonium: '🏮', silicon: '💾' };
-          const mColors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc' };
+          const mIcons = { titanium: '💎', plutonium: '🏮', silicon: '💾', iridium: '☄️' };
+          const mColors = { titanium: '#00c8ff', plutonium: '#ff3333', silicon: '#00ffcc', iridium: '#ff4466' };
           text = `📦 +${event.amount} ${mIcons[event.mineral_type] || ''}`;
           color = mColors[event.mineral_type] || "#fff";
         } else if (event.type === 'cargo') {
-          const mIcons = { titanium: 'Ti', plutonium: 'Pl', silicon: 'Si' };
+          const mIcons = { titanium: 'Ti', plutonium: 'Pl', silicon: 'Si', iridium: 'Ir' };
           const parts = [];
           for (const [m_type, amount] of Object.entries(event.minerals || {})) {
-            parts.push(`+${amount}${mIcons[m_type]}`);
+            parts.push(`+${amount}${mIcons[m_type] || m_type}`);
           }
           text = `📦 [${parts.join(' / ')}]`;
           color = "#ffcc00"; // Color cargo (Ámbar)

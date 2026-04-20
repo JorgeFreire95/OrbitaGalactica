@@ -19,7 +19,11 @@ export default function Missions({ user, onNavigate, credits, level, xp, paladio
             const resp = await fetch(`${API_URL}/missions/${user.username}`);
             if (resp.ok) {
                 const data = await resp.json();
-                setMissions(data);
+                setMissions({
+                    available: data.available || [],
+                    active: data.active || [],
+                    completed: data.completed || []
+                });
             }
         } catch (e) {
             console.error("Error fetching missions:", e);
@@ -67,17 +71,37 @@ export default function Missions({ user, onNavigate, credits, level, xp, paladio
     };
 
     const renderMissionCard = (m, type) => {
-        const isCompleted = m.status === 'completed';
+        const isCompleted = m.status === 'completed' || m.status === 'claimed';
         const isActive = m.status === 'active';
         
-        // Calcular dificultad basada en min_level si no viene del backend
-        const difficulty = m.difficulty || (m.min_level <= 3 ? 'facil' : m.min_level <= 6 ? 'media' : 'dificil');
+        // Calcular dificultad relativa al nivel del jugador
+        const mLevel = parseInt(m.min_level || 1, 10);
+        const pLevel = parseInt(level || 1, 10);
         
+        let difficulty = 'facil';
+        let diffLabel = 'FÁCIL';
+
+        if (mLevel >= pLevel + 4) {
+            difficulty = 'extrem';
+            diffLabel = 'EXTREMO';
+        } else if (mLevel >= pLevel + 2) {
+            difficulty = 'dificil';
+            diffLabel = 'DIFÍCIL';
+        } else if (mLevel > pLevel) {
+            difficulty = 'media';
+            diffLabel = 'MEDIO';
+        } else if (mLevel === pLevel) {
+            difficulty = 'media';
+            diffLabel = 'NORMAL';
+        }
+
         return (
-            <div key={m.id} className={`mission-card ${type}`}>
+            <div key={m.id} className={`mission-card ${type} ${isActive ? 'active-gradient' : ''}`}>
                 <div className="mission-header">
-                    <div className="mission-title">{m.title}</div>
-                    <div className={`mission-difficulty difficulty-${difficulty}`}>{difficulty.toUpperCase()}</div>
+                    <div className="mission-title">
+                        {m.title} <span style={{ fontSize: '0.8rem', color: '#888' }}>(Nivel {mLevel})</span>
+                    </div>
+                    <div className={`mission-difficulty difficulty-${difficulty}`}>{diffLabel}</div>
                 </div>
                 <div className="mission-description">{m.description}</div>
                 
@@ -129,7 +153,7 @@ export default function Missions({ user, onNavigate, credits, level, xp, paladio
                     <h1>CENTRO DE MANDO: MISIONES</h1>
                     <div className="mission-tabs">
                         <button className={tab === 'available' ? 'active' : ''} onClick={() => setTab('available')}>DISPONIBLES</button>
-                        <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>ACTIVAS ({missions.active.length}/2)</button>
+                        <button className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>ACTIVAS ({missions.active?.length || 0}/2)</button>
                         <button className={tab === 'completed' ? 'active' : ''} onClick={() => setTab('completed')}>HISTORIAL</button>
                     </div>
                 </header>
@@ -139,9 +163,9 @@ export default function Missions({ user, onNavigate, credits, level, xp, paladio
                         <div className="loading-spinner">Cargando protocolos de misión...</div>
                     ) : (
                         <div className="mission-grid">
-                            {tab === 'available' && missions.available.map(m => renderMissionCard(m, 'available'))}
-                            {tab === 'active' && missions.active.map(m => renderMissionCard(m, 'active'))}
-                            {tab === 'completed' && missions.completed.map(m => renderMissionCard(m, 'completed'))}
+                            {tab === 'available' && missions.available?.map(m => renderMissionCard(m, 'available'))}
+                            {tab === 'active' && missions.active?.map(m => renderMissionCard(m, 'active'))}
+                            {tab === 'completed' && missions.completed?.map(m => renderMissionCard(m, 'completed'))}
                             
                             {((tab === 'available' && missions.available.length === 0) ||
                               (tab === 'active' && missions.active.length === 0) ||

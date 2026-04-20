@@ -51,6 +51,7 @@ class SyncRequest(BaseModel):
     owned_ships: Optional[list] = None
     inventory: Optional[list] = None
     equipped: Optional[dict] = None
+    timed_upgrades: Optional[dict] = None
 
 
 class ClanCreateRequest(BaseModel):
@@ -268,6 +269,7 @@ async def api_login(req: LoginRequest):
         "owned_ships": result.get("owned_ships", ["starter"]),
         "inventory": result.get("inventory", []),
         "equipped": result.get("equipped", {}),
+        "timed_upgrades": result.get("timed_upgrades", {"atk":[], "shld":[], "spd":[], "hp":[]}),
         "clan": clan_data
     }
 
@@ -443,7 +445,7 @@ async def api_get_user_stats(username: str):
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
     # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
@@ -455,6 +457,13 @@ async def api_sync_stats(req: SyncRequest):
             p["paladio"] = req.paladio
             p["level"] = req.level
             p["xp"] = req.xp
+            
+            # Sincronización de refinamientos en tiempo real
+            if req.timed_upgrades is not None:
+                p["timed_upgrades"] = req.timed_upgrades
+                # Recalcular estadísticas inmediatamente (Velocidad, Daño, etc)
+                game_state.recalculate_player_stats(p)
+                print(f"Stats de refinamiento recalculados en tiempo real para {req.username}")
             break
             
     return {"success": True, "message": "Sincronización exitosa."}
