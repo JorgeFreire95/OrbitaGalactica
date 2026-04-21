@@ -585,6 +585,15 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     }
   }, [initialUpgrades, gameStarted]);
 
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'switch_ship', 
+        ship_type: selectedShip 
+      }));
+    }
+  }, [selectedShip, gameStarted]);
+
   const me = gameState?.players?.find(p => p.is_self);
   const party = gameState?.party;
   const partyInvites = gameState?.party_invites || {};

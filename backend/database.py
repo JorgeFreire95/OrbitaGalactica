@@ -547,8 +547,30 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
     c = conn.cursor()
     import json
     try:
+        # SEGURIDAD: Recuperar valores actuales antes de sobreescribir
+        c.execute('SELECT level, xp, credits, paladio FROM users WHERE username = ?', (username,))
+        current = c.fetchone()
+        
+        if current:
+            curr_lvl, curr_xp, curr_cred, curr_pal = current
+            # No permitir bajar de nivel ni perder XP (el progreso es acumulativo)
+            safe_level = max(level, curr_lvl)
+            safe_xp = max(xp, curr_xp) if level >= curr_lvl else curr_xp
+            
+            # Protección contra reseteo accidental de créditos a 0
+            # Si los créditos recibidos son 0 pero en DB hay más de 50,000, 
+            # ignoramos el 0 (probablemente un bug de sincronización/race condition)
+            safe_credits = credits
+            if credits <= 0 and curr_cred > 50000:
+                print(f"ALERTA: Intento de reseteo de créditos bloqueado para {username} ({curr_cred} -> {credits})")
+                safe_credits = curr_cred
+                
+            safe_paladio = max(paladio, curr_pal) if paladio <= 0 and curr_pal > 0 else paladio
+        else:
+            safe_level, safe_xp, safe_credits, safe_paladio = level, xp, credits, paladio
+
         fields = ["level = ?", "xp = ?", "credits = ?", "paladio = ?"]
-        params = [level, xp, credits, paladio]
+        params = [safe_level, safe_xp, safe_credits, safe_paladio]
         
         if minerals is not None:
             fields.append("minerals_json = ?")

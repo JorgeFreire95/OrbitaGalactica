@@ -237,23 +237,8 @@ class GameState:
             }
         }
         
-        # --- PERSISTENCIA DE SESIÓN ---
-        self.player_persistence = {} # { user_id: {x, y} }
-        
-        # --- SISTEMA DE GRUPOS (PARTY) ---
-        self.parties = {} # { party_id: { leader: id, members: [ids] } }
-        self.party_invites = {} # { invited_id: { leader_id: time } }
-        
-        # --- INICIALIZAR CAJAS ESPECIALES (5 por mapa) ---
-        for map_id in self.MAPS:
-            for _ in range(5):
-                self.spawn_special_chest(map_id)
-
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None):
-        self.clients[client_id] = websocket
-        
-        # Stats and Slot profiles
-        profiles = {
+        # --- PERFIL DE NAVES ---
+        self.SHIP_PROFILES = {
             "starter": {
                 "hp": 60, "shld": 30, "atk": 40, "spd": 120, "color": "#ffffff",
                 "slots": {"lasers": 1, "shields": 1, "engines": 1, "utility": 1},
@@ -283,10 +268,45 @@ class GameState:
                 "hp": 110, "shld": 100, "atk": 60, "spd": 100, "color": "#33ff99",
                 "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6},
                 "cargo_capacity": 2500
+            },
+            "sovereign": {
+                "hp": 220, "shld": 250, "atk": 250, "spd": 45, "color": "#e6b800",
+                "slots": {"lasers": 15, "shields": 10, "engines": 2, "utility": 3},
+                "cargo_capacity": 800
+            },
+            "harvester": {
+                "hp": 140, "shld": 180, "atk": 80, "spd": 70, "color": "#00ff00",
+                "slots": {"lasers": 4, "shields": 5, "engines": 4, "utility": 8},
+                "cargo_capacity": 10000
+            },
+            "interceptor": {
+                "hp": 70, "shld": 40, "atk": 150, "spd": 210, "color": "#ffff00",
+                "slots": {"lasers": 6, "shields": 2, "engines": 12, "utility": 2},
+                "cargo_capacity": 300
+            },
+            "bastion": {
+                "hp": 400, "shld": 400, "atk": 100, "spd": 35, "color": "#333333",
+                "slots": {"lasers": 4, "shields": 15, "engines": 3, "utility": 5},
+                "cargo_capacity": 2000
             }
         }
         
-        prof = profiles.get(ship_type, profiles["starter"])
+        # --- PERSISTENCIA DE SESIÓN ---
+        self.player_persistence = {} # { user_id: {x, y} }
+        
+        # --- SISTEMA DE GRUPOS (PARTY) ---
+        self.parties = {} # { party_id: { leader: id, members: [ids] } }
+        self.party_invites = {} # { invited_id: { leader_id: time } }
+        
+        # --- INICIALIZAR CAJAS ESPECIALES (5 por mapa) ---
+        for map_id in self.MAPS:
+            for _ in range(5):
+                self.spawn_special_chest(map_id)
+
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None):
+        self.clients[client_id] = websocket
+        
+        prof = self.SHIP_PROFILES.get(ship_type, self.SHIP_PROFILES["starter"])
         
         # Calculate modules based on stats (legacy logic, will be overridden by initial_modules eventually)
         c_lasers = max(1, round(prof["atk"] / 25))
@@ -1609,10 +1629,10 @@ class GameState:
         # Persistir en base de datos inmediatamente para que sea "acumulable" y no se pierda
         if "guest" not in client_id:
              try:
-                from database import sync_user_stats
                 # Usar los valores actuales del jugador
+                from database import sync_user_stats
                 sync_user_stats(
-                    client_id, 
+                    player["user_id"], 
                     player["level"], player["xp"], player["credits"], player["paladio"],
                     timed_upgrades=player["timed_upgrades"]
                 )
@@ -1665,6 +1685,39 @@ class GameState:
                     player["missile_type"] = ammo_id
             elif ammo_id == "standard" or player["ammo"].get(ammo_id, 0) > 0:
                 player["ammo_type"] = ammo_id
+
+    def switch_ship(self, client_id, ship_type):
+        """Cambia la nave del jugador en tiempo real actualizando sus estadísticas base."""
+        if client_id not in self.players:
+            return
+        
+        player = self.players[client_id]
+        if ship_type not in self.SHIP_PROFILES:
+            return
+            
+        print(f"Cambiando nave de {client_id} a {ship_type}...")
+        prof = self.SHIP_PROFILES[ship_type]
+        
+        # 1. Actualizar Tipo y Visuales
+        player["ship_type"] = ship_type
+        player["color"] = prof["color"]
+        
+        # 2. Actualizar Estadísticas Base
+        player["base_max_hp"] = prof["hp"]
+        player["base_max_shld"] = prof["shld"]
+        player["base_atk"] = prof["atk"]
+        player["base_spd"] = prof["spd"]
+        player["max_cargo"] = prof.get("cargo_capacity", 1500)
+        player["slots"] = prof["slots"]
+        
+        # 3. Recalcular Estadísticas Finales (Módulos + Laboratorio)
+        self.recalculate_player_stats(player)
+        
+        # 4. Ajustar Salud/Escudo actual al nuevo máximo (sin excederlo)
+        player["hp"] = min(player["hp"], player["max_hp"])
+        player["shld"] = min(player["shld"], player["max_shld"])
+        
+        print(f"Cambio de nave completado para {client_id}.")
 
     def gain_xp(self, player, amount):
         player["xp"] += amount

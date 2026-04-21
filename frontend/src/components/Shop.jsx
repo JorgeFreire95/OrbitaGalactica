@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
+import ShipIcon from './ShipIcon';
 
 export default function Shop({ 
   credits, 
@@ -179,7 +180,11 @@ export default function Shop({
                 <div style={{ position: 'absolute', top: '5px', left: '5px', background: '#00ffcc', color: 'black', fontSize: '0.6rem', padding: '2px 5px', borderRadius: '3px', fontWeight: 'bold', zIndex: 10 }}>ADQUIRIDA</div>
               )}
               <div style={{ fontSize: '2.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50px' }}>
-                {item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'contain' }} /> : item.icon}
+                {activeCategory === 'naves' ? (
+                  <ShipIcon type={item.id} image={item.image} color={item.color || (item.id === 'sovereign' ? '#e6b800' : '#00b3ff')} size={50} />
+                ) : (
+                  item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'contain' }} /> : item.icon
+                )}
               </div>
               <div className="shop-item-name">{item.name}</div>
               <div className="shop-item-price">
@@ -195,9 +200,13 @@ export default function Shop({
           {selectedItem ? (
             <>
               <div className="preview-top" style={{ display: 'flex', justifyContent: 'center', minHeight: '150px', alignItems: 'center' }}>
-                <div style={{ fontSize: '8rem' }}>
-                  {selectedItem.image ? <img src={selectedItem.image} alt={selectedItem.name} style={{ width: '120px', height: '120px', objectFit: 'contain' }} /> : selectedItem.icon}
-                </div>
+                {activeCategory === 'naves' ? (
+                  <ShipIcon type={selectedItem.id} image={selectedItem.image} color={selectedItem.color || (selectedItem.id === 'sovereign' ? '#e6b800' : '#00b3ff')} size={150} />
+                ) : (
+                  <div style={{ fontSize: '8rem' }}>
+                    {selectedItem.image ? <img src={selectedItem.image} alt={selectedItem.name} style={{ width: '120px', height: '120px', objectFit: 'contain' }} /> : selectedItem.icon}
+                  </div>
+                )}
               </div>
 
               <div className="preview-info">

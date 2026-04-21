@@ -83,6 +83,42 @@ export const SHIPS = [
     shld: 100,
     cargo_capacity: 2500,
     cost: 450000
+  },
+  {
+    id: 'sovereign',
+    name: 'Sovereign Exterminator',
+    desc: 'El pináculo del combate táctico. Equipada con 15 ranuras de láser y un casco reforzado con tecnología de materia oscura.',
+    image: '/sovereign.png',
+    cost: 5000000,
+    hp: 220, shld: 250, spd: 45, cargo_capacity: 800,
+    slots: { lasers: 15, shields: 10, engines: 2, utility: 3 }
+  },
+  {
+    id: 'harvester',
+    name: 'Cosmic Harvester',
+    desc: 'Una planta de procesamiento móvil. Su bodega ultra-expandida permite recolectar flotas enteras de minerales.',
+    image: '/harvester.png',
+    cost: 1200000,
+    hp: 180, shld: 150, spd: 35, cargo_capacity: 10000,
+    slots: { lasers: 4, shields: 6, engines: 2, utility: 8 }
+  },
+  {
+    id: 'interceptor',
+    name: 'Solar Wind',
+    desc: 'La nave más rápida jamás construida. Su diseño minimalista sacrifica blindaje por una velocidad de evasión inigualable.',
+    image: '/interceptor.png',
+    cost: 1500000,
+    hp: 120, shld: 120, spd: 65, cargo_capacity: 400,
+    slots: { lasers: 6, shields: 4, engines: 12, utility: 2 }
+  },
+  {
+    id: 'bastion',
+    name: 'Obsidian Bastion',
+    desc: 'Una fortaleza inamovible. Diseñada para resistir asedios prolongados en el frente de batalla.',
+    image: '/bastion.png',
+    cost: 3500000,
+    hp: 400, shld: 400, spd: 25, cargo_capacity: 1200,
+    slots: { lasers: 5, shields: 15, engines: 4, utility: 2 }
   }
 ];
 

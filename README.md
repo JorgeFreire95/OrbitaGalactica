@@ -72,6 +72,25 @@ Los **Cofres Especiales** (resaltados en el radar) aparecen de forma aleatoria e
 - **🚀 Misiles (15%)**: Entre **5 y 15** misiles (M-1, M-2 o M-3).
 - **🪐 Paladio (20%)**: Entre **2 y 10** unidades de Paladio.
 
+### ⛴️ Flota Estelar (Naves Disponibles)
+Elige la nave que mejor se adapte a tu estilo de juego. Desde veloces interceptores hasta fortalezas pesadas:
+
+#### 🔸 Naves Regulares (Créditos)
+- **Phoenix (Básica)**: La nave de inicio. Equilibrada y ligera, perfecta para aprender las mecánicas básicas del sector.
+- **Aegis Vanguard (Tanque)**: Diseñada para absorber daño. Cuenta con **6 ranuras de escudo** y una integridad estructural superior.
+- **Nova Striker (Rápida)**: Especialista en velocidad. Con **7 ranuras de motor**, es la nave ideal para misiones de transporte rápido y evasión.
+- **Orion Phantom (Sigilo)**: Alta capacidad ofensiva. Sus **5 ranuras de láser** y bonos de sigilo la hacen perfecta para el combate táctico.
+- **Titan Hammer (Pesada)**: Fuerza bruta. Sacrifica velocidad por un arsenal devastador de **8 ranuras de láser**.
+- **Helix Support (Soporte)**: La reina de la versatilidad. Sus **6 ranuras de utilidad** permiten equipar una gran variedad de módulos tecnológicos.
+
+#### 💎 Naves de Élite (Paladio)
+- **Sovereign Exterminator**: El pináculo de la guerra. Equipada con **15 ranuras de láser**, es capaz de borrar flotas enteras del radar.
+- **Cosmic Harvester**: La nave definitiva para mineros. Su bodega de **10,000 unidades** permite expediciones de recolección masivas.
+- **Solar Wind (Interceptor)**: La nave más rápida de la galaxia. Su diseño de propulsión iónica permite una **velocidad de 65 base**, siendo virtualmente imposible de fijar.
+- **Obsidian Bastion (Fortaleza)**: Una muralla impenetrable. Con **15 ranuras de escudo** e integridad reforzada, es la nave ideal para liderar asaltos a estaciones.
+
+---
+
 ### 👾 Bestiario Alienígena y Amenaza Activa
 El universo de Órbita Galáctica es ahora más peligroso. Todos los alienígenas han sido reprogramados con un **Protocolo de Caza Activa**:
 - **IA de Cazador (Hunter AI)**: Los alienígenas no solo deambulan; ahora detectan tu presencia, te persiguen y abren fuego de forma agresiva.

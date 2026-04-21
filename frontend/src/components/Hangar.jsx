@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SHIPS, getRank } from '../utils/gameData';
 import { SlotDisplay, StatRow } from './ShipComponents';
 import NavigationBar from './NavigationBar';
+import ShipIcon from './ShipIcon';
 
 export default function Hangar({ 
   user,
@@ -62,7 +63,14 @@ export default function Hangar({
                 style={{ opacity: shipOwned ? 1 : 0.5, filter: shipOwned ? 'none' : 'grayscale(80%)' }}
               >
                 {!shipOwned && <div style={{ position: 'absolute', top: '5px', right: '5px', fontSize: '1rem' }}>🔒</div>}
-                <img src={ship.image} alt={ship.name} />
+                <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShipIcon 
+                    type={ship.id} 
+                    image={ship.image}
+                    color={ship.color || (ship.id === 'sovereign' ? '#e6b800' : (shipOwned ? '#00ffcc' : '#555'))} 
+                    size={60} 
+                  />
+                </div>
                 <div className="ship-inventory-name">{ship.name}</div>
                 {selectedShipId === ship.id && <div className="ship-status-icon">✓</div>}
               </div>
@@ -77,6 +85,15 @@ export default function Hangar({
             <div className="fleet-info-tab active">NAVE</div>
             <div className="fleet-info-tab">VANTS</div>
             <div className="fleet-info-tab">P.E.T.</div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0', background: 'radial-gradient(circle, rgba(0,255,204,0.05) 0%, transparent 70%)' }}>
+             <ShipIcon 
+                type={viewedShip.id} 
+                image={viewedShip.image} 
+                color={viewedShip.color || (viewedShip.id === 'sovereign' ? '#e6b800' : '#00ffcc')} 
+                size={180} 
+             />
           </div>
 
           <div className="fleet-stats-list">

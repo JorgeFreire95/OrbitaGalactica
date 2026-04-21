@@ -16,6 +16,18 @@ supportImg.src = '/helix_support.png';
 const starterImg = new Image();
 starterImg.src = '/phoenix.png';
 
+const sovereignImg = new Image();
+sovereignImg.src = '/sovereign.png';
+
+const harvesterImg = new Image();
+harvesterImg.src = '/harvester.png';
+
+const interceptorImg = new Image();
+interceptorImg.src = '/interceptor.png';
+
+const bastionImg = new Image();
+bastionImg.src = '/bastion.png';
+
 // --- FUNCIONES DE RENDERIZADO DE ALIENS ---
 
 const drawGryllos = (ctx, isHard) => {
@@ -1079,6 +1091,114 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     
     ctx.rotate(heading + bankAngle);
     
+    // --- NUEVO: SISTEMA DE DIBUJO PROCEDURAL PARA NUEVAS NAVES ---
+    const drawProceduralShip = (type, s) => {
+      ctx.save();
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = player.color || '#fff';
+      
+      if (type === 'sovereign') {
+        // Sovereign: Agresiva, alas dobles, color dorado
+        ctx.fillStyle = '#1a1a1a';
+        ctx.strokeStyle = '#e6b800';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -s/2); // Punta
+        ctx.lineTo(s/3, -s/4); ctx.lineTo(s/2, 0); ctx.lineTo(s/3, s/4); // Ala derecha sup
+        ctx.lineTo(s/2.5, s/2); ctx.lineTo(0, s/3); // Ala derecha inf
+        ctx.lineTo(-s/2.5, s/2); ctx.lineTo(-s/3, s/4); ctx.lineTo(-s/2, 0); ctx.lineTo(-s/3, -s/4); // Lado izq
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // Core central
+        ctx.fillStyle = '#e6b800';
+        ctx.beginPath(); ctx.arc(0, 0, s/8, 0, Math.PI*2); ctx.fill();
+      } 
+      else if (type === 'harvester') {
+        // Harvester: Industrial, ancha, verde
+        ctx.fillStyle = '#2c3e50';
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-s/2.2, -s/3, s/1.1, s/1.5);
+        ctx.fillRect(-s/2.2, -s/3, s/1.1, s/1.5);
+        // Brazos extractores
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(-s/2, -s/2, s/8, s/4);
+        ctx.fillRect(s/2 - s/8, -s/2, s/8, s/4);
+      }
+      else if (type === 'interceptor') {
+        // Interceptor: Aguja, ultra rápida, amarilla
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -s/1.5); // Punta extra larga
+        ctx.lineTo(s/4, s/2); ctx.lineTo(0, s/3); ctx.lineTo(-s/4, s/2);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      }
+      else if (type === 'bastion') {
+        // Bastion: Bloque masivo, gris oscuro
+        ctx.fillStyle = '#111';
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 4;
+        // Octágono
+        ctx.beginPath();
+        for(let i=0; i<8; i++) {
+          const ang = (i/8)*Math.PI*2 + Math.PI/8;
+          const px = Math.cos(ang)*s/2;
+          const py = Math.sin(ang)*s/2;
+          if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // Brillo de energía interna
+        ctx.strokeStyle = '#8a2be2';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+
+    const drawPremiumShip = (img, shipType, s) => {
+      ctx.save();
+      
+      // 1. Efecto de Propulsores (Sutil)
+      const engineTime = Date.now() / 80;
+      const flicker = Math.sin(engineTime * 5) * 3;
+      const engineColor = shipType === 'sovereign' ? '#e6b800' : 
+                          (shipType === 'bastion' ? '#ff3333' : '#00ffff');
+      
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.globalCompositeOperation = 'screen';
+      const engineGrad = ctx.createRadialGradient(0, s/3.5, 0, 0, s/3.5, 18 + flicker);
+      engineGrad.addColorStop(0, engineColor);
+      engineGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = engineGrad;
+      ctx.beginPath();
+      ctx.arc(0, s/3.5, 18 + flicker, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 2. Dibujo de la Imagen con Filtro de Contraste (Elimina halo cuadrado)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      // contrast(1.8) asegura que el fondo sea negro puro, brightness(0.9) evita saturación
+      ctx.filter = 'contrast(1.8) brightness(0.9)'; 
+      ctx.drawImage(img, -s/2, -s/2, s, s);
+      ctx.restore();
+      
+      // 3. Brillo Orbital (Casi imperceptible)
+      ctx.globalAlpha = 0.05;
+      ctx.strokeStyle = engineColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, s/2.2, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      ctx.restore();
+    };
+
     // Draw the 3D sprite
     if (player.ship_type === 'tank') {
       ctx.drawImage(tankImg, -size/2, -size/2, size, size);
@@ -1090,6 +1210,14 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.drawImage(heavyImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'support') {
       ctx.drawImage(supportImg, -size/2, -size/2, size, size);
+    } else if (player.ship_type === 'sovereign') {
+      drawPremiumShip(sovereignImg, 'sovereign', size);
+    } else if (player.ship_type === 'harvester') {
+      drawPremiumShip(harvesterImg, 'harvester', size);
+    } else if (player.ship_type === 'interceptor') {
+      drawPremiumShip(interceptorImg, 'interceptor', size);
+    } else if (player.ship_type === 'bastion') {
+      drawPremiumShip(bastionImg, 'bastion', size);
     } else if (player.ship_type === 'starter') {
       // --- DYNAMIC ENGINE THRUSTERS ---
       const engineTime = Date.now() / 100;

@@ -797,6 +797,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 if module_data:
                     game_state.buy_module(client_id, module_data)
                 
+            elif data.get("type") == "switch_ship" and player_added:
+                ship_type = data.get("ship_type")
+                if ship_type:
+                    game_state.switch_ship(client_id, ship_type)
+                
             elif data.get("type") == "switch_ammo" and player_added:
                 ammo_id = data.get("ammo_id")
                 game_state.switch_ammo(client_id, ammo_id)

@@ -197,6 +197,7 @@ function App() {
         case 'equipped_modules': if (e.newValue) setEquippedByShip(JSON.parse(e.newValue)); break;
         case 'selected_ship_id': if (e.newValue) setSelectedShipId(e.newValue); break;
         case 'owned_ships': if (e.newValue) setOwnedShips(JSON.parse(e.newValue)); break;
+        case 'game_upgrades': if (e.newValue) setUpgrades(JSON.parse(e.newValue)); break;
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -255,6 +256,13 @@ function App() {
   const syncStats = async () => {
     if (!user || currentView === 'auth') return;
     
+    // VALIDACIÓN DE SEGURIDAD: Nunca sincronizar si los valores parecen reseteados accidentalmente
+    // El nivel nunca puede ser 0 en este juego (mínimo 1)
+    if (level <= 0) {
+      console.warn("Sincronización abortada: Nivel detectado como 0. Posible error de estado.");
+      return;
+    }
+
     // Clear existing timer
     if (window.syncTimer) clearTimeout(window.syncTimer);
     
