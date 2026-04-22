@@ -51,7 +51,8 @@ class SyncRequest(BaseModel):
     owned_ships: Optional[list] = None
     inventory: Optional[list] = None
     equipped: Optional[dict] = None
-    timed_upgrades: Optional[dict] = None
+    timed_upgrades: Optional[dict] = None,
+    is_invisible: Optional[bool] = None
 
 
 class ClanCreateRequest(BaseModel):
@@ -118,6 +119,10 @@ class MessageSendRequest(BaseModel):
     receiver: str
     subject: str
     body: str
+
+class BuyCloakRequest(BaseModel):
+    username: str
+    cost: int
 
 class ClanApplicationResponse(BaseModel):
     request_id: int
@@ -270,6 +275,7 @@ async def api_login(req: LoginRequest):
         "inventory": result.get("inventory", []),
         "equipped": result.get("equipped", {}),
         "timed_upgrades": result.get("timed_upgrades", {"atk":[], "shld":[], "spd":[], "hp":[]}),
+        "is_invisible": result.get("is_invisible", False),
         "clan": clan_data
     }
 
@@ -445,7 +451,7 @@ async def api_get_user_stats(username: str):
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
     # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
@@ -457,6 +463,10 @@ async def api_sync_stats(req: SyncRequest):
             p["paladio"] = req.paladio
             p["level"] = req.level
             p["xp"] = req.xp
+            p["xp"] = req.xp
+            # ELIMINADO: p["is_invisible"] = req.is_invisible 
+            # Dejamos que el backend sea el único que controle cuándo se rompe la invisibilidad
+            # y que el endpoint de compra sea el único que la active.
             
             # Sincronización de refinamientos en tiempo real
             if req.timed_upgrades is not None:
@@ -522,6 +532,29 @@ async def api_repair_ship(req: RepairRequest):
         return {"success": True, "credits": new_credits}
     else:
         return {"success": True, "credits": new_credits, "note": "Créditos descontados, pero no estás en una partida activa."}
+
+@app.post("/api/user/buy_cloak")
+async def api_buy_cloak(req: BuyCloakRequest):
+    stats = get_user_stats_db(req.username)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if stats["credits"] < req.cost:
+        raise HTTPException(status_code=400, detail="Créditos insuficientes")
+    
+    # Descontar créditos y activar invisibilidad en DB
+    new_credits = stats["credits"] - req.cost
+    from database import sync_user_stats
+    sync_user_stats(req.username, stats["level"], stats["xp"], new_credits, stats["paladio"], is_invisible=True)
+    
+    # Actualizar en memoria si está conectado
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == req.username:
+            p["is_invisible"] = True
+            p["credits"] = new_credits
+            break
+            
+    return {"success": True, "credits": new_credits}
 @app.post("/api/forgot-password")
 async def api_forgot_password(req: ForgotPasswordRequest):
     username = get_user_by_email_db(req.email)
@@ -636,7 +669,7 @@ async def create_premium_payment(req: PremiumPaymentRequest):
     preference_data = {
         "items": [
             {
-                "title": "Paquete Premium Órbita Galáctica",
+                "title": "Paquete VIP Órbita Galáctica",
                 "quantity": 1,
                 "unit_price": 9.99,
                 "currency_id": "USD"

@@ -17,7 +17,9 @@ export default function Shop({
   onNavigate,
   onBack,
   ownedShips = [],
-  onBuyShip
+  onBuyShip,
+  setIsInvisible,
+  user
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
   const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
@@ -104,6 +106,32 @@ export default function Shop({
     }
 
     // Module Purchase
+    if (selectedItem.id === 'util_cloak') {
+      if (credits < selectedItem.cost) return alert('No tienes suficientes créditos');
+      
+      // Llamada al backend para compra y activación inmediata
+      fetch('http://localhost:8000/api/user/buy_cloak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user?.username, cost: selectedItem.cost })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setCredits(data.credits);
+          if (typeof setIsInvisible === 'function') {
+            setIsInvisible(true);
+          }
+          triggerSuccess('Camuflaje activado con éxito');
+        } else {
+          alert(data.detail || 'Error al comprar camuflaje');
+        }
+      })
+      .catch(() => alert('Error de conexión al comprar camuflaje'));
+      
+      return;
+    }
+
     handleBuyModule(selectedItem);
   };
 

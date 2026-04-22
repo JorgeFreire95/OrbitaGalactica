@@ -5,7 +5,7 @@ import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -33,7 +33,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
-  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '' });
+  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', is_invisible: null });
   
   const [inviteIdText, setInviteIdText] = useState('');
   const [showPartyMenu, setShowPartyMenu] = useState(false);
@@ -242,13 +242,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
     user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag,
-    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals
+    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility
   });
   
   useEffect(() => {
     propsRef.current = {
       user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag,
-      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals
+      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility
     };
   });
 
@@ -397,6 +397,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     p.onUpdateAmmo(combinedAmmo);
                     last.ammo = ammoStr;
                 }
+            }
+            if (p.onUpdateInvisibility && me.is_invisible !== last.is_invisible) {
+                p.onUpdateInvisibility(me.is_invisible);
+                last.is_invisible = me.is_invisible;
             }
             
             // Check portal prompt

@@ -366,7 +366,8 @@ class GameState:
             "repair_accumulated": 0.0,
             "last_repair_msg_time": 0.0,
             "active_missions": [],
-            "needs_mission_sync": True # Enviar misiones al unirse
+            "needs_mission_sync": True, # Enviar misiones al unirse
+            "is_invisible": False
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -378,9 +379,12 @@ class GameState:
                 
                 # Cargar mejoras temporales (AHORA DESDE DB PARA QUE SEA 100% PERSISTENTE)
                 db_stats = get_user_stats_db(user_id)
-                if db_stats and "timed_upgrades" in db_stats:
-                    initial_upgrades = db_stats["timed_upgrades"]
-                    print(f"Mejoras cargadas desde DB para {user_id}: {initial_upgrades}")
+                if db_stats:
+                    if "timed_upgrades" in db_stats:
+                        initial_upgrades = db_stats["timed_upgrades"]
+                    if "is_invisible" in db_stats:
+                        player["is_invisible"] = bool(db_stats["is_invisible"])
+                    print(f"Estado cargado desde DB para {user_id}: upgrades={initial_upgrades}, invisible={player['is_invisible']}")
             except Exception as e:
                 print(f"Error loading missions/upgrades for {user_id}: {e}")
 
@@ -489,11 +493,12 @@ class GameState:
                     "ammo": player.get("ammo", {}).copy(),
                     "missiles": player.get("missiles", {}).copy(),
                     "minerals": player.get("minerals", {}).copy(),
+                    "is_invisible": player.get("is_invisible", False),
                     "last_save": time.time()
                 }
-                print(f"Guardando persistencia para {user_id}: Credits={player['credits']}, Map={player['current_map']}")
+                print(f"Guardando persistencia para {user_id}: Credits={player['credits']}, Map={player['current_map']}, Invisible={player.get('is_invisible')}")
                 # Persistencia en BD real
-                sync_user_stats(user_id, player["level"], player["xp"], player["credits"], player.get("paladio", 0))
+                sync_user_stats(user_id, player["level"], player["xp"], player["credits"], player.get("paladio", 0), is_invisible=player.get("is_invisible", False))
                 
             del self.players[client_id]
             
@@ -631,7 +636,14 @@ class GameState:
         if player["powerup"] == "rapid_fire":
             fire_rate *= 0.4
             
-        # IMPORTANTE: Usar shoot_active que ya tiene filtrado el rango y el objetivo
+        # --- LÓGICA DE REVELACIÓN (Invisibilidad) ---
+        # Si el jugador está intentando disparar (Láser o Misil), se revela inmediatamente
+        if (player.get("shoot_active") or keys.get("missile_shoot")):
+            if player.get("is_invisible"):
+                player["is_invisible"] = False
+                print(f"REVELADO: {player.get('user_id')} ha iniciado un ataque.")
+
+        # Laser Firing
         if player.get("shoot_active", False) and (now - player["last_shot"] > fire_rate):
             player["last_shot"] = now
             
@@ -956,7 +968,7 @@ class GameState:
                 # Si ya tiene target, verificar que siga en el mapa, vivo y FUERA de zona segura
                 if enemy["aggro_target"] and enemy["aggro_target"] in self.players:
                     p = self.players[enemy["aggro_target"]]
-                    if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False):
+                    if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False) and not p.get("is_invisible", False):
                         target_player = p
                     else:
                         enemy["aggro_target"] = None # Perder rastro si entra a base o muere
@@ -965,7 +977,7 @@ class GameState:
                 if not target_player:
                     min_dist = DETECTION_RANGE
                     for pid, p in self.players.items():
-                        if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False):
+                        if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False) and not p.get("is_invisible", False):
                             d = math.hypot(enemy["x"] - p["x"], enemy["y"] - p["y"])
                             if d < min_dist:
                                 min_dist = d
@@ -1100,19 +1112,29 @@ class GameState:
                             # Kill enemy, award score, credits and XP
                             if p["owner_id"] in self.players:
                                 player = self.players[p["owner_id"]]
-                                player["score"] += 100
-                                player["credits"] += 250 
+                                
+                                # Boss multipliers
+                                reward_mult = 5.0 if e.get("is_boss") else 1.0
+                                
+                                base_kill_credits = 250 * reward_mult
+                                base_kill_xp = 100 * reward_mult
+                                
+                                player["score"] += int(100 * reward_mult)
+                                player["credits"] += int(base_kill_credits)
+                                
                                 paladio_reward = e.get("level", 1) * (3 if e.get("is_hard") else 1)
+                                if e.get("is_boss"): paladio_reward *= 3 # Triple paladio for boss
+                                
                                 player["paladio"] = player.get("paladio", 0) + paladio_reward
-                                self.gain_xp(player, 100) # Award 100 XP per kill
+                                self.gain_xp(player, int(base_kill_xp)) 
                                 
                                 # Registrar evento de recompensa para el HUD
                                 self.kill_events.append({
                                     "id": str(random.random()),
                                     "x": e["x"],
                                     "y": e["y"],
-                                    "xp": 100,
-                                    "credits": 250,
+                                    "xp": int(base_kill_xp),
+                                    "credits": int(base_kill_credits),
                                     "paladio": paladio_reward,
                                     "time": now,
                                     "owner_id": p["owner_id"]
@@ -1151,17 +1173,24 @@ class GameState:
                                     if member_id in self.players:
                                         m = self.players[member_id]
                                         if m["current_map"] == e["map_id"]:
+                                            # Boss multipliers
+                                            reward_mult = 5.0 if e.get("is_boss") else 1.0
+                                            base_shared_credits = 250 * reward_mult
+                                            base_shared_xp = 100 * reward_mult
+                                            
                                             paladio_shared = e.get("level", 1) * (3 if e.get("is_hard") else 1)
-                                            m["credits"] += 250
+                                            if e.get("is_boss"): paladio_shared *= 3
+                                            
+                                            m["credits"] += int(base_shared_credits)
                                             m["paladio"] = m.get("paladio", 0) + paladio_shared
-                                            self.gain_xp(m, 100)
+                                            self.gain_xp(m, int(base_shared_xp))
                                             # Actualizar progreso de misión para el compañero de grupo
                                             self._update_mission_progress(m, e["name"])
                                             # Evento visual para el compañero
                                             self.kill_events.append({
                                                 "id": str(random.random()),
                                                 "x": e["x"], "y": e["y"],
-                                                "xp": 100, "credits": 250, "paladio": paladio_shared,
+                                                "xp": int(base_shared_xp), "credits": int(base_shared_credits), "paladio": paladio_shared,
                                                 "time": now, "owner_id": member_id, "is_party_share": True
                                             })
                         break
@@ -1467,21 +1496,28 @@ class GameState:
         # Más chance de aliens "Hard" a medida que sube el nivel del mapa
         is_hard = map_id not in ["mars_1", "moon_1", "pluto_1"] and random.random() < (0.20 + (lvl * 0.08))
         
+        # --- LÓGICA DE BOSS ---
+        is_boss = random.random() < 0.05 # 5% de probabilidad de ser un Boss
+        
         # Base stats
         base_hp = 120 * level_mult
         base_shld = 60 * level_mult
         base_atk = 18 * level_mult
         
+        final_name = f"Boss {alien_name}" if is_boss else alien_name
+        stat_boss_mult = 1.20 if is_boss else 1.0
+        size_mult = 1.6 if is_boss else 1.0
+
         self.enemies.append({
             "id": alien_id,
-            "name": alien_name,
+            "name": final_name,
             "x": random.randint(100, self.GAME_WIDTH - 100),
             "y": random.randint(100, self.GAME_HEIGHT - 100),
-            "hp": int(base_hp * (2.8 if is_hard else 1.0)),
-            "max_hp": int(base_hp * (2.8 if is_hard else 1.0)),
-            "shield": int(base_shld * (3.5 if is_hard else 1.0)),
-            "max_shield": int(base_shld * (3.5 if is_hard else 1.0)),
-            "atk": int(base_atk * (2.2 if is_hard else 1.0)),
+            "hp": int(base_hp * (2.8 if is_hard else 1.0) * stat_boss_mult),
+            "max_hp": int(base_hp * (2.8 if is_hard else 1.0) * stat_boss_mult),
+            "shield": int(base_shld * (3.5 if is_hard else 1.0) * stat_boss_mult),
+            "max_shield": int(base_shld * (3.5 if is_hard else 1.0) * stat_boss_mult),
+            "atk": int(base_atk * (2.2 if is_hard else 1.0) * stat_boss_mult),
             "vx": random.uniform(-60, 60) * speed_mult,
             "vy": random.uniform(-60, 60) * speed_mult,
             "speed_mult": speed_mult, # Guardar para la lógica de persecución
@@ -1489,6 +1525,8 @@ class GameState:
             "level": lvl, # Guardar nivel para recompensas
             "defense": defense, # Resistencia porcentual
             "is_hard": is_hard,
+            "is_boss": is_boss,
+            "size_mult": size_mult,
             "ai_type": "hunter", # Todos los aliens son agresivos ahora (cazan al usuario enemigo)
             "aggro_target": None,
             "last_shot": 0
@@ -1737,8 +1775,11 @@ class GameState:
         if not player.get("active_missions"): return
         
         updated = False
+        # Handle Boss prefix for missions
+        base_alien_name = alien_name.replace("Boss ", "")
+        
         for mission in player["active_missions"]:
-            if mission["status"] == "active" and mission.get("target_alien") == alien_name:
+            if mission["status"] == "active" and (mission.get("target_alien") == alien_name or mission.get("target_alien") == base_alien_name):
                 mission["progress"] += 1
                 updated = True
                 
@@ -1832,8 +1873,18 @@ class GameState:
             # Portales dinámicos según el mapa
             portals = map_info.get("portals", [])
 
+            players_to_send = []
+            for p in players_list:
+                if p["current_map"] == m_id:
+                    # Si es invisible, solo enviar si es el propio jugador
+                    if p.get("is_invisible"):
+                        if p["id"] == client_id:
+                            players_to_send.append({**p, "is_self": True})
+                    else:
+                        players_to_send.append({**p, "is_self": p["id"] == client_id})
+
             state = {
-                "players": [{**p, "is_self": p["id"] == client_id} for p in players_list if p["current_map"] == m_id],
+                "players": players_to_send,
                 "enemies": [e for e in self.enemies if e.get("map_id") == m_id],
                 "projectiles": [p for p in self.projectiles if p.get("map_id") == m_id],
                 "loot_boxes": [b for b in self.loot_boxes if b.get("map_id") == m_id],

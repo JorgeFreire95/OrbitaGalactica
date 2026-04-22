@@ -869,18 +869,42 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.save();
     const name = enemy.name || "";
     const isHard = enemy.is_hard || false;
+    const isBoss = enemy.is_boss || false;
+    const sMult = enemy.size_mult || 1.0;
+
+    // Aplicar escala si es Boss
+    if (sMult !== 1.0) {
+        ctx.scale(sMult, sMult);
+        
+        // Aura de Boss (Brillo pulsante púrpura)
+        if (isBoss) {
+            ctx.save();
+            ctx.globalAlpha = 0.3 + Math.sin(Date.now()/200) * 0.1;
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 25);
+            grad.addColorStop(0, '#ff00ff');
+            grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
     
-    if (name === "Gryllos") drawGryllos(ctx, isHard);
-    else if (name === "Xylos") drawXylos(ctx, isHard);
-    else if (name === "Nykor") drawNykor(ctx, isHard);
-    else if (name === "Syrith") drawSyrith(ctx, isHard);
-    else if (name === "Vexis") drawVexis(ctx, isHard);
-    else if (name === "Kragos") drawKragos(ctx, isHard);
-    else if (name === "Zoltan") drawZoltan(ctx, isHard);
-    else if (name === "Drakon") drawDrakon(ctx, isHard);
+    // Dibujar alien base (usando los nombres sin el prefijo "Boss " para la lógica de dibujo)
+    const baseAlienName = name.replace("Boss ", "");
+    
+    if (baseAlienName === "Gryllos") drawGryllos(ctx, isHard);
+    else if (baseAlienName === "Xylos") drawXylos(ctx, isHard);
+    else if (baseAlienName === "Nykor") drawNykor(ctx, isHard);
+    else if (baseAlienName === "Syrith") drawSyrith(ctx, isHard);
+    else if (baseAlienName === "Vexis") drawVexis(ctx, isHard);
+    else if (baseAlienName === "Kragos") drawKragos(ctx, isHard);
+    else if (baseAlienName === "Zoltan") drawZoltan(ctx, isHard);
+    else if (baseAlienName === "Drakon") drawDrakon(ctx, isHard);
     else {
         // Fallback: Alien original mejorado
-        ctx.fillStyle = isHard ? '#ff0000' : '#ff3333';
+        ctx.fillStyle = isHard ? '#ff0000' : (isBoss ? '#ff00ff' : '#ff3333');
         ctx.beginPath();
         ctx.arc(0, 0, 15, 0, Math.PI * 2);
         ctx.fill();
@@ -1067,6 +1091,16 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.save();
     ctx.translate(player.x, player.y);
     
+    // Stealth Effect
+    if (player.is_invisible) {
+      if (player.is_self) {
+        ctx.globalAlpha = 0.3; // El jugador se ve a sí mismo como "fantasma"
+      } else {
+        ctx.restore(); // Otros no ven nada (aunque el servidor ya filtra esto)
+        return;
+      }
+    }
+
     // Base constants
     const baseColor = player.color || '#00b3ff';
     const size = player.ship_type === 'tank' ? 70 : 60;

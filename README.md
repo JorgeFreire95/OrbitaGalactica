@@ -63,7 +63,7 @@
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda y mejoras de élite.
 - **Laboratorio de Minerales (Sincronización Total y Persistencia)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras **acumulables** en Ataque, Escudo, Velocidad e Integridad de Casco (HP). Ahora el sistema es 100% autorritativo: las mejoras se guardan en el servidor y persisten entre sesiones, aplicándose instantáneamente a tu nave activa mediante WebSockets y APIs de sincronización.
-- **Beneficios VIP Premium**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
+- **Beneficios VIP**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
 
 ### 📦 Cofres Especiales (Botín de Exploración)
 Los **Cofres Especiales** (resaltados en el radar) aparecen de forma aleatoria en todos los sectores. Al recolectarlos, otorgan de forma aleatoria una de las siguientes recompensas:
@@ -106,6 +106,13 @@ Razas detectadas:
 - **Kragos**: Guerreros de élite (Nvl 6).
 - **Zoltan**: Comandantes fenomenales (Nvl 7).
 - **Drakon**: Amenaza suprema de nivel 8. Solo para expertos.
+
+#### 👑 Variantes "Boss" (Jefes de Élite)
+Cualquier especie alienígena tiene un **5% de probabilidad** de aparecer como una versión **Boss**. Estas naves son el terror de los pilotos solitarios:
+- **Estadísticas Superiores**: Poseen un **20% más de vida, escudo y daño** sobre su versión base.
+- **Identificación Visual**: Son un **60% más grandes** que los aliens normales y emiten una distintiva **Aura Púrpura** de energía inestable.
+- **Recompensas Legendarias**: Destruir un Boss otorga **5 veces más XP y Créditos**, además de **3 veces más Paladio**.
+- **Botín Compartido**: Si estás en un grupo (Party), las recompensas de un Boss se reparten entre todos los miembros cercanos, acelerando el progreso del escuadrón.
 
 ### 🌌 Atlas Galáctico (Sectores por Facción)
 Explora la vasta extensión del espacio a través de los diversos sectores controlados por las tres grandes potencias:
@@ -202,7 +209,6 @@ El juego estará disponible en `http://localhost:5173`.
 
 ## 🌌 Próximos Pasos
 - Implementar Módulos de Estación y bases de clan conquistables.
-- Añadir jefes finales (Bosses) en zonas específicas del mapa con botín de élite.
 - Implementar Chat de Voz o Chat Global de Combate para mayor coordinación.
 - Eventos dinámicos en el servidor con recompensas exclusivas.
 

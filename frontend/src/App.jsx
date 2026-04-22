@@ -103,6 +103,10 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [isInvisible, setIsInvisible] = useState(() => {
+    return localStorage.getItem('game_is_invisible') === 'true';
+  });
+
   const [ownedShips, setOwnedShips] = useState(() => {
     const saved = localStorage.getItem('owned_ships');
     return saved ? JSON.parse(saved) : ['starter'];
@@ -252,6 +256,10 @@ function App() {
     localStorage.setItem('game_clan', JSON.stringify(clan));
   }, [clan]);
 
+  useEffect(() => {
+    localStorage.setItem('game_is_invisible', isInvisible);
+  }, [isInvisible]);
+
   // SYNC STATS WITH BACKEND (Debounced to prevent race conditions during multiple state updates)
   const syncStats = async () => {
     if (!user || currentView === 'auth') return;
@@ -308,6 +316,9 @@ function App() {
         if (data.inventory && JSON.stringify(data.inventory) !== JSON.stringify(inventory)) {
           setInventory(data.inventory);
         }
+        if (data.is_invisible !== undefined && data.is_invisible !== isInvisible) {
+          setIsInvisible(data.is_invisible);
+        }
         if (data.equipped && JSON.stringify(data.equipped) !== JSON.stringify(equippedByShip)) {
           setEquippedByShip(data.equipped);
         }
@@ -348,7 +359,7 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades]);
+  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible]);
 
   useEffect(() => {
     if (user && user.faction) {
@@ -427,6 +438,9 @@ function App() {
       if (data.timed_upgrades) {
         setUpgrades(data.timed_upgrades);
         localStorage.setItem('game_upgrades', JSON.stringify(data.timed_upgrades));
+      }
+      if (data.is_invisible !== undefined) {
+        setIsInvisible(data.is_invisible);
       }
 
       if (!data.faction) {
@@ -861,6 +875,8 @@ function App() {
           onNavigate={setCurrentView}
           ownedShips={ownedShips}
           onBuyShip={handleBuyShip}
+          setIsInvisible={setIsInvisible}
+          user={user}
         />
       )}
 
@@ -935,6 +951,8 @@ function App() {
             onUpdatePaladio={handleUpdatePaladio}
             onUpdateMinerals={handleUpdateMinerals}
             onRepair={handleRepair}
+            isInvisible={isInvisible}
+            onUpdateInvisibility={setIsInvisible}
           />
         </>
       )}

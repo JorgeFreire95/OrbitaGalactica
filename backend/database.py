@@ -233,6 +233,11 @@ def init_db():
     except sqlite3.OperationalError:
         pass
         
+    try:
+        c.execute("ALTER TABLE users ADD COLUMN is_invisible BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+        
     # Inyectar admin base si no existe
     c.execute("SELECT id FROM users WHERE username = 'admin'")
     if not c.fetchone():
@@ -311,9 +316,9 @@ def get_user_stats_db(username):
     c = conn.cursor()
     try:
         try:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible FROM users WHERE username = ?', (username,))
         except sqlite3.OperationalError:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\' FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -342,7 +347,8 @@ def get_user_stats_db(username):
             "owned_ships": owned_ships,
             "inventory": inventory,
             "equipped": equipped,
-            "timed_upgrades": timed_upgrades
+            "timed_upgrades": timed_upgrades,
+            "is_invisible": bool(row[10]) if len(row) > 10 else False
         }
     finally:
         conn.close()
@@ -351,9 +357,9 @@ def login_user(username, password):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json FROM users WHERE username = ?', (username,))
+        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json, is_invisible FROM users WHERE username = ?', (username,))
     except sqlite3.OperationalError:
-        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\' FROM users WHERE username = ?', (username,))
+        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', 0 as is_invisible FROM users WHERE username = ?', (username,))
     row = c.fetchone()
     conn.close()
     
@@ -361,7 +367,7 @@ def login_user(username, password):
         return {"success": False, "error": "Credenciales incorrectas"}
     
     # row unpack
-    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json = row
+    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json, is_invisible = row
     test_hash, _ = hash_password(password, salt)
     
     if test_hash == db_hash:
@@ -384,7 +390,8 @@ def login_user(username, password):
             "owned_ships": json.loads(owned_ships_json) if owned_ships_json else ["starter"],
             "inventory": json.loads(inventory_json) if inventory_json else [],
             "equipped": json.loads(equipped_json) if equipped_json else {},
-            "timed_upgrades": stats["timed_upgrades"] if (stats and "timed_upgrades" in stats) else {"atk":[], "shld":[], "spd":[], "hp":[]}
+            "timed_upgrades": stats["timed_upgrades"] if (stats and "timed_upgrades" in stats) else {"atk":[], "shld":[], "spd":[], "hp":[]},
+            "is_invisible": bool(row[15]) if len(row) > 15 else False
         }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
@@ -542,7 +549,7 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
     finally:
         conn.close()
 
-def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None):
+def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None, is_invisible=None):
     conn = get_connection()
     c = conn.cursor()
     import json
@@ -587,6 +594,9 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
         if timed_upgrades is not None:
             fields.append("timed_upgrades_json = ?")
             params.append(json.dumps(timed_upgrades))
+        if is_invisible is not None:
+            fields.append("is_invisible = ?")
+            params.append(1 if is_invisible else 0)
             
         params.append(username)
         query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"

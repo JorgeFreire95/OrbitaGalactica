@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 
 export default function Packages({ user, paladio, setPaladio, onBack }) {
   const [successMessage, setSuccessMessage] = useState('');
-  const [selectedSection, setSelectedSection] = useState('premium');
+  const [selectedSection, setSelectedSection] = useState('vip');
   const [selectedPaladioPackage, setSelectedPaladioPackage] = useState('p2');
 
   const sidebarItems = [
-    { id: 'premium', label: 'Paquete Premium', icon: '💎' },
+    { id: 'vip', label: 'Paquete VIP', icon: '💎' },
     { id: 'paladio', label: 'Paquetes de Paladio', icon: '💰' }
   ];
 
@@ -109,11 +109,11 @@ export default function Packages({ user, paladio, setPaladio, onBack }) {
 
         <div className="dashboard-panel" style={{ gridColumn: 2 }}>
           <div className="panel-header">
-            <span>{selectedSection === 'premium' ? 'Detalle Paquete Premium' : 'Paquetes de Paladio'}</span>
-            <span style={{ fontSize: '1.2rem' }}>{selectedSection === 'premium' ? '💎' : '💰'}</span>
+            <span>{selectedSection === 'vip' ? 'Detalle Paquete VIP' : 'Paquetes de Paladio'}</span>
+            <span style={{ fontSize: '1.2rem' }}>{selectedSection === 'vip' ? '💎' : '💰'}</span>
           </div>
           <div className="panel-content">
-            {selectedSection === 'premium' ? (
+            {selectedSection === 'vip' ? (
               <div className="pack-detail-card">
                 <div className="pack-detail-header">
                   <span className="pack-detail-icon">🚀</span>
@@ -128,7 +128,7 @@ export default function Packages({ user, paladio, setPaladio, onBack }) {
                   </ul>
                 </div>
                 <button className="btn-primary pack-cta" onClick={handleBuyPremium}>
-                  COMPRAR PAQUETE PREMIUM
+                  COMPRAR PAQUETE VIP
                 </button>
               </div>
             ) : (
