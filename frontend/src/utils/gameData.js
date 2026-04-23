@@ -133,11 +133,10 @@ export const MODULES_CATALOG = [
   { id: 'engine_1', type: 'engines', name: 'Micro Motor',     cost: 400,  spd: 15,  icon: '🚀' },
   { id: 'engine_2', type: 'engines', name: 'Turbo Motor',     cost: 1200, spd: 40,  icon: '🚀' },
   
-  { id: 'util_1',   type: 'utility', name: 'Refuerzo HP',      cost: 500,  hp: 40,   icon: '⚛️' },
-  { id: 'util_2',   type: 'utility', name: 'Superviviencia',   cost: 1500, hp: 100,  icon: '⚛️' },
   { id: 'util_repair_1', type: 'utility', name: 'Robot Reparación I', cost: 1200, repair_rate: 5.0, icon: '🔧' },
   { id: 'util_repair_2', type: 'utility', name: 'Robot Reparación II', cost: 3500, repair_rate: 7.5, icon: '🛠️' },
   { id: 'util_cloak', type: 'utility', name: 'Camuflaje Sigiloso', cost: 50000, desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
+  { id: 'util_auto_repair', type: 'utility', name: 'Reparación Automática', cost: 15000, desc: 'Activa el robot de reparación automáticamente cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
 ];
 
 export const AMMO_CATALOG = [

@@ -43,7 +43,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const keys = useRef({
     up: false, down: false, left: false, right: false,
     shoot: false, missile_shoot: false,
-    target_x: null, target_y: null, locked_target_id: null
+    target_x: null, target_y: null, locked_target_id: null,
+    is_targeting_click: false
   });
 
   // --- LOADING SCREEN STATE ---
@@ -112,13 +113,27 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     }
     */
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      if (k === '1' || k === '2' || k === '3' || k === '4') {
-        const ammoId = k === '1' ? 'standard' : k === '2' ? 'thermal' : k === '3' ? 'plasma' : 'siphon';
-        wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: ammoId }));
-      }
-      if (k === '5' || k === '6' || k === '7') {
-        const mId = k === '5' ? 'missile_1' : k === '6' ? 'missile_2' : 'missile_3';
-        wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: mId }));
+      const hotbarConfig = [
+        { id: 'standard', type: 'laser' },
+        { id: 'thermal', type: 'laser' },
+        { id: 'plasma', type: 'laser' },
+        { id: 'siphon', type: 'laser' },
+        { id: 'missile_1', type: 'missile' },
+        { id: 'missile_2', type: 'missile' },
+        { id: 'missile_3', type: 'missile' },
+        { id: 'blank_8', type: 'blank' },
+        { id: 'repair_bot', type: 'utility' },
+        { id: 'blank_0', type: 'blank' }
+      ];
+
+      const slotMap = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9 };
+      if (slotMap[k] !== undefined) {
+          const slot = hotbarConfig[slotMap[k]];
+          if (slot.type === 'utility' && slot.id === 'repair_bot') {
+              wsRef.current.send(JSON.stringify({ type: 'toggle_repair' }));
+          } else if (slot.type === 'laser' || slot.type === 'missile') {
+              wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }));
+          }
       }
     }
     if (k === ' ') {
@@ -172,19 +187,27 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       const hitPlayer = gameStateRef.current?.players?.find(p => !p.is_self && Math.hypot(p.x - mouseX, p.y - mouseY) < 45);
       if (hitPlayer) {
         keys.current.locked_target_id = hitPlayer.id;
-        keys.current.target_x = null; keys.current.target_y = null;
-        return; // Detener ejecución
+        keys.current.target_x = null; 
+        keys.current.target_y = null;
+        keys.current.is_targeting_click = true;
+        return; 
       }
 
       const hitTarget = gameStateRef.current?.enemies?.find(en => Math.hypot(en.x - mouseX, en.y - mouseY) < 45);
       if (hitTarget) {
         keys.current.locked_target_id = hitTarget.id;
-        keys.current.target_x = null; keys.current.target_y = null;
+        keys.current.target_x = null; 
+        keys.current.target_y = null;
+        keys.current.is_targeting_click = true;
       } else {
-        keys.current.target_x = mouseX; keys.current.target_y = mouseY;
+        keys.current.target_x = mouseX; 
+        keys.current.target_y = mouseY;
+        keys.current.is_targeting_click = false;
       }
     } else if (e.button === 2) { 
-      keys.current.locked_target_id = null; keys.current.shoot = false;
+      keys.current.locked_target_id = null; 
+      keys.current.shoot = false;
+      keys.current.is_targeting_click = false;
     }
   }, []);
 
@@ -201,6 +224,31 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         x: e.clientX - dragOffset.current.x,
         y: e.clientY - dragOffset.current.y
       });
+      return;
+    }
+
+    // MOVIMIENTO CONTINUO: Si se mantiene el click izquierdo (buttons === 1)
+    if (e.buttons === 1 && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        
+        const width = canvasRef.current.width, height = canvasRef.current.height;
+        const mmW = 200, mmH = 150, margin = 20;
+        const mmX_start = width - mmW - margin, mmY_start = height - mmH - margin;
+
+        // Si estamos interactuando con el minimapa (arrastrando en el minimapa)
+        if (screenX >= mmX_start && screenX <= width - margin && screenY >= mmY_start && screenY <= height - margin) {
+          const m_width = gameStateRef.current?.map_width || 10000;
+          const m_height = gameStateRef.current?.map_height || 8000;
+          keys.current.target_x = ((screenX - mmX_start) / mmW) * m_width;
+          keys.current.target_y = ((screenY - mmY_start) / mmH) * m_height;
+        } else if (!keys.current.is_targeting_click) {
+          // Movimiento normal por el espacio (cursor sigue al mouse)
+          // SOLO si el click inicial no fue para marcar un objetivo
+          keys.current.target_x = screenX + cameraRef.current.x;
+          keys.current.target_y = screenY + cameraRef.current.y;
+        }
     }
   }, [isDragging]);
 
@@ -653,9 +701,28 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
               animation: pulse-repair 1.5s infinite ease-in-out;
               background: rgba(0, 255, 100, 0.2) !important;
             }
+            @keyframes flash-oxygen {
+              0% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+              100% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+            }
           `}</style>
           <span>🛡️</span>
           <span>ZONA SEGURA</span>
+        </div>
+      )}
+
+      {me?.oxygen_warning && !me?.in_safe_zone && (
+        <div style={{
+          position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+          background: 'rgba(255, 0, 0, 0.15)', backdropFilter: 'blur(10px)',
+          border: '2px solid #ff4444', padding: '15px 30px', borderRadius: '10px',
+          color: '#ff4444', fontFamily: 'Orbitron', fontWeight: 'bold',
+          animation: 'flash-oxygen 1s infinite alternate', zIndex: 1000,
+          boxShadow: '0 0 20px rgba(255, 0, 0, 0.3)', pointerEvents: 'none'
+        }}>
+           <span style={{ fontSize: '24px' }}>⚠️ ALERTA: FALTA DE OXÍGENO ⚠️</span>
+           <span style={{ fontSize: '14px', letterSpacing: '2px' }}>REGRESA AL CENTRO DEL MAPA DE INMEDIATO</span>
         </div>
       )}
 
@@ -1005,7 +1072,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         const isActive = (slot.type === 'laser' && me?.ammo_type === slot.id) || (slot.type === 'missile' && me?.missile_type === slot.id);
                         const count = slot.type === 'laser' ? me?.ammo?.[slot.id] : slot.type === 'missile' ? (me?.missiles?.[slot.id] || 0) : null;
                         return (
-                            <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.repairing ? 'repairing-active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} onClick={() => !slot.disabled && slot.type !== 'utility' && wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }))}>
+                            <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.repairing ? 'repairing-active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} 
+                                onClick={() => {
+                                    if (slot.disabled) return;
+                                    if (slot.type === 'utility') {
+                                        wsRef.current?.send(JSON.stringify({ type: 'toggle_repair' }));
+                                    } else {
+                                        wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }));
+                                    }
+                                }}
+                            >
                                 <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || slot.repairing) ? '100%' : '20%', opacity: (isActive || slot.repairing) ? 1 : 0.3, background: slot.repairing ? '#00ff66' : '' }} /></div>
                                 <div className="slot-icon" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                     {slot.image ? <img src={slot.image} alt="ammo icon" style={{ width: '80%', height: '80%', objectFit: 'contain' }} /> : slot.icon}

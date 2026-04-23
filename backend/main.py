@@ -424,6 +424,35 @@ class ShipUpdateRequest(BaseModel):
 
 @app.post("/api/user/ship")
 async def api_update_user_ship(req: ShipUpdateRequest):
+    # Encontrar jugador en la sesión activa si existe
+    target_player = None
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == req.username:
+            target_player = p
+            break
+            
+    if target_player:
+        # BLOQUEO: Solo permitir cambio en zona segura si el jugador está activo
+        if not target_player.get("in_safe_zone", False):
+             raise HTTPException(status_code=403, detail="No puedes cambiar de nave fuera de una zona segura (Base o Portal).")
+        
+        # Actualizar tipo de nave y bases en memoria para sincronización inmediata
+        new_ship_id = req.ship_id
+        prof = game_state.SHIP_PROFILES.get(new_ship_id, game_state.SHIP_PROFILES["starter"])
+        
+        target_player["ship_type"] = new_ship_id
+        target_player["base_atk"] = prof["atk"]
+        target_player["base_spd"] = prof["spd"]
+        target_player["base_max_shld"] = prof["shld"]
+        target_player["base_max_hp"] = prof["hp"]
+        target_player["slots"] = prof["slots"]
+        target_player["color"] = prof["color"]
+        target_player["max_cargo"] = prof.get("cargo_capacity", 1500)
+        
+        # Recalcular estadísticas finales (Módulos equipados + Bases + Mejoras)
+        game_state.recalculate_player_stats(target_player)
+        print(f"Sincronización: Nave de {req.username} actualizada en tiempo real a {new_ship_id}")
+
     from database import update_user_ship
     success = update_user_ship(req.username, req.ship_id)
     if not success:
@@ -838,6 +867,9 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "switch_ammo" and player_added:
                 ammo_id = data.get("ammo_id")
                 game_state.switch_ammo(client_id, ammo_id)
+                
+            elif data.get("type") == "toggle_repair" and player_added:
+                game_state.toggle_repair(client_id)
                 
             elif data.get("type") == "jump_portal" and player_added:
                 game_state.jump_portal(client_id)

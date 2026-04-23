@@ -240,52 +240,52 @@ class GameState:
         # --- PERFIL DE NAVES ---
         self.SHIP_PROFILES = {
             "starter": {
-                "hp": 60, "shld": 30, "atk": 40, "spd": 120, "color": "#ffffff",
+                "hp": 60, "shld": 0, "atk": 40, "spd": 120, "color": "#ffffff",
                 "slots": {"lasers": 1, "shields": 1, "engines": 1, "utility": 1},
                 "cargo_capacity": 100
             },
             "tank": {
-                "hp": 180, "shld": 150, "atk": 70, "spd": 60, "color": "#ffb300",
+                "hp": 180, "shld": 0, "atk": 70, "spd": 60, "color": "#ffb300",
                 "slots": {"lasers": 2, "shields": 6, "engines": 3, "utility": 2},
                 "cargo_capacity": 1500
             },
             "fast": {
-                "hp": 80, "shld": 50, "atk": 110, "spd": 160, "color": "#00ccff",
+                "hp": 80, "shld": 0, "atk": 110, "spd": 160, "color": "#00ccff",
                 "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2},
                 "cargo_capacity": 500
             },
             "stealth": {
-                "hp": 90, "shld": 80, "atk": 130, "spd": 140, "color": "#9933ff",
+                "hp": 90, "shld": 0, "atk": 130, "spd": 140, "color": "#9933ff",
                 "slots": {"lasers": 5, "shields": 3, "engines": 4, "utility": 3},
                 "cargo_capacity": 800
             },
             "heavy": {
-                "hp": 160, "shld": 120, "atk": 180, "spd": 50, "color": "#ff3333",
+                "hp": 160, "shld": 0, "atk": 180, "spd": 50, "color": "#ff3333",
                 "slots": {"lasers": 8, "shields": 4, "engines": 2, "utility": 1},
                 "cargo_capacity": 1200
             },
             "support": {
-                "hp": 110, "shld": 100, "atk": 60, "spd": 100, "color": "#33ff99",
+                "hp": 110, "shld": 0, "atk": 60, "spd": 100, "color": "#33ff99",
                 "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6},
                 "cargo_capacity": 2500
             },
             "sovereign": {
-                "hp": 220, "shld": 250, "atk": 250, "spd": 45, "color": "#e6b800",
+                "hp": 220, "shld": 0, "atk": 250, "spd": 45, "color": "#e6b800",
                 "slots": {"lasers": 15, "shields": 10, "engines": 2, "utility": 3},
                 "cargo_capacity": 800
             },
             "harvester": {
-                "hp": 140, "shld": 180, "atk": 80, "spd": 70, "color": "#00ff00",
+                "hp": 140, "shld": 0, "atk": 80, "spd": 70, "color": "#00ff00",
                 "slots": {"lasers": 4, "shields": 5, "engines": 4, "utility": 8},
                 "cargo_capacity": 10000
             },
             "interceptor": {
-                "hp": 70, "shld": 40, "atk": 150, "spd": 210, "color": "#ffff00",
+                "hp": 70, "shld": 0, "atk": 150, "spd": 210, "color": "#ffff00",
                 "slots": {"lasers": 6, "shields": 2, "engines": 12, "utility": 2},
                 "cargo_capacity": 300
             },
             "bastion": {
-                "hp": 400, "shld": 400, "atk": 100, "spd": 35, "color": "#333333",
+                "hp": 400, "shld": 0, "atk": 100, "spd": 35, "color": "#333333",
                 "slots": {"lasers": 4, "shields": 15, "engines": 3, "utility": 5},
                 "cargo_capacity": 2000
             }
@@ -367,7 +367,8 @@ class GameState:
             "last_repair_msg_time": 0.0,
             "active_missions": [],
             "needs_mission_sync": True, # Enviar misiones al unirse
-            "is_invisible": False
+            "is_invisible": False,
+            "repair_bot_active": False
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -831,28 +832,46 @@ class GameState:
             if now - p["last_dmg_time"] > 3.0:
                 p["shld"] = min(p["max_shld"], p["shld"] + (20.0 * dt)) # 20 SHLD/s
             
+            # --- AUTO-REPARACIÓN ---
+            # Si tiene el módulo de reparación automática, no está disparando y han pasado 5s sin daño
+            if p.get("has_auto_repair") and p.get("repair_rate", 0) > 0:
+                if not p.get("shoot_active") and now - p["last_dmg_time"] > 5.0 and p["hp"] < p["max_hp"]:
+                    p["repair_bot_active"] = True
+            
             # Regenerar HP (Robot de Reparación)
             # Solo si lleva 5 segundos sin recibir daño (frente a los 3s de los escudos)
-            if p.get("repair_rate", 0) > 0 and now - p["last_dmg_time"] > 5.0 and p["hp"] < p["max_hp"]:
-                hp_before = p["hp"]
-                p["hp"] = min(p["max_hp"], p["hp"] + (p["repair_rate"] * dt))
-                healed = p["hp"] - hp_before
-                p["repair_accumulated"] += healed
-                p["is_repairing"] = True
-                
-                # Lanzar evento visual cada 25 HP o cada 2 segundos mientras repara
-                if p["repair_accumulated"] >= 25 or (now - p["last_repair_msg_time"] > 2.0 and p["repair_accumulated"] > 0):
-                    self.loot_events.append({
-                        "type": "heal",
-                        "amount": round(p["repair_accumulated"]),
-                        "x": p["x"], "y": p["y"],
-                        "time": now, "owner_id": pid
-                    })
+            # Y SOLO SI EL BOT ESTÁ ACTIVADO MANUALMENTE
+            if p.get("repair_rate", 0) > 0 and p.get("repair_bot_active") and now - p["last_dmg_time"] > 5.0:
+                if p["hp"] < p["max_hp"]:
+                    hp_before = p["hp"]
+                    p["hp"] = min(p["max_hp"], p["hp"] + (p["repair_rate"] * dt))
+                    healed = p["hp"] - hp_before
+                    p["repair_accumulated"] += healed
+                    p["is_repairing"] = True
+                    
+                    # Lanzar evento visual cada 25 HP o cada 2 segundos mientras repara
+                    if p["repair_accumulated"] >= 25 or (now - p["last_repair_msg_time"] > 2.0 and p["repair_accumulated"] > 0):
+                        self.loot_events.append({
+                            "type": "heal",
+                            "amount": round(p["repair_accumulated"]),
+                            "x": p["x"], "y": p["y"],
+                            "time": now, "owner_id": pid
+                        })
+                        p["repair_accumulated"] = 0
+                        p["last_repair_msg_time"] = now
+                else:
+                    # Si ya está al máximo HP, desactivar el bot automáticamente
+                    p["is_repairing"] = False
+                    p["repair_bot_active"] = False
                     p["repair_accumulated"] = 0
-                    p["last_repair_msg_time"] = now
             else:
                 p["is_repairing"] = False
-                p["repair_accumulated"] = 0 # Reset si se interrumpe la reparación o termina
+                p["repair_accumulated"] = 0 
+                
+            # Interrupción manual: Si el bot está activo pero recibe daño, se apaga
+            if p.get("repair_bot_active") and now - p["last_dmg_time"] < 0.1: # Recién dañado
+                 p["repair_bot_active"] = False
+                 p["is_repairing"] = False
             
             # Quitar powerup si expiró
             if p["powerup"] and now > p["powerup_time"]:
@@ -900,6 +919,40 @@ class GameState:
                     break
             
             p["in_safe_zone"] = in_base_safety or in_portal_safety
+
+            # --- LÓGICA DE OXÍGENO (BORDES DEL MAPA) ---
+            OXYGEN_ZONE = 400
+            is_oxygen_lacking = (
+                p["x"] < OXYGEN_ZONE or 
+                p["x"] > self.GAME_WIDTH - OXYGEN_ZONE or 
+                p["y"] < OXYGEN_ZONE or 
+                p["y"] > self.GAME_HEIGHT - OXYGEN_ZONE
+            )
+            
+            p["oxygen_warning"] = is_oxygen_lacking
+            
+            if is_oxygen_lacking and not p["in_safe_zone"]:
+                # Daño por falta de oxígeno: 15 HP por segundo
+                dmg = 15 * dt
+                
+                if p["shld"] >= dmg:
+                    p["shld"] -= dmg
+                else:
+                    rem = dmg - p["shld"]
+                    p["shld"] = 0
+                    p["hp"] -= rem
+                
+                p["last_dmg_time"] = now # Interrumpir reparación
+                
+                # Efecto visual cada 0.5s
+                if now - p.get("last_oxygen_dmg_time", 0) > 0.5:
+                    self.damage_events.append({
+                        "id": f"oxygen_{random.random()}",
+                        "x": p["x"] + random.randint(-15, 15),
+                        "y": p["y"] + random.randint(-15, 15),
+                        "amount": 15, "time": now, "owner_id": pid
+                    })
+                    p["last_oxygen_dmg_time"] = now
 
             # --- DAÑO AMBIENTAL DESACTIVADO (Lava eliminada por feedback de visibilidad) ---
             # if map_cfg.get("style") == "mars_hazard" and not p["in_safe_zone"]:
@@ -1363,22 +1416,24 @@ class GameState:
                         elif rand < 0.65: # 25% Munición Láser
                             amt = random.randint(50, 150)
                             ammo_id = random.choice(["thermal", "plasma", "siphon"])
+                            ammo_names = {"thermal": "Térmica", "plasma": "Plasma", "siphon": "Sifón"}
                             player["ammo"][ammo_id] += amt
                             self.loot_events.append({
                                 "id": str(random.random()),
                                 "x": box["x"], "y": box["y"],
-                                "type": "ammo", "ammo_type": ammo_id, "amount": amt,
+                                "type": "ammo", "ammo_type": ammo_id, "ammo_name": ammo_names.get(ammo_id, ""), "amount": amt,
                                 "time": now, "owner_id": pid
                             })
                         elif rand < 0.80: # 15% Munición Misiles
                             amt = random.randint(5, 15)
                             m_type = random.choice(["missile_1", "missile_2", "missile_3"])
+                            m_names = {"missile_1": 'M-1 "Seta"', "missile_2": 'M-2 "Ciclón"', "missile_3": 'M-3 "Giga-Nuke"'}
                             if "missiles" not in player: player["missiles"] = {"missile_1": 0, "missile_2": 0, "missile_3": 0}
                             player["missiles"][m_type] += amt
                             self.loot_events.append({
                                 "id": str(random.random()),
                                 "x": box["x"], "y": box["y"],
-                                "type": "missile_loot", "missile_type": m_type, "amount": amt,
+                                "type": "missile_loot", "missile_type": m_type, "missile_name": m_names.get(m_type, ""), "amount": amt,
                                 "time": now, "owner_id": pid
                             })
                         else: # 20% Paladio
@@ -1497,7 +1552,7 @@ class GameState:
         is_hard = map_id not in ["mars_1", "moon_1", "pluto_1"] and random.random() < (0.20 + (lvl * 0.08))
         
         # --- LÓGICA DE BOSS ---
-        is_boss = random.random() < 0.05 # 5% de probabilidad de ser un Boss
+        is_boss = random.random() < 0.15 # 15% de probabilidad de ser un Boss (Aumentado por petición)
         
         # Base stats
         base_hp = 120 * level_mult
@@ -1578,6 +1633,7 @@ class GameState:
         player["engines"] = 0
         player["shields"] = 0
         player["repair_rate"] = 0 # Reiniciar tasa de reparación
+        player["has_auto_repair"] = False
         
         for mod in player.get("equipped", []):
             if "atk" in mod: player["atk"] += mod["atk"]
@@ -1585,6 +1641,7 @@ class GameState:
             if "spd" in mod: player["spd"] += mod["spd"]
             if "hp" in mod: player["max_hp"] += mod["hp"]
             if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
+            if mod.get("is_auto_repair"): player["has_auto_repair"] = True
 
             # Recount for visuals
             m_type = mod.get("type", "")
@@ -1723,6 +1780,13 @@ class GameState:
                     player["missile_type"] = ammo_id
             elif ammo_id == "standard" or player["ammo"].get(ammo_id, 0) > 0:
                 player["ammo_type"] = ammo_id
+
+    def toggle_repair(self, client_id):
+        if client_id in self.players:
+            player = self.players[client_id]
+            if player.get("repair_rate", 0) > 0:
+                player["repair_bot_active"] = not player.get("repair_bot_active", False)
+                print(f"Repair bot toggled for {client_id}: {player['repair_bot_active']}")
 
     def switch_ship(self, client_id, ship_type):
         """Cambia la nave del jugador en tiempo real actualizando sus estadísticas base."""

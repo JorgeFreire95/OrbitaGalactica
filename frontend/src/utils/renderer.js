@@ -555,6 +555,55 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   ctx.strokeRect(0, 0, m_width, m_height);
   ctx.restore();
 
+  // --- NUEVO: NEBLINA DE FALTA DE OXÍGENO (BORDES) ---
+  ctx.save();
+  ctx.translate(-camX, -camY);
+  const OXYGEN_ZONE = 400;
+  
+  // Color de la niebla: Rojizo sutil para indicar peligro
+  const fogColor = 'rgba(255, 0, 0, 0.12)';
+  
+  // Borde Izquierdo
+  let gradL = ctx.createLinearGradient(0, 0, OXYGEN_ZONE, 0);
+  gradL.addColorStop(0, fogColor); gradL.addColorStop(1, 'transparent');
+  ctx.fillStyle = gradL; ctx.fillRect(0, 0, OXYGEN_ZONE, m_height);
+  
+  // Borde Derecho
+  let gradR = ctx.createLinearGradient(m_width, 0, m_width - OXYGEN_ZONE, 0);
+  gradR.addColorStop(0, fogColor); gradR.addColorStop(1, 'transparent');
+  ctx.fillStyle = gradR; ctx.fillRect(m_width - OXYGEN_ZONE, 0, OXYGEN_ZONE, m_height);
+  
+  // Borde Superior
+  let gradT = ctx.createLinearGradient(0, 0, 0, OXYGEN_ZONE);
+  gradT.addColorStop(0, fogColor); gradT.addColorStop(1, 'transparent');
+  ctx.fillStyle = gradT; ctx.fillRect(0, 0, m_width, OXYGEN_ZONE);
+  
+  // Borde Inferior
+  let gradB = ctx.createLinearGradient(0, m_height, 0, m_height - OXYGEN_ZONE);
+  gradB.addColorStop(0, fogColor); gradB.addColorStop(1, 'transparent');
+  ctx.fillStyle = gradB; ctx.fillRect(0, m_height - OXYGEN_ZONE, m_width, OXYGEN_ZONE);
+  
+  // Nubes procedimentales decorativas
+  const time = Date.now() / 2000;
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 60; i++) {
+    const side = i % 4;
+    let x, y;
+    // Usar pseudo-aleatoriedad fija para evitar saltos bruscos
+    if (side === 0) { x = (i * 123) % OXYGEN_ZONE; y = (i * 456) % m_height; }
+    else if (side === 1) { x = m_width - (i * 123) % OXYGEN_ZONE; y = (i * 456) % m_height; }
+    else if (side === 2) { x = (i * 456) % m_width; y = (i * 123) % OXYGEN_ZONE; }
+    else { x = (i * 456) % m_width; y = m_height - (i * 123) % OXYGEN_ZONE; }
+    
+    const size = 180 + Math.sin(time + i) * 60;
+    const cloudGrad = ctx.createRadialGradient(x, y, 0, x, y, size);
+    cloudGrad.addColorStop(0, 'rgba(255, 50, 50, 0.05)');
+    cloudGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = cloudGrad;
+    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+
   // --- COMIENZO DE RENDERIZADO DEL MUNDO (Coordenadas Reales) ---
   ctx.save();
   ctx.translate(-camX, -camY);
@@ -1193,26 +1242,53 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.restore();
     };
 
-    const drawPremiumShip = (img, shipType, s) => {
+    const drawEngineFlame = (ctx, x, y, w, h, color, speedRatio) => {
+      if (speedRatio < 0.05) return;
+      
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const flicker = Math.sin(Date.now() / 50) * 5 * speedRatio;
+      const actualHeight = h * speedRatio + flicker;
+      
+      const grad = ctx.createLinearGradient(x, y, x, y + actualHeight);
+      grad.addColorStop(0, color);
+      grad.addColorStop(0.4, color + 'aa');
+      grad.addColorStop(1, 'transparent');
+      
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(x - w/2, y);
+      ctx.lineTo(x + w/2, y);
+      ctx.lineTo(x, y + actualHeight);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Núcleo caliente
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.5 * speedRatio;
+      ctx.beginPath();
+      ctx.arc(x, y, (w/3) * speedRatio, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const drawPremiumShip = (img, shipType, s, speedRatio) => {
       ctx.save();
       
-      // 1. Efecto de Propulsores (Sutil)
-      const engineTime = Date.now() / 80;
-      const flicker = Math.sin(engineTime * 5) * 3;
+      // 1. Efecto de Propulsores Dinámicos
       const engineColor = shipType === 'sovereign' ? '#e6b800' : 
                           (shipType === 'bastion' ? '#ff3333' : '#00ffff');
       
-      ctx.save();
-      ctx.globalAlpha = 0.6;
-      ctx.globalCompositeOperation = 'screen';
-      const engineGrad = ctx.createRadialGradient(0, s/3.5, 0, 0, s/3.5, 18 + flicker);
-      engineGrad.addColorStop(0, engineColor);
-      engineGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = engineGrad;
-      ctx.beginPath();
-      ctx.arc(0, s/3.5, 18 + flicker, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      if (shipType === 'sovereign') {
+        drawEngineFlame(ctx, -s/4, s/3, s/6, s/1.5, engineColor, speedRatio);
+        drawEngineFlame(ctx, s/4, s/3, s/6, s/1.5, engineColor, speedRatio);
+      } else if (shipType === 'bastion') {
+        drawEngineFlame(ctx, -s/3, s/3, s/5, s/2, engineColor, speedRatio);
+        drawEngineFlame(ctx, 0, s/3, s/5, s/2, engineColor, speedRatio);
+        drawEngineFlame(ctx, s/3, s/3, s/5, s/2, engineColor, speedRatio);
+      } else {
+        drawEngineFlame(ctx, 0, s/3.5, s/4, s/1.2, engineColor, speedRatio);
+      }
 
       // 2. Dibujo de la Imagen con Filtro de Contraste (Elimina halo cuadrado)
       ctx.save();
@@ -1223,7 +1299,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.restore();
       
       // 3. Brillo Orbital (Casi imperceptible)
-      ctx.globalAlpha = 0.05;
+      ctx.globalAlpha = 0.05 + (speedRatio * 0.1);
       ctx.strokeStyle = engineColor;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -1233,67 +1309,42 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.restore();
     };
 
+    // Calcular ratio de velocidad (0 a 1) para los motores
+    const currentSpeed = Math.hypot(player.vx || 0, player.vy || 0);
+    const maxPossibleSpeed = (player.spd || 100) * 3.5;
+    const speedRatio = Math.min(1.0, currentSpeed / 100); // Usamos 100 como base para que el efecto se vea rápido
+
     // Draw the 3D sprite
     if (player.ship_type === 'tank') {
+      drawEngineFlame(ctx, 0, size/2.5, size/4, size/1.5, baseColor, speedRatio);
       ctx.drawImage(tankImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'fast') {
+      drawEngineFlame(ctx, -size/4, size/3, size/6, size, baseColor, speedRatio);
+      drawEngineFlame(ctx, size/4, size/3, size/6, size, baseColor, speedRatio);
       ctx.drawImage(fastImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'stealth') {
+      drawEngineFlame(ctx, 0, size/3, size/5, size/1.2, '#9933ff', speedRatio);
       ctx.drawImage(stealthImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'heavy') {
+      drawEngineFlame(ctx, -size/3, size/3, size/6, size/2, '#ff3333', speedRatio);
+      drawEngineFlame(ctx, size/3, size/3, size/6, size/2, '#ff3333', speedRatio);
       ctx.drawImage(heavyImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'support') {
+      drawEngineFlame(ctx, 0, size/3, size/4, size/2, '#33ff99', speedRatio);
       ctx.drawImage(supportImg, -size/2, -size/2, size, size);
     } else if (player.ship_type === 'sovereign') {
-      drawPremiumShip(sovereignImg, 'sovereign', size);
+      drawPremiumShip(sovereignImg, 'sovereign', size, speedRatio);
     } else if (player.ship_type === 'harvester') {
-      drawPremiumShip(harvesterImg, 'harvester', size);
+      drawPremiumShip(harvesterImg, 'harvester', size, speedRatio);
     } else if (player.ship_type === 'interceptor') {
-      drawPremiumShip(interceptorImg, 'interceptor', size);
+      drawPremiumShip(interceptorImg, 'interceptor', size, speedRatio);
     } else if (player.ship_type === 'bastion') {
-      drawPremiumShip(bastionImg, 'bastion', size);
+      drawPremiumShip(bastionImg, 'bastion', size, speedRatio);
     } else if (player.ship_type === 'starter') {
-      // --- DYNAMIC ENGINE THRUSTERS ---
-      const engineTime = Date.now() / 100;
-      const flicker = Math.sin(engineTime * 5) * 3;
-      
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      
-      // Draw a more subtle Plasma Flame
-      const grad = ctx.createLinearGradient(0, size/2, 0, size/2 + 20 + flicker);
-      grad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
-      grad.addColorStop(1, 'transparent');
-      
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(-6, size/2 - 5);
-      ctx.lineTo(6, size/2 - 5);
-      ctx.lineTo(0, size/2 + 25 + flicker);
-      ctx.closePath();
-      ctx.fill();
-
-      // Draw the ship itself without extra shadow glow
+      drawEngineFlame(ctx, 0, size/2.5, size/5, size/1.5, '#00ffff', speedRatio);
       ctx.drawImage(starterImg, -size/2, -size/2, size, size);
-      
-      ctx.restore();
     } else {
       ctx.drawImage(tankImg, -size/2, -size/2, size, size); // fallback
-    }
-    
-    // Add colored engine glow to the base (thrusters) - ONLY FOR NON-STARTER SHIPS
-    if (player.ship_type !== 'starter') {
-        ctx.shadowBlur = 0;
-        ctx.shadowColor = baseColor;
-        ctx.shadowOffsetY = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.globalCompositeOperation = 'screen';
-        // Draw faint thruster glow bubble at bottom
-        ctx.beginPath();
-        ctx.arc(0, size/2.5, 8, 0, Math.PI * 2);
-        ctx.fillStyle = baseColor;
-        ctx.fill();
-        ctx.globalCompositeOperation = 'source-over';
     }
     
     ctx.restore();
@@ -1440,8 +1491,14 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
           color = "#ffcc00";
         } else if (event.type === 'ammo') {
           const aIcons = { thermal: '🔥', plasma: '🔷', siphon: '🔋' };
-          text = `${aIcons[event.ammo_type] || '🚀'} +${event.amount} MUNICIÓN`;
+          const aName = event.ammo_name || "MUNICIÓN";
+          text = `${aIcons[event.ammo_type] || '🚀'} +${event.amount} ${aName}`;
           color = "#00ffcc";
+        } else if (event.type === 'missile_loot') {
+          const mIcons = { missile_1: '🚀', missile_2: '🚀', missile_3: '☢️' };
+          const mName = event.missile_name || "MISILES";
+          text = `${mIcons[event.missile_type] || '🚀'} +${event.amount} ${mName.toUpperCase()}`;
+          color = "#ff6600";
         } else if (event.type === 'rapid_fire') {
           text = `⚡ CADENCIA MAX!`;
           color = "#ff00aa";

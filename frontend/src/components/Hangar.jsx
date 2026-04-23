@@ -147,8 +147,12 @@ export default function Hangar({
           }}>
             {!isActive && isOwned && (
               <button 
-                className="gestionar-button"
+                className={`gestionar-button ${isBlocked ? 'blocked' : ''}`}
                 onClick={() => {
+                  if (isBlocked) {
+                    alert("No puedes cambiar de nave fuera de una zona segura.");
+                    return;
+                  }
                   setSelectedShipId(viewedShipId);
                   // Persistir en backend
                   if (user && user.username) {
@@ -156,12 +160,16 @@ export default function Hangar({
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ username: user.username, ship_id: viewedShipId })
-                    }).catch(console.error);
+                    })
+                    .then(r => {
+                      if (r.status === 403) alert("Error: Debes estar en una zona segura.");
+                    })
+                    .catch(console.error);
                   }
                 }}
                 style={{ width: '100%', margin: '0' }}
               >
-                EQUIPAR COMO ACTIVA
+                {isBlocked ? 'CAMBIO BLOQUEADO (ZONA PELIGROSA)' : 'EQUIPAR COMO ACTIVA'}
               </button>
             )}
             {!isOwned && (
