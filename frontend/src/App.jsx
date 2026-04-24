@@ -103,6 +103,8 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [onlineCount, setOnlineCount] = useState(0);
+
   const [isInvisible, setIsInvisible] = useState(() => {
     return localStorage.getItem('game_is_invisible') === 'true';
   });
@@ -110,6 +112,11 @@ function App() {
   const [ownedShips, setOwnedShips] = useState(() => {
     const saved = localStorage.getItem('owned_ships');
     return saved ? JSON.parse(saved) : ['starter'];
+  });
+
+  const [wips, setWips] = useState(() => {
+    const saved = localStorage.getItem('game_wips');
+    return saved ? JSON.parse(saved) : [];
   });
 
   // One-time fleet cleanup: remove 'tank' if it was a default assignment from previous versions
@@ -147,6 +154,7 @@ function App() {
     if (user) {
       fetchClanData(user.username);
     }
+    // No longer calling fetchOnlineCount here, handled by WS useEffect
 
     // Sincronización de Sesión de Juego entre pestañas
     const syncGameSession = (e) => {
@@ -187,6 +195,16 @@ function App() {
     }
   };
 
+  const fetchOnlineCount = async () => {
+    try {
+      const resp = await fetch(`${API_URL}/online_count`);
+      const data = await resp.json();
+      if (data.online_count !== undefined) setOnlineCount(data.online_count);
+    } catch (e) {
+      console.error("Error fetching online count:", e);
+    }
+  };
+
   // Synchronize dynamic updates coming from the Game Canvas window
   useEffect(() => {
     const handleStorageChange = (e) => {
@@ -202,6 +220,7 @@ function App() {
         case 'selected_ship_id': if (e.newValue) setSelectedShipId(e.newValue); break;
         case 'owned_ships': if (e.newValue) setOwnedShips(JSON.parse(e.newValue)); break;
         case 'game_upgrades': if (e.newValue) setUpgrades(JSON.parse(e.newValue)); break;
+        case 'game_wips': if (e.newValue) setWips(JSON.parse(e.newValue)); break;
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -260,6 +279,10 @@ function App() {
     localStorage.setItem('game_is_invisible', isInvisible);
   }, [isInvisible]);
 
+  useEffect(() => {
+    localStorage.setItem('game_wips', JSON.stringify(wips));
+  }, [wips]);
+
   // SYNC STATS WITH BACKEND (Debounced to prevent race conditions during multiple state updates)
   const syncStats = async () => {
     if (!user || currentView === 'auth') return;
@@ -289,7 +312,8 @@ function App() {
             owned_ships: ownedShips,
             inventory,
             equipped: equippedByShip,
-            timed_upgrades: upgrades
+            timed_upgrades: upgrades,
+            wips
           })
         });
       } catch (e) {
@@ -347,11 +371,51 @@ function App() {
   };
 
   // Polling for external updates (donations, taxes, admin edits)
+  // Polling for external updates (donations, taxes, admin edits)
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(refreshStats, 30000); // Cada 30 segundos
     return () => clearInterval(interval);
   }, [user, credits, paladio, level, xp]);
+
+  // Real-time Presence WebSocket
+  useEffect(() => {
+    let ws;
+    let reconnectTimeout;
+
+    const connectPresence = () => {
+      const WS_PRESENCE_URL = 'ws://127.0.0.1:8000/ws/presence';
+      ws = new WebSocket(WS_PRESENCE_URL);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'online_count') {
+            setOnlineCount(data.count);
+          }
+        } catch (e) {
+          console.error("Error parsing presence data:", e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("Presence WS closed, reconnecting...");
+        reconnectTimeout = setTimeout(connectPresence, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("Presence WS error:", err);
+        ws.close();
+      };
+    };
+
+    connectPresence();
+
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
+  }, []);
 
   // Sync on every relevant change (Transaction-based as requested)
   useEffect(() => {
@@ -442,6 +506,10 @@ function App() {
       if (data.is_invisible !== undefined) {
         setIsInvisible(data.is_invisible);
       }
+      if (data.wips) {
+        setWips(data.wips);
+        localStorage.setItem('game_wips', JSON.stringify(data.wips));
+      }
 
       if (!data.faction) {
         setCurrentView('faction_select');
@@ -504,6 +572,7 @@ function App() {
       setUpgrades({ atk: [], shld: [], spd: [] });
       setOwnedShips(['starter']);
       setSelectedShipId('starter');
+      setWips([]);
 
       setCurrentView('menu');
     } catch (e) {
@@ -572,6 +641,7 @@ function App() {
     localStorage.removeItem('game_upgrades');
     localStorage.removeItem('owned_ships');
     localStorage.removeItem('selected_ship_id');
+    localStorage.removeItem('game_wips');
     localStorage.removeItem('og_game_running');
     localStorage.removeItem('og_player_safe_zone');
     
@@ -624,6 +694,71 @@ function App() {
       ...prev,
       [shipId]: [...(prev[shipId] || []), module]
     }));
+  };
+
+  const handleEquipWip = (moduleIndex, wipId) => {
+    if (isGameActive && !inSafeZone) {
+      alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura para modificar los Wips.");
+      return;
+    }
+    const module = inventory[moduleIndex];
+    if (!module) return;
+    if (module.type !== 'lasers' && module.type !== 'shields') {
+      alert("Solo puedes equipar láseres o escudos en los Wips.");
+      return;
+    }
+
+    const wipIndex = wips.findIndex(w => w.instanceId === wipId);
+    if (wipIndex === -1) return;
+    const wip = wips[wipIndex];
+    const wipDef = WIPS_CATALOG.find(d => d.id === wip.type);
+    
+    if (wip.equipped.length >= wipDef.slots) {
+      alert("Este Wip ya no tiene ranuras libres.");
+      return;
+    }
+
+    const newInventory = [...inventory];
+    newInventory.splice(moduleIndex, 1);
+    setInventory(newInventory);
+
+    const newWips = [...wips];
+    newWips[wipIndex] = { ...wip, equipped: [...wip.equipped, module] };
+    setWips(newWips);
+  };
+
+  const handleUnequipWip = (moduleInstanceId, wipId) => {
+    if (isGameActive && !inSafeZone) {
+      alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura para modificar los Wips.");
+      return;
+    }
+    const wipIndex = wips.findIndex(w => w.instanceId === wipId);
+    if (wipIndex === -1) return;
+    const wip = wips[wipIndex];
+    
+    const module = wip.equipped.find(m => m.instanceId === moduleInstanceId);
+    if (!module) return;
+
+    const newWips = [...wips];
+    newWips[wipIndex] = { ...wip, equipped: wip.equipped.filter(m => m.instanceId !== moduleInstanceId) };
+    setWips(newWips);
+
+    setInventory(prev => [...prev, module]);
+  };
+
+  const handleBuyWip = (wipId, cost) => {
+    if (credits < cost) return false;
+    if (wips.length >= 8) {
+      alert("Ya has alcanzado el límite máximo de 8 Wips.");
+      return false;
+    }
+    setCredits(prev => prev - cost);
+    setWips(prev => [...prev, {
+      instanceId: Date.now(),
+      type: wipId, // 'dron' or 'sparks'
+      equipped: []
+    }]);
+    return true;
   };
 
   const handleUnequip = (instanceId, shipId) => {
@@ -751,6 +886,7 @@ function App() {
             credits={credits} 
             paladio={paladio} 
             level={level} 
+            onlineCount={onlineCount}
             user={user} 
             onLogout={handleLogout} 
             onNavigate={setCurrentView} 
@@ -853,6 +989,9 @@ function App() {
           ownedShips={ownedShips}
           inSafeZone={inSafeZone}
           isPlaying={isGameActive}
+          wips={wips}
+          onEquipWip={handleEquipWip}
+          onUnequipWip={handleUnequipWip}
         />
       )}
 
@@ -877,6 +1016,8 @@ function App() {
           onBuyShip={handleBuyShip}
           setIsInvisible={setIsInvisible}
           user={user}
+          onBuyWip={handleBuyWip}
+          wipsCount={wips.length}
         />
       )}
 
@@ -943,6 +1084,7 @@ function App() {
             initialPaladio={paladio}
             initialMinerals={minerals}
             initialUpgrades={upgrades}
+            initialWips={wips}
             initialClan={user?.faction}
             initialClanTag={clan?.tag}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}

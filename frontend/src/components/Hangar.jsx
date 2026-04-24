@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, getRank } from '../utils/gameData';
+import { SHIPS, WIPS_CATALOG, getRank } from '../utils/gameData';
 import { SlotDisplay, StatRow } from './ShipComponents';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
@@ -25,10 +25,15 @@ export default function Hangar({
   onRefine,
   inSafeZone,
   isPlaying,
-  ownedShips = []
+  ownedShips = [],
+  wips = [],
+  onEquipWip,
+  onUnequipWip
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('ship'); // 'ship' or 'wips'
+  const [selectedWipId, setSelectedWipId] = useState(null);
 
   const isBlocked = isPlaying && !inSafeZone;
 
@@ -82,8 +87,8 @@ export default function Hangar({
         {/* STATS PANEL */}
         <aside className="fleet-info-panel">
           <div className="fleet-info-header">
-            <div className="fleet-info-tab active">NAVE</div>
-            <div className="fleet-info-tab">VANTS</div>
+            <div className={`fleet-info-tab ${activeTab === 'ship' ? 'active' : ''}`} onClick={() => setActiveTab('ship')}>NAVE</div>
+            <div className={`fleet-info-tab ${activeTab === 'wips' ? 'active' : ''}`} onClick={() => setActiveTab('wips')}>WIPS</div>
             <div className="fleet-info-tab">P.E.T.</div>
           </div>
           
@@ -96,45 +101,112 @@ export default function Hangar({
              />
           </div>
 
-          <div className="fleet-stats-list">
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Puntos de Vida</span>
-                <span className="fleet-stat-value">{stats.hp.toLocaleString()}</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Escudo Total</span>
-                <span className="fleet-stat-value">{stats.shld.toLocaleString()}</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Velocidad Máxima</span>
-                <span className="fleet-stat-value">{stats.spd}</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Ranuras Láser</span>
-                <span className="fleet-stat-value">{stats.lasersSlots}</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Ranuras Generadores</span>
-                <span className="fleet-stat-value">{stats.genSlots}</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Experiencia Nave</span>
-                <span className="fleet-stat-value">{xp} XP</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Nivel de Piloto</span>
-                <span className="fleet-stat-value">{level}</span>
-             </div>
-             <div className="fleet-stat-row">
-                <span className="fleet-stat-label">Bodega de Carga</span>
-                <span className="fleet-stat-value">{viewedShip.cargo_capacity.toLocaleString()} t</span>
-             </div>
-             
-             {/* Large Status Label */}
-             <div className="active-status-label" style={{ color: isActive ? '#00ffcc' : '#333' }}>
-                {isActive ? 'ACTIVA' : 'INACTIVA'}
-             </div>
-          </div>
+          {activeTab === 'ship' ? (
+            <div className="fleet-stats-list">
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Puntos de Vida</span>
+                  <span className="fleet-stat-value">{stats.hp.toLocaleString()}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Escudo Total</span>
+                  <span className="fleet-stat-value">{stats.shld.toLocaleString()}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Velocidad Máxima</span>
+                  <span className="fleet-stat-value">{stats.spd}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Ranuras Láser</span>
+                  <span className="fleet-stat-value">{stats.lasersSlots}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Ranuras Generadores</span>
+                  <span className="fleet-stat-value">{stats.genSlots}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Experiencia Nave</span>
+                  <span className="fleet-stat-value">{xp} XP</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Nivel de Piloto</span>
+                  <span className="fleet-stat-value">{level}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Bodega de Carga</span>
+                  <span className="fleet-stat-value">{viewedShip.cargo_capacity.toLocaleString()} t</span>
+              </div>
+              
+              <div className="active-status-label" style={{ color: isActive ? '#00ffcc' : '#333' }}>
+                  {isActive ? 'ACTIVA' : 'INACTIVA'}
+              </div>
+            </div>
+          ) : (
+            <div className="fleet-stats-list" style={{ padding: '10px' }}>
+               <div style={{ color: '#00ffcc', fontFamily: 'Orbitron', fontSize: '0.8rem', marginBottom: '15px', textAlign: 'center' }}>
+                  SISTEMA DE APOYO TÁCTICO (WIPS)
+               </div>
+               
+               {wips.length === 0 ? (
+                 <div style={{ textAlign: 'center', padding: '40px 10px', color: '#555', border: '1px dashed #333', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🛰️</div>
+                    <p style={{ fontSize: '0.8rem' }}>NO TIENES WIPS ACTIVOS</p>
+                    <button className="primary-button" onClick={() => onNavigate('shop')} style={{ marginTop: '10px', padding: '5px 15px', fontSize: '0.7rem' }}>IR A TIENDA</button>
+                 </div>
+               ) : (
+                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                    {wips.map((wip, i) => {
+                      const def = WIPS_CATALOG.find(d => d.id === wip.type);
+                      return (
+                        <div key={wip.instanceId} className="wip-small-card" style={{ 
+                          background: 'rgba(0,0,0,0.4)', 
+                          border: '1px solid rgba(0,255,204,0.2)',
+                          padding: '8px',
+                          borderRadius: '4px',
+                          fontSize: '0.7rem'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                            <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>#{i+1} {def.name}</span>
+                            <span>🛰️</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '3px' }}>
+                            {Array.from({ length: def.slots }).map((_, idx) => (
+                              <div key={idx} style={{ 
+                                width: '12px', height: '12px', 
+                                background: wip.equipped[idx] ? '#00ffcc' : '#222',
+                                border: '1px solid #444',
+                                borderRadius: '2px'
+                              }} />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {wips.length < 8 && Array.from({ length: 8 - wips.length }).map((_, i) => (
+                      <div key={`empty-${i}`} style={{ 
+                        background: 'rgba(255,255,255,0.02)', 
+                        border: '1px dashed #333',
+                        padding: '8px',
+                        borderRadius: '4px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#444',
+                        fontSize: '0.7rem'
+                      }}>
+                        VACÍO
+                      </div>
+                    ))}
+                 </div>
+               )}
+
+               <div style={{ marginTop: '20px', color: '#888', fontSize: '0.7rem', lineHeight: '1.4' }}>
+                  <b style={{ color: '#00ffcc' }}>Dron:</b> 1 Ranura (Arma/Escudo)<br/>
+                  <b style={{ color: '#00ffcc' }}>Sparks:</b> 2 Ranuras (Armas/Escudos)<br/>
+                  Límite máximo: 8 unidades.
+               </div>
+            </div>
+          )}
 
           <div style={{ 
             marginTop: 'auto', 
@@ -182,12 +254,21 @@ export default function Hangar({
               </button>
             )}
             <button 
-              className={`gestionar-button ${isBlocked || !isOwned ? 'blocked' : ''}`} 
-              onClick={() => isOwned && setEditMode(true)}
-              disabled={!isOwned}
+              className={`gestionar-button ${isBlocked || (!isOwned && activeTab === 'ship') ? 'blocked' : ''}`} 
+              onClick={() => {
+                if (activeTab === 'ship' && isOwned) setEditMode(true);
+                if (activeTab === 'wips' && wips.length > 0) {
+                  setSelectedWipId(wips[0].instanceId);
+                  setEditMode(true);
+                }
+              }}
+              disabled={activeTab === 'ship' ? !isOwned : wips.length === 0}
               style={{ width: '100%', margin: '0' }}
             >
-              {!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR CONFIGURACIÓN'}
+              {activeTab === 'ship' 
+                ? (!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR NAVE') 
+                : (wips.length === 0 ? 'SIN WIPS PARA GESTIONAR' : isBlocked ? 'VER WIPS (BLOQUEADO)' : 'GESTIONAR WIPS')
+              }
             </button>
           </div>
         </aside>
@@ -202,15 +283,20 @@ export default function Hangar({
       {/* MANAGEMENT OVERLAY */}
       {editMode && (
         <div className="management-overlay">
-           <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00ffcc' }}>GESTIÓN DE EQUIPAMIENTO: {viewedShip.name}</div>
+            <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#00ffcc' }}>
+                 {activeTab === 'ship' ? `GESTIÓN DE EQUIPAMIENTO: ${viewedShip.name}` : 'SISTEMA DE CONFIGURACIÓN WIPS'}
+              </div>
               <button 
-                onClick={() => setEditMode(false)}
+                onClick={() => {
+                  setEditMode(false);
+                  setSelectedWipId(null);
+                }}
                 style={{ background: '#ff3366', border: 'none', color: 'white', padding: '10px 30px', cursor: 'pointer', borderRadius: '4px', fontWeight: 'bold' }}
               >
                 CERRAR Y VOLVER
               </button>
-           </header>
+            </header>
 
            {isBlocked && (
              <div style={{ 
@@ -238,41 +324,101 @@ export default function Hangar({
               <div style={{ flex: 1, background: '#0a0f1a', border: '1px solid #1a2a4a', padding: '20px', display: 'flex', flexDirection: 'column' }}>
                  <div style={{ marginBottom: '15px', color: '#88aaff', fontSize: '1.1rem', fontWeight: 'bold' }}>📦 ALMACÉN DE MÓDULOS</div>
                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', overflowY: 'auto' }}>
-                    {inventory.map((item, index) => (
-                      <div 
-                        key={item.instanceId} 
-                        onClick={() => !isBlocked && onEquip(index, viewedShipId)}
-                        style={{ 
-                          aspectRatio: '1/1', 
-                          background: '#070b16', 
-                          border: `1px solid ${isBlocked ? '#331122' : '#1a2a4a'}`, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          fontSize: '2rem', 
-                          cursor: isBlocked ? 'not-allowed' : 'pointer',
-                          opacity: isBlocked ? 0.4 : 1,
-                          filter: isBlocked ? 'grayscale(100%)' : 'none'
-                        }}
-                        title={isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
-                      >
-                        {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', objectFit: 'contain' }} /> : item.icon}
-                      </div>
-                    ))}
+                    {inventory.map((item, index) => {
+                      const canEquip = activeTab === 'ship' || (item.type === 'lasers' || item.type === 'shields');
+                      return (
+                       <div 
+                         key={item.instanceId} 
+                         onClick={() => {
+                           if (isBlocked) return;
+                           if (activeTab === 'ship') onEquip(index, viewedShipId);
+                           else if (canEquip && selectedWipId) onEquipWip(index, selectedWipId);
+                         }}
+                         style={{ 
+                           aspectRatio: '1/1', 
+                           background: '#070b16', 
+                           border: `1px solid ${isBlocked ? '#331122' : '#1a2a4a'}`, 
+                           display: 'flex', 
+                           alignItems: 'center', 
+                           justifyContent: 'center', 
+                           fontSize: '2rem', 
+                           cursor: isBlocked || !canEquip ? 'not-allowed' : 'pointer',
+                           opacity: isBlocked || !canEquip ? 0.4 : 1,
+                           filter: isBlocked || !canEquip ? 'grayscale(100%)' : 'none'
+                         }}
+                         title={!canEquip ? 'Solo láseres y escudos en Wips' : isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
+                       >
+                         {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', objectFit: 'contain' }} /> : item.icon}
+                       </div>
+                      );
+                    })}
                     {inventory.length === 0 && <div style={{ gridColumn: 'span 5', color: '#555', textAlign: 'center', padding: '20px' }}>No hay módulos disponibles en el almacén.</div>}
                  </div>
               </div>
 
-              {/* Ship Slots */}
-              <div style={{ flex: 1.5, background: '#0a0f1a', border: '1px solid #1a2a4a', padding: '20px', display: 'flex', flexDirection: 'column' }}>
-                 <div style={{ marginBottom: '15px', color: '#ffcc00', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DE RANURAS</div>
-                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
-                    <SlotDisplay label="Sistemas Láser" count={viewedShip.slots.lasers} icon="🎯" color="#ffcc00" equipped={currentEquipped.filter(m => m.type === 'lasers')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                    <SlotDisplay label="Escudos de Energía" count={viewedShip.slots.shields} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                    <SlotDisplay label="Motores de Impulso" count={viewedShip.slots.engines} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                    <SlotDisplay label="Módulos de Utilidad" count={viewedShip.slots.utility} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                 </div>
-              </div>
+               {/* Ship Slots or Wip Slots */}
+               <div style={{ flex: 1.5, background: '#0a0f1a', border: '1px solid #1a2a4a', padding: '20px', display: 'flex', flexDirection: 'column' }}>
+                  {activeTab === 'ship' ? (
+                    <>
+                      <div style={{ marginBottom: '15px', color: '#ffcc00', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DE RANURAS</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
+                        <SlotDisplay label="Sistemas Láser" count={viewedShip.slots.lasers} icon="🎯" color="#ffcc00" equipped={currentEquipped.filter(m => m.type === 'lasers')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Escudos de Energía" count={viewedShip.slots.shields} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Motores de Impulso" count={viewedShip.slots.engines} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Módulos de Utilidad" count={viewedShip.slots.utility} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: '15px', color: '#00ffcc', fontSize: '1.1rem', fontWeight: 'bold' }}>📡 CONFIGURACIÓN DE WIPS</div>
+                      
+                      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '10px' }}>
+                        {wips.map((w, i) => (
+                          <div 
+                            key={w.instanceId} 
+                            onClick={() => setSelectedWipId(w.instanceId)}
+                            style={{ 
+                              minWidth: '80px', height: '80px', 
+                              background: selectedWipId === w.instanceId ? 'rgba(0,255,204,0.1)' : '#070b16',
+                              border: `1px solid ${selectedWipId === w.instanceId ? '#00ffcc' : '#1a2a4a'}`,
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', borderRadius: '4px'
+                            }}
+                          >
+                            <span style={{ fontSize: '1.5rem' }}>🛰️</span>
+                            <span style={{ fontSize: '0.7rem', color: '#888' }}>WIP #{i+1}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {selectedWipId && (
+                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '8px', border: '1px solid #1a2a4a' }}>
+                           {(() => {
+                             const wip = wips.find(w => w.instanceId === selectedWipId);
+                             if (!wip) return null;
+                             const def = WIPS_CATALOG.find(d => d.id === wip.type);
+                             return (
+                               <>
+                                 <div style={{ color: '#00ffcc', fontWeight: 'bold', marginBottom: '15px', borderBottom: '1px solid #1a2a4a', paddingBottom: '5px' }}>
+                                   {def.name.toUpperCase()} - {def.slots} RANURAS DISPONIBLES
+                                 </div>
+                                 <SlotDisplay 
+                                   label="Equipamiento del Wip" 
+                                   count={def.slots} 
+                                   icon="🛰️" 
+                                   color="#00ffcc" 
+                                   equipped={wip.equipped} 
+                                   onUnequip={(id) => !isBlocked && onUnequipWip(id, selectedWipId)} 
+                                   isBlocked={isBlocked} 
+                                 />
+                               </>
+                             );
+                           })()}
+                        </div>
+                      )}
+                    </>
+                  )}
+               </div>
            </div>
         </div>
       )}

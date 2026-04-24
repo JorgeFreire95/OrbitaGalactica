@@ -1,32 +1,88 @@
 const tankImg = new Image();
-tankImg.src = '/aegis_vanguard.png';
+tankImg.src = '/aegis_vanguard_v2.png?v=2';
 
 const fastImg = new Image();
-fastImg.src = '/nova_striker.png';
+fastImg.src = '/nova_striker_v2.png?v=2';
 
 const stealthImg = new Image();
-stealthImg.src = '/orion_phantom.png';
+stealthImg.src = '/orion_phantom_v2.png?v=2';
 
 const heavyImg = new Image();
-heavyImg.src = '/titan_hammer.png';
+heavyImg.src = '/titan_hammer_v2.png?v=2';
 
 const supportImg = new Image();
-supportImg.src = '/helix_support.png';
+supportImg.src = '/helix_support_v2.png?v=2';
 
 const starterImg = new Image();
-starterImg.src = '/phoenix.png';
+starterImg.src = '/phoenix_v3.png?v=5';
 
 const sovereignImg = new Image();
-sovereignImg.src = '/sovereign.png';
+sovereignImg.src = '/sovereign_v3.png?v=3';
 
 const harvesterImg = new Image();
-harvesterImg.src = '/harvester.png';
+harvesterImg.src = '/harvester_v2.png?v=2';
 
 const interceptorImg = new Image();
-interceptorImg.src = '/interceptor.png';
+interceptorImg.src = '/interceptor_v2.png?v=2';
 
 const bastionImg = new Image();
-bastionImg.src = '/bastion.png';
+bastionImg.src = '/bastion_v2.png?v=2';
+
+const wispV1Img = new Image();
+wispV1Img.src = '/wisp_v1.png';
+
+const wispV2Img = new Image();
+wispV2Img.src = '/wisp_v2.png';
+
+// --- FUNCIONES DE APOYO WIPS ---
+const drawWips = (ctx, wips, shipSize, heading) => {
+    if (!wips || wips.length === 0) return;
+
+    // Posiciones relativas (2 izq, 2 der, 4 atrás)
+    // Coordenadas [x, y] asumiendo nave mirando arriba
+    const positions = [
+        [-55, 0], [-85, 25],   // Izquierda
+        [55, 0], [85, 25],     // Derecha
+        [-40, 60], [-15, 75], [15, 75], [40, 60] // Atrás
+    ];
+
+    const time = Date.now() / 1000;
+
+    wips.forEach((wip, i) => {
+        if (i >= positions.length) return;
+        const [relX, relY] = positions[i];
+        
+        ctx.save();
+        // Oscilación suave para efecto de flotación
+        const hover = Math.sin(time * 2 + i) * 3;
+        
+        // Rotar las posiciones según el heading de la nave
+        ctx.rotate(heading); 
+        ctx.translate(relX, relY + hover);
+        
+        const isSparks = wip.type === 'sparks';
+        const img = isSparks ? wispV2Img : wispV1Img;
+        const color = isSparks ? '#bf00ff' : '#00bbff'; // Púrpura para Sparks, Azul para Dron
+        const pulse = 0.8 + Math.sin(time * 5 + i) * 0.2;
+
+        // Glow del Drone
+        ctx.shadowBlur = 15 * pulse;
+        ctx.shadowColor = color;
+        
+        // Dibujar Imagen del Drone
+        const size = 28;
+        ctx.drawImage(img, -size/2, -size/2, size, size);
+
+        // Núcleo brillante extra
+        ctx.globalAlpha = 0.5 * pulse;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    });
+};
 
 // --- FUNCIONES DE RENDERIZADO DE ALIENS ---
 
@@ -1152,7 +1208,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
     // Base constants
     const baseColor = player.color || '#00b3ff';
-    const size = player.ship_type === 'tank' ? 70 : 60;
+    // Aumento de tamaño mayor solicitado (Base 75 -> 95, Tank 85 -> 110)
+    const size = player.ship_type === 'tank' ? 110 : 95;
     
     // Fake 3D Banking & Depth
     ctx.save();
@@ -1274,14 +1331,19 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
     const drawPremiumShip = (img, shipType, s, speedRatio) => {
       ctx.save();
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       
       // 1. Efecto de Propulsores Dinámicos
       const engineColor = shipType === 'sovereign' ? '#e6b800' : 
-                          (shipType === 'bastion' ? '#ff3333' : '#00ffff');
+                          (shipType === 'bastion' ? '#ff3333' : 
+                          (shipType === 'harvester' ? '#ff8800' : '#00ffff'));
       
       if (shipType === 'sovereign') {
-        drawEngineFlame(ctx, -s/4, s/3, s/6, s/1.5, engineColor, speedRatio);
-        drawEngineFlame(ctx, s/4, s/3, s/6, s/1.5, engineColor, speedRatio);
+        // Quadruple engines for the dreadnought
+        drawEngineFlame(ctx, -s/3, s/3, s/6, s/1.5, engineColor, speedRatio);
+        drawEngineFlame(ctx, -s/7, s/3, s/7, s/1.8, engineColor, speedRatio);
+        drawEngineFlame(ctx, s/7, s/3, s/7, s/1.8, engineColor, speedRatio);
+        drawEngineFlame(ctx, s/3, s/3, s/6, s/1.5, engineColor, speedRatio);
       } else if (shipType === 'bastion') {
         drawEngineFlame(ctx, -s/3, s/3, s/5, s/2, engineColor, speedRatio);
         drawEngineFlame(ctx, 0, s/3, s/5, s/2, engineColor, speedRatio);
@@ -1290,21 +1352,26 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         drawEngineFlame(ctx, 0, s/3.5, s/4, s/1.2, engineColor, speedRatio);
       }
 
-      // 2. Dibujo de la Imagen con Filtro de Contraste (Elimina halo cuadrado)
+      // 2. Dibujo de la Imagen con Mezcla 'Screen' (Elimina el fondo negro/cuadrado)
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
-      // contrast(1.8) asegura que el fondo sea negro puro, brightness(0.9) evita saturación
-      ctx.filter = 'contrast(1.8) brightness(0.9)'; 
+      
+      // Filtros según tipo de nave (La Bastion necesita mucho más brillo por ser muy oscura)
+      if (shipType === 'bastion') {
+        ctx.filter = 'contrast(1.4) brightness(2.0) saturate(1.5)'; 
+      } else {
+        ctx.filter = 'contrast(1.6) brightness(1.2)'; 
+      }
+      
       ctx.drawImage(img, -s/2, -s/2, s, s);
       ctx.restore();
+
+      ctx.restore();
       
-      // 3. Brillo Orbital (Casi imperceptible)
-      ctx.globalAlpha = 0.05 + (speedRatio * 0.1);
-      ctx.strokeStyle = engineColor;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(0, 0, s/2.2, 0, Math.PI * 2);
-      ctx.stroke();
+      // 3. Brillo Orbital (Eliminado a petición del usuario)
+      // ctx.globalAlpha = 0.05 + (speedRatio * 0.1);
+      // ctx.strokeStyle = engineColor;
+      // ...
       
       ctx.restore();
     };
@@ -1316,22 +1383,76 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
     // Draw the 3D sprite
     if (player.ship_type === 'tank') {
-      drawEngineFlame(ctx, 0, size/2.5, size/4, size/1.5, baseColor, speedRatio);
-      ctx.drawImage(tankImg, -size/2, -size/2, size, size);
+      // Aegis Vanguard v2: Estilo tanque pesado con triple motor
+      const s = size;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      drawEngineFlame(ctx, -s/3, s/3, s/5, s/1.8, '#00ffff', speedRatio);
+      drawEngineFlame(ctx, 0, s/3.2, s/4, s/1.5, '#00ffff', speedRatio);
+      drawEngineFlame(ctx, s/3, s/3, s/5, s/1.8, '#00ffff', speedRatio);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'contrast(1.6) brightness(1.2)';
+      ctx.drawImage(tankImg, -s/2, -s/2, s, s);
+      ctx.restore();
     } else if (player.ship_type === 'fast') {
-      drawEngineFlame(ctx, -size/4, size/3, size/6, size, baseColor, speedRatio);
-      drawEngineFlame(ctx, size/4, size/3, size/6, size, baseColor, speedRatio);
-      ctx.drawImage(fastImg, -size/2, -size/2, size, size);
+      // Nova Striker v2: Estilo rápido con triple motor aerodinámico
+      const s = size;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      drawEngineFlame(ctx, -s/4, s/3.2, s/6, s/1.2, '#00ffff', speedRatio);
+      drawEngineFlame(ctx, 0, s/3.5, s/5, s/1.1, '#00ffff', speedRatio);
+      drawEngineFlame(ctx, s/4, s/3.2, s/6, s/1.2, '#00ffff', speedRatio);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'contrast(1.6) brightness(1.2)';
+      ctx.drawImage(fastImg, -s/2, -s/2, s, s);
+      ctx.restore();
     } else if (player.ship_type === 'stealth') {
-      drawEngineFlame(ctx, 0, size/3, size/5, size/1.2, '#9933ff', speedRatio);
-      ctx.drawImage(stealthImg, -size/2, -size/2, size, size);
+      // Orion Phantom v2: Estilo sigilo con motores púrpuras
+      const s = size;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      // Motores púrpuras/violetas según el nuevo diseño
+      drawEngineFlame(ctx, -s/4, s/3.2, s/6, s/1.2, '#9933ff', speedRatio);
+      drawEngineFlame(ctx, s/4, s/3.2, s/6, s/1.2, '#9933ff', speedRatio);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'contrast(1.6) brightness(1.2)'; 
+      ctx.drawImage(stealthImg, -s/2, -s/2, s, s);
+      ctx.restore();
     } else if (player.ship_type === 'heavy') {
-      drawEngineFlame(ctx, -size/3, size/3, size/6, size/2, '#ff3333', speedRatio);
-      drawEngineFlame(ctx, size/3, size/3, size/6, size/2, '#ff3333', speedRatio);
-      ctx.drawImage(heavyImg, -size/2, -size/2, size, size);
+      // Titan Hammer v2: Crucero pesado con cuádruple motor y blindaje masivo
+      const s = size * 1.1; // Un poco más grande para enfatizar su clase pesada
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      // Cuatro motores potentes (llama naranja/roja)
+      drawEngineFlame(ctx, -s/3, s/2.8, s/5, s/1.5, '#ff4400', speedRatio);
+      drawEngineFlame(ctx, -s/8, s/2.8, s/6, s/1.8, '#ff6600', speedRatio);
+      drawEngineFlame(ctx, s/8, s/2.8, s/6, s/1.8, '#ff6600', speedRatio);
+      drawEngineFlame(ctx, s/3, s/2.8, s/5, s/1.5, '#ff4400', speedRatio);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'contrast(1.6) brightness(1.2)'; 
+      ctx.drawImage(heavyImg, -s/2, -s/2, s, s);
+      ctx.restore();
     } else if (player.ship_type === 'support') {
-      drawEngineFlame(ctx, 0, size/3, size/4, size/2, '#33ff99', speedRatio);
-      ctx.drawImage(supportImg, -size/2, -size/2, size, size);
+      // Helix Support v2: Estilo médico modular con motores turquesa
+      const s = size;
+      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+      // Motor central turquesa/cian
+      drawEngineFlame(ctx, 0, s/3.2, s/4, s/1.1, '#00ffff', speedRatio);
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'contrast(1.6) brightness(1.2)'; 
+      ctx.drawImage(supportImg, -s/2, -s/2, s, s);
+      ctx.restore();
     } else if (player.ship_type === 'sovereign') {
       drawPremiumShip(sovereignImg, 'sovereign', size, speedRatio);
     } else if (player.ship_type === 'harvester') {
@@ -1341,13 +1462,32 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     } else if (player.ship_type === 'bastion') {
       drawPremiumShip(bastionImg, 'bastion', size, speedRatio);
     } else if (player.ship_type === 'starter') {
-      drawEngineFlame(ctx, 0, size/2.5, size/5, size/1.5, '#00ffff', speedRatio);
-      ctx.drawImage(starterImg, -size/2, -size/2, size, size);
+      // Nueva Phoenix v3: Renderizado limpio sin sombras ni duplicados
+      const s = size;
+      
+      // 1. Resetear sombras para evitar el efecto de "nave doble"
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      // 2. Dibujar propulsores (Ajustados a la base de la nave)
+      drawEngineFlame(ctx, -s/4.5, s/3.2, s/6, s/1.3, '#00ffff', speedRatio);
+      drawEngineFlame(ctx, s/4.5, s/3.2, s/6, s/1.3, '#00ffff', speedRatio);
+      
+      // 3. Dibujar la nave con mezcla optimizada (Más nítida)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.filter = 'contrast(1.6) brightness(1.2)'; 
+      ctx.drawImage(starterImg, -s/2, -s/2, s, s);
+      ctx.restore();
     } else {
       ctx.drawImage(tankImg, -size/2, -size/2, size, size); // fallback
     }
     
     ctx.restore();
+    
+    // --- DIBUJAR WIPS (SISTEMA DE DRONES) ---
+    drawWips(ctx, player.wips || [], size, heading);
     
     // Name
     ctx.fillStyle = '#fff';

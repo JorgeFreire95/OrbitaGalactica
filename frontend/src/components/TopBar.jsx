@@ -1,6 +1,6 @@
 import React from 'react';
 
-const TopBar = ({ credits, paladio, level, user, onLogout, onNavigate }) => {
+const TopBar = ({ credits, paladio, level, onlineCount, user, onLogout, onNavigate }) => {
   return (
     <header className="dashboard-header" style={{ justifyContent: 'space-between', padding: '10px 30px', height: 'auto', minHeight: '60px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -22,6 +22,23 @@ const TopBar = ({ credits, paladio, level, user, onLogout, onNavigate }) => {
         )}
       </div>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+        
+        {/* USUARIOS CONECTADOS */}
+        <div className="status-item" style={{ 
+          background: 'rgba(0, 255, 204, 0.05)', 
+          padding: '8px 18px', 
+          borderRadius: '6px', 
+          border: '1px solid rgba(0, 255, 204, 0.3)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px',
+          boxShadow: '0 0 10px rgba(0, 255, 204, 0.1)'
+        }}>
+          <span style={{ fontSize: '1.2rem', filter: 'drop-shadow(0 0 5px #00ffcc)' }}>📡</span>
+          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.9rem', letterSpacing: '1px' }}>
+            {onlineCount || 0} EN LÍNEA
+          </span>
+        </div>
         
         {/* CRÉDITOS */}
         <div className="status-item" style={{ background: 'rgba(0,0,0,0.6)', padding: '8px 18px', borderRadius: '6px', border: '1px solid #333', display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -303,7 +303,7 @@ class GameState:
             for _ in range(5):
                 self.spawn_special_chest(map_id)
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None, initial_wips=None):
         self.clients[client_id] = websocket
         
         prof = self.SHIP_PROFILES.get(ship_type, self.SHIP_PROFILES["starter"])
@@ -368,7 +368,8 @@ class GameState:
             "active_missions": [],
             "needs_mission_sync": True, # Enviar misiones al unirse
             "is_invisible": False,
-            "repair_bot_active": False
+            "repair_bot_active": False,
+            "wips": initial_wips if (initial_wips and isinstance(initial_wips, list)) else []
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -1644,10 +1645,21 @@ class GameState:
             if mod.get("is_auto_repair"): player["has_auto_repair"] = True
 
             # Recount for visuals
-            m_type = mod.get("type", "")
-            if m_type == "lasers": player["lasers"] += 1
-            if m_type == "engines": player["engines"] += 1
             if m_type == "shields": player["shields"] += 1
+
+        # 1.5. Sumar Módulos de Wips (Drones)
+        for wip in player.get("wips", []):
+            for mod in wip.get("equipped", []):
+                if "atk" in mod: player["atk"] += mod["atk"]
+                if "shld" in mod: player["max_shld"] += mod["shld"]
+                if "spd" in mod: player["spd"] += mod["spd"]
+                if "hp" in mod: player["max_hp"] += mod["hp"]
+                if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
+                
+                # Recount for visuals (las drones incrementan el poder de fuego visual)
+                m_type = mod.get("type", "")
+                if m_type == "lasers": player["lasers"] += 1
+                if m_type == "shields": player["shields"] += 1
 
         # 2. Sumar Mejoras Temporales (Laboratorio) - ACUMULATIVO
         if "timed_upgrades" in player:
@@ -1700,6 +1712,20 @@ class GameState:
         player["equipped"] = modules if isinstance(modules, list) else []
         self.recalculate_player_stats(player)
         print(f"Equipamiento sincronizado para {client_id}: {len(player['equipped'])} módulos.")
+
+    def update_wips(self, client_id, wips):
+        """Sincroniza el sistema de drones Wips (solo en zona segura)."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        # Solo permitir cambios de equipamiento en zona segura
+        if not player.get("in_safe_zone", False):
+            print(f"Intento de cambio de drones fuera de zona segura para {client_id}")
+            return
+            
+        player["wips"] = wips if isinstance(wips, list) else []
+        self.recalculate_player_stats(player)
+        print(f"Drones Wips sincronizados para {client_id}: {len(player['wips'])} drones.")
 
     def update_timed_upgrades(self, client_id, updates):
         """Sincroniza las mejoras temporales del laboratorio en tiempo real (pestaña Lab -> Juego)."""

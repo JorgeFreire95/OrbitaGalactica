@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, getRank } from '../utils/gameData';
+import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
 
@@ -19,7 +19,9 @@ export default function Shop({
   ownedShips = [],
   onBuyShip,
   setIsInvisible,
-  user
+  user,
+  onBuyWip,
+  wipsCount
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
   const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
@@ -42,6 +44,7 @@ export default function Shop({
     { id: 'armas', label: 'Armas', icon: '🎯' },
     { id: 'municion', label: 'Munición', icon: '📦' },
     { id: 'generadores', label: 'Generadores', icon: '🛡️' },
+    { id: 'wips', label: 'Wips', icon: '🛰️' },
     { id: 'naves', label: 'Naves', icon: '🚀' },
     { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'materiales', label: 'Materiales', icon: '💎' },
@@ -54,6 +57,7 @@ export default function Shop({
       case 'generadores': return MODULES_CATALOG.filter(m => m.type === 'shields' || m.type === 'engines');
       case 'naves': return SHIPS;
       case 'extras': return MODULES_CATALOG.filter(m => m.type === 'utility');
+      case 'wips': return WIPS_CATALOG;
       case 'materiales': return MINERAL_TYPES;
       default: return [];
     }
@@ -129,6 +133,18 @@ export default function Shop({
       })
       .catch(() => alert('Error de conexión al comprar camuflaje'));
       
+      return;
+    }
+
+    // Wip Purchase
+    if (activeCategory === 'wips') {
+      const success = onBuyWip(selectedItem.id, selectedItem.cost);
+      if (success) {
+        triggerSuccess(`Adquisición de ${selectedItem.name} completada`);
+      } else {
+        if (wipsCount >= 8) alert('Ya has alcanzado el límite de 8 Wips');
+        else alert('No tienes suficientes créditos');
+      }
       return;
     }
 

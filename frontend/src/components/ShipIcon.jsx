@@ -20,7 +20,8 @@ export default function ShipIcon({ type, image, color = '#00ffcc', size = 100 })
             objectFit: 'contain',
             position: 'relative',
             zIndex: 2,
-            filter: `drop-shadow(0 0 10px ${color}66)`
+            filter: image.includes('_v2') ? 'contrast(1.6) brightness(1.2)' : `drop-shadow(0 0 10px ${color}66)`,
+            mixBlendMode: image.includes('_v2') ? 'screen' : 'normal'
           }} 
         />
       </div>

@@ -51,8 +51,9 @@ class SyncRequest(BaseModel):
     owned_ships: Optional[list] = None
     inventory: Optional[list] = None
     equipped: Optional[dict] = None
-    timed_upgrades: Optional[dict] = None,
+    timed_upgrades: Optional[dict] = None
     is_invisible: Optional[bool] = None
+    wips: Optional[list] = None
 
 
 class ClanCreateRequest(BaseModel):
@@ -149,14 +150,32 @@ class PaladioPaymentRequest(BaseModel):
 class AdminVipRequest(BaseModel):
     days: int
 
-# Configurar logging a archivo
-logging.basicConfig(filename='app.log', level=logging.INFO, 
+# Configurar logging
+logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
 
 # Manejo de ciclo de vida de la app
 game_state = GameState()
 game_loop_task = None
+presence_clients = set()
+
+async def broadcast_online_count():
+    if not presence_clients:
+        return
+    count = len(game_state.clients)
+    message = json.dumps({"type": "online_count", "count": count})
+    
+    # Create a list of tasks for sending to all presence clients
+    disconnected = set()
+    for client in presence_clients:
+        try:
+            await client.send_text(message)
+        except:
+            disconnected.add(client)
+    
+    for client in disconnected:
+        presence_clients.remove(client)
 
 async def game_loop():
     while True:
@@ -276,6 +295,7 @@ async def api_login(req: LoginRequest):
         "equipped": result.get("equipped", {}),
         "timed_upgrades": result.get("timed_upgrades", {"atk":[], "shld":[], "spd":[], "hp":[]}),
         "is_invisible": result.get("is_invisible", False),
+        "wips": result.get("wips", []),
         "clan": clan_data
     }
 
@@ -480,7 +500,7 @@ async def api_get_user_stats(username: str):
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible, wips=req.wips)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
     # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
@@ -503,6 +523,10 @@ async def api_sync_stats(req: SyncRequest):
                 # Recalcular estadísticas inmediatamente (Velocidad, Daño, etc)
                 game_state.recalculate_player_stats(p)
                 print(f"Stats de refinamiento recalculados en tiempo real para {req.username}")
+            
+            if req.wips is not None:
+                p["wips"] = req.wips
+                game_state.recalculate_player_stats(p) # Drones may contribute stats
             break
             
     return {"success": True, "message": "Sincronización exitosa."}
@@ -811,13 +835,25 @@ async def create_paladio_payment(req: PaladioPaymentRequest):
         "raw_response": data
     }
 
-import traceback
-import logging
+# --- ENDPOINTS WEBSOCKET ---
 
-# Configurar logging a archivo
-logging.basicConfig(filename='app.log', level=logging.INFO, 
-                    format='%(asctime)s %(levelname)s:%(message)s')
-logger = logging.getLogger(__name__)
+@app.websocket("/ws/presence")
+async def presence_websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    presence_clients.add(websocket)
+    try:
+        # Send initial count
+        await websocket.send_text(json.dumps({"type": "online_count", "count": len(game_state.clients)}))
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"Presence WS Error: {e}")
+    finally:
+        if websocket in presence_clients:
+            presence_clients.remove(websocket)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -845,10 +881,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 initial_upgrades = data.get("upgrades", None)
                 clan = data.get("clan", "MARS") # Is Faction
                 clan_tag = data.get("clanTag", None) # Is Actual Clan
+                wips = data.get("wips", [])
                 
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag)
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag, initial_wips=wips)
                 player_added = True
                 logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
+                await broadcast_online_count()
                 
             elif data.get("type") == "input" and player_added:
                 keys = data.get("keys", {})
@@ -902,6 +940,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 modules = data.get("modules", [])
                 game_state.update_equipped_modules(client_id, modules)
             
+            elif data.get("type") == "update_wips" and player_added:
+                wips = data.get("wips", [])
+                game_state.update_wips(client_id, wips)
+            
             elif data.get("type") == "update_resources" and player_added:
                 ammo_data = data.get("ammo_data", {})
                 game_state.update_resources(client_id, ammo_data)
@@ -918,6 +960,11 @@ async def websocket_endpoint(websocket: WebSocket):
         if player_added:
             logger.info(f"Removing player: {client_id}")
             game_state.remove_player(client_id)
+            await broadcast_online_count()
+
+@app.get("/api/online_count")
+async def get_online_count():
+    return {"online_count": len(game_state.clients)}
 
 # --- ENDPOINTS DE MISIONES ---
 

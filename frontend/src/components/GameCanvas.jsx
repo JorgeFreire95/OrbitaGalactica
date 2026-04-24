@@ -5,7 +5,7 @@ import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -289,13 +289,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   // --- STABLE PROPS REF ---
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
-    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag,
+    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialClan, initialClanTag,
     onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility
   });
   
   useEffect(() => {
     propsRef.current = {
-      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialClan, initialClanTag,
+      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialClan, initialClanTag,
       onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility
     };
   });
@@ -602,7 +602,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         level: p.initialLevel, xp: p.initialXp, credits: p.initialCredits,
         initialPaladio: propsRef.current.initialPaladio,
         minerals: p.initialMinerals, upgrades: p.initialUpgrades,
-        clan: p.initialClan, clanTag: p.initialClanTag
+        clan: p.initialClan, clanTag: p.initialClanTag,
+        wips: p.initialWips
       }));
       joinSentRef.current = true;
     }
