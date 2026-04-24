@@ -28,11 +28,14 @@ export default function Hangar({
   ownedShips = [],
   wips = [],
   onEquipWip,
-  onUnequipWip
+  onUnequipWip,
+  eco,
+  onEquipEco,
+  onUnequipEco
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('ship'); // 'ship' or 'wips'
+  const [activeTab, setActiveTab] = useState('ship'); // 'ship', 'wips', or 'eco'
   const [selectedWipId, setSelectedWipId] = useState(null);
 
   const isBlocked = isPlaying && !inSafeZone;
@@ -81,7 +84,6 @@ export default function Hangar({
               </div>
             );
           })}
-          {/* Removed mock extra cards as they looked like placeholder errors */}
         </section>
 
         {/* STATS PANEL */}
@@ -89,7 +91,7 @@ export default function Hangar({
           <div className="fleet-info-header">
             <div className={`fleet-info-tab ${activeTab === 'ship' ? 'active' : ''}`} onClick={() => setActiveTab('ship')}>NAVE</div>
             <div className={`fleet-info-tab ${activeTab === 'wips' ? 'active' : ''}`} onClick={() => setActiveTab('wips')}>WIPS</div>
-            <div className="fleet-info-tab">P.E.T.</div>
+            <div className={`fleet-info-tab ${activeTab === 'eco' ? 'active' : ''}`} onClick={() => setActiveTab('eco')}>E.C.O.</div>
           </div>
           
           <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0', background: 'radial-gradient(circle, rgba(0,255,204,0.05) 0%, transparent 70%)' }}>
@@ -140,7 +142,7 @@ export default function Hangar({
                   {isActive ? 'ACTIVA' : 'INACTIVA'}
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'wips' ? (
             <div className="fleet-stats-list" style={{ padding: '10px' }}>
                <div style={{ color: '#00ffcc', fontFamily: 'Orbitron', fontSize: '0.8rem', marginBottom: '15px', textAlign: 'center' }}>
                   SISTEMA DE APOYO TÁCTICO (WIPS)
@@ -159,15 +161,26 @@ export default function Hangar({
                       return (
                         <div key={wip.instanceId} className="wip-small-card" style={{ 
                           background: 'rgba(0,0,0,0.4)', 
-                          border: '1px solid rgba(0,255,204,0.2)',
+                          border: wip.integrity < 30 ? '1px solid rgba(255,51,102,0.4)' : '1px solid rgba(0,255,204,0.2)',
                           padding: '8px',
                           borderRadius: '4px',
                           fontSize: '0.7rem'
                         }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                             <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>#{i+1} {def.name}</span>
-                            <span>🛰️</span>
+                            <span style={{ color: wip.integrity < 30 ? '#ff3366' : '#888', fontSize: '0.6rem' }}>{wip.integrity || 100}%</span>
                           </div>
+                          
+                          {/* Barra de integridad */}
+                          <div style={{ width: '100%', height: '3px', background: '#111', borderRadius: '10px', marginBottom: '8px', overflow: 'hidden' }}>
+                            <div style={{ 
+                              width: `${wip.integrity || 100}%`, 
+                              height: '100%', 
+                              background: (wip.integrity || 100) > 50 ? '#00ffcc' : ((wip.integrity || 100) > 25 ? '#ffcc00' : '#ff3366'),
+                              transition: 'width 0.5s ease'
+                            }} />
+                          </div>
+
                           <div style={{ display: 'flex', gap: '3px' }}>
                             {Array.from({ length: def.slots }).map((_, idx) => (
                               <div key={idx} style={{ 
@@ -201,13 +214,56 @@ export default function Hangar({
                )}
 
                <div style={{ marginTop: '20px', color: '#888', fontSize: '0.7rem', lineHeight: '1.4' }}>
+                  <b style={{ color: '#ff3366' }}>⚠️ AVISO DE INTEGRIDAD:</b> Cada vez que tu nave sea destruida, tus Wips perderán un <b style={{ color: '#fff' }}>10%</b> de vida. Al llegar al 0%, el Wip se destruirá permanentemente.<br/><br/>
                   <b style={{ color: '#00ffcc' }}>Dron:</b> 1 Ranura (Arma/Escudo)<br/>
                   <b style={{ color: '#00ffcc' }}>Sparks:</b> 2 Ranuras (Armas/Escudos)<br/>
                   Límite máximo: 8 unidades.
                </div>
             </div>
-          )}
+          ) : activeTab === 'eco' ? (
+            <div className="fleet-stats-list" style={{ padding: '10px' }}>
+               <div style={{ color: '#00ffcc', fontFamily: 'Orbitron', fontSize: '0.8rem', marginBottom: '15px', textAlign: 'center' }}>
+                  SISTEMA E.C.O. (EXTRA COMBAT OBSERVER)
+               </div>
+               
+               {!eco?.active ? (
+                 <div style={{ textAlign: 'center', padding: '40px 10px', color: '#555', border: '1px dashed #333', borderRadius: '8px' }}>
+                    <img src="/eco_drone.png" alt="E.C.O. Locked" style={{ width: '80px', height: '80px', objectFit: 'contain', opacity: 0.2, marginBottom: '10px' }} />
+                    <p style={{ fontSize: '0.8rem' }}>SISTEMA E.C.O. NO ADQUIRIDO</p>
+                    <button className="primary-button" onClick={() => onNavigate('shop')} style={{ marginTop: '10px', padding: '5px 15px', fontSize: '0.7rem' }}>IR A TIENDA</button>
+                 </div>
+               ) : (
+                 <div className="eco-stats-card" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,255,204,0.2)', padding: '15px', borderRadius: '8px' }}>
+                    <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
+                       <div style={{ width: '60px', height: '60px', background: '#070b16', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img src="/eco_drone.png" alt="E.C.O." style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                       </div>
+                       <div style={{ flex: 1 }}>
+                          <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>Nivel {eco.level}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#888' }}>INTEGRIDAD: {eco.integrity}%</div>
+                          <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '5px' }}>
+                             <div style={{ width: `${eco.integrity}%`, height: '100%', background: '#00ffcc' }}></div>
+                          </div>
+                       </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.7rem' }}>
+                       <div style={{ color: '#888' }}>Combustible: <span style={{ color: '#fff' }}>{eco.fuel} u</span></div>
+                       <div style={{ color: '#888' }}>Protocolos: <span style={{ color: '#fff' }}>{eco.equipped?.protocols?.length || 0}/10</span></div>
+                       <div style={{ color: '#888' }}>Láseres: <span style={{ color: '#fff' }}>{eco.equipped?.lasers?.length || 0}/5</span></div>
+                       <div style={{ color: '#888' }}>Generadores: <span style={{ color: '#fff' }}>{eco.equipped?.generators?.length || 0}/10</span></div>
+                    </div>
+                 </div>
+               )}
 
+               <div style={{ marginTop: '20px', color: '#888', fontSize: '0.7rem', lineHeight: '1.4' }}>
+                  <b style={{ color: '#00ffcc' }}>E.C.O.:</b> Robot de asistencia avanzada.<br/>
+                  <b style={{ color: '#00ffcc' }}>Ranuras:</b> 5 Armas, 10 Generadores, 10 Protocolos.<br/>
+                  Utiliza protocolos para mejorar tus estadísticas globales.
+               </div>
+            </div>
+          ) : null}
+
+          {/* ACCIONES DEL PANEL (COMÚN) */}
           <div style={{ 
             marginTop: 'auto', 
             padding: '20px', 
@@ -254,20 +310,25 @@ export default function Hangar({
               </button>
             )}
             <button 
-              className={`gestionar-button ${isBlocked || (!isOwned && activeTab === 'ship') ? 'blocked' : ''}`} 
+              className={`gestionar-button ${isBlocked || (!isOwned && activeTab === 'ship') || (activeTab === 'eco' && !eco?.active) || (activeTab === 'wips' && wips.length === 0) ? 'blocked' : ''}`} 
               onClick={() => {
                 if (activeTab === 'ship' && isOwned) setEditMode(true);
                 if (activeTab === 'wips' && wips.length > 0) {
                   setSelectedWipId(wips[0].instanceId);
                   setEditMode(true);
                 }
+                if (activeTab === 'eco' && eco?.active) {
+                  setEditMode(true);
+                }
               }}
-              disabled={activeTab === 'ship' ? !isOwned : wips.length === 0}
+              disabled={activeTab === 'ship' ? !isOwned : activeTab === 'wips' ? wips.length === 0 : !eco?.active}
               style={{ width: '100%', margin: '0' }}
             >
               {activeTab === 'ship' 
                 ? (!isOwned ? 'BLOQUEADO: REQUIERE COMPRA' : isBlocked ? 'VER EQUIPAMIENTO (BLOQUEADO)' : 'GESTIONAR NAVE') 
-                : (wips.length === 0 ? 'SIN WIPS PARA GESTIONAR' : isBlocked ? 'VER WIPS (BLOQUEADO)' : 'GESTIONAR WIPS')
+                : activeTab === 'wips'
+                  ? (wips.length === 0 ? 'SIN WIPS PARA GESTIONAR' : isBlocked ? 'VER WIPS (BLOQUEADO)' : 'GESTIONAR WIPS')
+                  : (!eco?.active ? 'SIN E.C.O. ADQUIRIDO' : isBlocked ? 'VER E.C.O. (BLOQUEADO)' : 'GESTIONAR E.C.O.')
               }
             </button>
           </div>
@@ -325,14 +386,21 @@ export default function Hangar({
                  <div style={{ marginBottom: '15px', color: '#88aaff', fontSize: '1.1rem', fontWeight: 'bold' }}>📦 ALMACÉN DE MÓDULOS</div>
                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', overflowY: 'auto' }}>
                     {inventory.map((item, index) => {
-                      const canEquip = activeTab === 'ship' || (item.type === 'lasers' || item.type === 'shields');
                       return (
                        <div 
                          key={item.instanceId} 
                          onClick={() => {
                            if (isBlocked) return;
                            if (activeTab === 'ship') onEquip(index, viewedShipId);
-                           else if (canEquip && selectedWipId) onEquipWip(index, selectedWipId);
+                           else if (activeTab === 'wips' && selectedWipId) {
+                                if (item.type === 'lasers' || item.type === 'shields') onEquipWip(index, selectedWipId);
+                           }
+                           else if (activeTab === 'eco') {
+                                if (item.type === 'lasers') onEquipEco(index, 'lasers');
+                                else if (item.type === 'shields' || item.type === 'engines') onEquipEco(index, 'generators');
+                                else if (item.type === 'protocols') onEquipEco(index, 'protocols');
+                                else if (item.type === 'utility') onEquipEco(index, 'utility');
+                           }
                          }}
                          style={{ 
                            aspectRatio: '1/1', 
@@ -342,11 +410,11 @@ export default function Hangar({
                            alignItems: 'center', 
                            justifyContent: 'center', 
                            fontSize: '2rem', 
-                           cursor: isBlocked || !canEquip ? 'not-allowed' : 'pointer',
-                           opacity: isBlocked || !canEquip ? 0.4 : 1,
-                           filter: isBlocked || !canEquip ? 'grayscale(100%)' : 'none'
+                           cursor: isBlocked ? 'not-allowed' : 'pointer',
+                           opacity: isBlocked ? 0.4 : 1,
+                           filter: isBlocked ? 'grayscale(100%)' : 'none'
                          }}
-                         title={!canEquip ? 'Solo láseres y escudos en Wips' : isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
+                         title={isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
                        >
                          {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', objectFit: 'contain' }} /> : item.icon}
                        </div>
@@ -366,6 +434,16 @@ export default function Hangar({
                         <SlotDisplay label="Escudos de Energía" count={viewedShip.slots.shields} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
                         <SlotDisplay label="Motores de Impulso" count={viewedShip.slots.engines} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
                         <SlotDisplay label="Módulos de Utilidad" count={viewedShip.slots.utility} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                      </div>
+                    </>
+                  ) : activeTab === 'eco' ? (
+                    <>
+                      <div style={{ marginBottom: '15px', color: '#00ffcc', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DEL E.C.O.</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
+                         <SlotDisplay label="Sistemas Láser" count={5} icon="🎯" color="#ffcc00" equipped={eco.equipped?.lasers || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'lasers')} isBlocked={isBlocked} />
+                         <SlotDisplay label="Generadores (Escudos/Motores)" count={10} icon="🛡️" color="#00c8ff" equipped={eco.equipped?.generators || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'generators')} isBlocked={isBlocked} />
+                         <SlotDisplay label="Protocolos de I.A." count={10} icon="🤖" color="#00ffcc" equipped={eco.equipped?.protocols || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'protocols')} isBlocked={isBlocked} />
+                         <SlotDisplay label="Módulos de Utilidad" count={5} icon="⚛️" color="#9933ff" equipped={eco.equipped?.utility || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'utility')} isBlocked={isBlocked} />
                       </div>
                     </>
                   ) : (

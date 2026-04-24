@@ -54,6 +54,7 @@ class SyncRequest(BaseModel):
     timed_upgrades: Optional[dict] = None
     is_invisible: Optional[bool] = None
     wips: Optional[list] = None
+    eco: Optional[dict] = None
 
 
 class ClanCreateRequest(BaseModel):
@@ -151,7 +152,7 @@ class AdminVipRequest(BaseModel):
     days: int
 
 # Configurar logging
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.DEBUG, 
                     format='%(asctime)s %(levelname)s:%(message)s')
 logger = logging.getLogger(__name__)
 
@@ -171,34 +172,35 @@ async def broadcast_online_count():
     for client in presence_clients:
         try:
             await client.send_text(message)
-        except:
+        except Exception as e:
+            print(f"Error broadcasting to presence client: {e}")
             disconnected.add(client)
     
     for client in disconnected:
-        presence_clients.remove(client)
+        if client in presence_clients:
+            presence_clients.remove(client)
 
 async def game_loop():
     while True:
         try:
             game_state.update(1.0 / 60.0) # 60 FPS update
-            async def send_to_client(cid, ws_client):
+            # Enviar estado a todos los clientes (con timeout para evitar bloqueos)
+            for client_id, ws in list(game_state.clients.items()):
                 try:
-                    personalized_state = game_state.get_state(cid)
-                    await ws_client.send_text(json.dumps({"type": "state", "state": personalized_state}))
+                    personalized_state = game_state.get_state(client_id)
+                    # Limit state message size and wait briefly
+                    await asyncio.wait_for(
+                        ws.send_text(json.dumps({"type": "state", "state": personalized_state})),
+                        timeout=0.05
+                    )
                 except Exception as e:
-                    print(f"Error sending to {cid}: {e}", flush=True)
-                    game_state.remove_player(cid)
-
-            # Enviar estado a todos los clientes de forma paralela (No bloqueante)
-            tasks = [asyncio.create_task(send_to_client(client_id, ws)) 
-                     for client_id, ws in list(game_state.clients.items())]
+                    logger.debug(f"Error sending to {client_id}: {e}")
+                    game_state.remove_player(client_id)
             
-            # Wait for short duration if needed, but the loop continues
-            await asyncio.sleep(1.0 / 60.0)
+            await asyncio.sleep(1.0 / 30.0) # Reduce to 30 FPS update for better stability
 
         except Exception as e:
-            print(f"Game loop master exception: {e}", flush=True)
-            traceback.print_exc()
+            logger.error(f"Game loop master exception: {e}")
             await asyncio.sleep(1.0)
 
 async def daily_scheduler():
@@ -250,6 +252,159 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/api/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "online_game": len(game_state.clients),
+        "online_count": len(presence_clients), # Total pilots online (including menu)
+        "timestamp": datetime.now().isoformat()
+    }
+
+# --- ENDPOINTS WEBSOCKET (Moved Up) ---
+
+@app.websocket("/ws/status")
+async def presence_websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    presence_clients.add(websocket)
+    logger.info(f"Presence client connected. Total: {len(presence_clients)}")
+    try:
+        # Send initial count
+        await websocket.send_text(json.dumps({
+            "type": "online_count", 
+            "count": len(game_state.clients)
+        }))
+        while True:
+            # Keep connection open and wait for any client message or disconnect
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        logger.info("Presence client disconnected (normal)")
+    except Exception as e:
+        logger.error(f"Presence WS Error: {e}")
+    finally:
+        if websocket in presence_clients:
+            presence_clients.remove(websocket)
+            print(f"DEBUG: Presence client disconnected. Remaining: {len(presence_clients)}")
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    client_id = str(id(websocket))
+    
+    logger.info(f"DEBUG: Client connected, waiting for join: {client_id}")
+    player_added = False
+    
+    try:
+        while True:
+            data_str = await websocket.receive_text()
+            data = json.loads(data_str)
+            
+            if data.get("type") == "join" and not player_added:
+                ship_type = data.get("ship_type", "tank")
+                modules = data.get("modules", [])
+                user_id = data.get("userId") 
+                initial_ammo = data.get("initial_ammo", {})
+                initial_level = data.get("level", 1)
+                initial_xp = data.get("xp", 0)
+                initial_credits = data.get("credits", 2000)
+                initial_paladio = data.get("initialPaladio", data.get("initialUridium", 0))
+                initial_minerals = data.get("minerals", None)
+                initial_upgrades = data.get("upgrades", None)
+                clan = data.get("clan", "MARS") 
+                clan_tag = data.get("clanTag", None) 
+                wips = data.get("wips", [])
+                eco = data.get("eco", {"active": False})
+                
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag, initial_wips=wips, initial_eco=eco)
+                player_added = True
+                logger.info(f"DEBUG: Player joined: {client_id} (user: {user_id})")
+                await broadcast_online_count()
+                
+            elif data.get("type") == "input" and player_added:
+                keys = data.get("keys", {})
+                game_state.handle_input(client_id, keys)
+                
+            elif data.get("type") == "buy" and player_added:
+                module_data = data.get("module")
+                if module_data:
+                    game_state.buy_module(client_id, module_data)
+                
+            elif data.get("type") == "switch_ship" and player_added:
+                ship_type = data.get("ship_type")
+                if ship_type:
+                    game_state.switch_ship(client_id, ship_type)
+                
+            elif data.get("type") == "switch_ammo" and player_added:
+                ammo_id = data.get("ammo_id")
+                game_state.switch_ammo(client_id, ammo_id)
+                
+            elif data.get("type") == "toggle_repair" and player_added:
+                game_state.toggle_repair(client_id)
+                
+            elif data.get("type") == "jump_portal" and player_added:
+                game_state.jump_portal(client_id)
+
+            elif data.get("type") == "chat" and player_added:
+                text = data.get("text")
+                channel = data.get("channel", "global")
+                if text:
+                    game_state.handle_chat(client_id, text, channel)
+
+            elif data.get("type") == "party_invite" and player_added:
+                target_id = data.get("target_id")
+                if target_id:
+                    game_state.invite_to_party(client_id, target_id)
+            
+            elif data.get("type") == "party_join" and player_added:
+                party_id = data.get("party_id")
+                if party_id:
+                    game_state.join_party(client_id, party_id)
+            
+            elif data.get("type") == "party_reject" and player_added:
+                leader_id = data.get("leader_id")
+                if leader_id:
+                    game_state.reject_party(client_id, leader_id)
+            
+            elif data.get("type") == "party_leave" and player_added:
+                game_state.leave_party(client_id)
+            
+            elif data.get("type") == "update_equipment" and player_added:
+                modules = data.get("modules", [])
+                game_state.update_equipped_modules(client_id, modules)
+            
+            elif data.get("type") == "update_wips" and player_added:
+                wips = data.get("wips", [])
+                game_state.update_wips(client_id, wips)
+            
+            elif data.get("type") == "update_resources" and player_added:
+                ammo_data = data.get("ammo_data", {})
+                game_state.update_resources(client_id, ammo_data)
+
+            elif data.get("type") == "update_upgrades" and player_added:
+                upgrades = data.get("upgrades", {})
+                game_state.update_timed_upgrades(client_id, upgrades)
+            
+            elif data.get("type") == "update_eco" and player_added:
+                eco_data = data.get("eco_data", {})
+                game_state.update_eco(client_id, eco_data)
+            
+            elif data.get("type") == "toggle_eco" and player_added:
+                deployed = data.get("deployed", False)
+                game_state.toggle_eco(client_id, deployed)
+
+            elif data.get("type") == "update_eco_mode" and player_added:
+                mode = data.get("mode", "passive")
+                game_state.update_eco_mode(client_id, mode)
+                
+    except WebSocketDisconnect as e:
+        logger.info(f"DEBUG: Game client disconnected: {client_id} Code: {e.code}")
+    except Exception as e:
+        logger.error(f"DEBUG: Game WS Error {client_id}: {e}", exc_info=True)
+    finally:
+        if player_added:
+            game_state.remove_player(client_id)
+            await broadcast_online_count()
 
 @app.post("/api/register")
 async def api_register(req: RegisterRequest):
@@ -500,7 +655,7 @@ async def api_get_user_stats(username: str):
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible, wips=req.wips)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible, wips=req.wips, eco=req.eco)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
     # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
@@ -527,6 +682,9 @@ async def api_sync_stats(req: SyncRequest):
             if req.wips is not None:
                 p["wips"] = req.wips
                 game_state.recalculate_player_stats(p) # Drones may contribute stats
+            if req.eco is not None:
+                p["eco"] = req.eco
+                game_state.recalculate_player_stats(p)
             break
             
     return {"success": True, "message": "Sincronización exitosa."}
@@ -835,132 +993,7 @@ async def create_paladio_payment(req: PaladioPaymentRequest):
         "raw_response": data
     }
 
-# --- ENDPOINTS WEBSOCKET ---
-
-@app.websocket("/ws/presence")
-async def presence_websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    presence_clients.add(websocket)
-    try:
-        # Send initial count
-        await websocket.send_text(json.dumps({"type": "online_count", "count": len(game_state.clients)}))
-        while True:
-            # Keep connection alive
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        logger.error(f"Presence WS Error: {e}")
-    finally:
-        if websocket in presence_clients:
-            presence_clients.remove(websocket)
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    client_id = str(id(websocket))
     
-    logger.info(f"Client connected, waiting for join: {client_id}")
-    player_added = False
-    
-    try:
-        while True:
-            data_str = await websocket.receive_text()
-            data = json.loads(data_str)
-            
-            if data.get("type") == "join" and not player_added:
-                ship_type = data.get("ship_type", "tank")
-                modules = data.get("modules", [])
-                user_id = data.get("userId") # Extraer el ID persistente
-                initial_ammo = data.get("initial_ammo", {})
-                initial_level = data.get("level", 1)
-                initial_xp = data.get("xp", 0)
-                initial_credits = data.get("credits", 2000)
-                initial_paladio = data.get("initialPaladio", data.get("initialUridium", 0))
-                initial_minerals = data.get("minerals", None)
-                initial_upgrades = data.get("upgrades", None)
-                clan = data.get("clan", "MARS") # Is Faction
-                clan_tag = data.get("clanTag", None) # Is Actual Clan
-                wips = data.get("wips", [])
-                
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag, initial_wips=wips)
-                player_added = True
-                logger.info(f"Player joined: {client_id} with ship {ship_type}, {len(modules)} modules, ammo {initial_ammo}, minerals {initial_minerals} and upgrades {initial_upgrades}")
-                await broadcast_online_count()
-                
-            elif data.get("type") == "input" and player_added:
-                keys = data.get("keys", {})
-                game_state.handle_input(client_id, keys)
-                
-            elif data.get("type") == "buy" and player_added:
-                module_data = data.get("module")
-                if module_data:
-                    game_state.buy_module(client_id, module_data)
-                
-            elif data.get("type") == "switch_ship" and player_added:
-                ship_type = data.get("ship_type")
-                if ship_type:
-                    game_state.switch_ship(client_id, ship_type)
-                
-            elif data.get("type") == "switch_ammo" and player_added:
-                ammo_id = data.get("ammo_id")
-                game_state.switch_ammo(client_id, ammo_id)
-                
-            elif data.get("type") == "toggle_repair" and player_added:
-                game_state.toggle_repair(client_id)
-                
-            elif data.get("type") == "jump_portal" and player_added:
-                game_state.jump_portal(client_id)
-
-            elif data.get("type") == "chat" and player_added:
-                text = data.get("text")
-                channel = data.get("channel", "global")
-                if text:
-                    game_state.handle_chat(client_id, text, channel)
-
-            elif data.get("type") == "party_invite" and player_added:
-                target_id = data.get("target_id")
-                if target_id:
-                    game_state.invite_to_party(client_id, target_id)
-            
-            elif data.get("type") == "party_join" and player_added:
-                party_id = data.get("party_id")
-                if party_id:
-                    game_state.join_party(client_id, party_id)
-            
-            elif data.get("type") == "party_reject" and player_added:
-                leader_id = data.get("leader_id")
-                if leader_id:
-                    game_state.reject_party(client_id, leader_id)
-            
-            elif data.get("type") == "party_leave" and player_added:
-                game_state.leave_party(client_id)
-            
-            elif data.get("type") == "update_equipment" and player_added:
-                modules = data.get("modules", [])
-                game_state.update_equipped_modules(client_id, modules)
-            
-            elif data.get("type") == "update_wips" and player_added:
-                wips = data.get("wips", [])
-                game_state.update_wips(client_id, wips)
-            
-            elif data.get("type") == "update_resources" and player_added:
-                ammo_data = data.get("ammo_data", {})
-                game_state.update_resources(client_id, ammo_data)
-
-            elif data.get("type") == "update_upgrades" and player_added:
-                upgrades = data.get("upgrades", {})
-                game_state.update_timed_upgrades(client_id, upgrades)
-                
-    except WebSocketDisconnect as e:
-        logger.info(f"Client disconnected: {client_id} Code: {e.code} Reason: {e.reason}")
-    except Exception as e:
-        logger.error(f"WS Error {client_id}: {e}", exc_info=True)
-    finally:
-        if player_added:
-            logger.info(f"Removing player: {client_id}")
-            game_state.remove_player(client_id)
-            await broadcast_online_count()
 
 @app.get("/api/online_count")
 async def get_online_count():
@@ -1033,4 +1066,6 @@ async def claim_mission(req: MissionClaimRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # En Windows, usar reload=True dentro del script puede causar errores de multiprocessing.
+    # Se recomienda el objeto 'app' directamente para mayor estabilidad.
+    uvicorn.run(app, host="0.0.0.0", port=8000)

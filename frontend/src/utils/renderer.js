@@ -34,6 +34,9 @@ wispV1Img.src = '/wisp_v1.png';
 const wispV2Img = new Image();
 wispV2Img.src = '/wisp_v2.png';
 
+const ecoImg = new Image();
+ecoImg.src = '/eco_drone.png';
+
 // --- FUNCIONES DE APOYO WIPS ---
 const drawWips = (ctx, wips, shipSize, heading) => {
     if (!wips || wips.length === 0) return;
@@ -65,23 +68,81 @@ const drawWips = (ctx, wips, shipSize, heading) => {
         const color = isSparks ? '#bf00ff' : '#00bbff'; // Púrpura para Sparks, Azul para Dron
         const pulse = 0.8 + Math.sin(time * 5 + i) * 0.2;
 
-        // Glow del Drone
-        ctx.shadowBlur = 15 * pulse;
-        ctx.shadowColor = color;
-        
-        // Dibujar Imagen del Drone
+        // Dibujar Imagen del Drone con Screen Blending para eliminar fondo negro
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.7; // Reducimos opacidad general para que no brille tanto
         const size = 28;
         ctx.drawImage(img, -size/2, -size/2, size, size);
+        ctx.restore();
 
-        // Núcleo brillante extra
-        ctx.globalAlpha = 0.5 * pulse;
+        // Núcleo brillante extra (Casi invisible ahora para evitar exceso de brillo)
+        ctx.globalAlpha = 0.2 * pulse;
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
     });
+};
+
+const drawEco = (ctx, eco, shipSize, heading, playerX, playerY) => {
+    if (!eco || !eco.active || !eco.deployed) return;
+
+    const time = Date.now() / 1000;
+    const hover = Math.sin(time * 3) * 5;
+    
+    ctx.save();
+    // Si el servidor envía la posición (IA activa), la usamos relativa al jugador
+    if (eco.x !== undefined && eco.y !== undefined) {
+        ctx.translate(eco.x - playerX, eco.y - playerY + hover);
+        // Nueva rotación dinámica:
+        // Si el dron se está moviendo, mira hacia donde va. Si no, copia la rotación de la nave.
+        if (eco.vx !== 0 || eco.vy !== 0) {
+            ctx.rotate(Math.atan2(eco.vy, eco.vx) + Math.PI/2);
+        } else {
+            ctx.rotate(heading);
+        }
+    } else {
+        // Fallback: Posicionamiento relativo clásico
+        ctx.rotate(heading);
+        ctx.translate(-75, -75 + hover);
+    }
+    
+    const color = '#00ffcc';
+    const pulse = 0.8 + Math.sin(time * 8) * 0.2;
+
+    // Dibujar Imagen del ECO con Screen Blending
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.9;
+    const size = 50; // Tamaño de la ECO
+    ctx.drawImage(ecoImg, -size/2, -size/2, size, size);
+    ctx.restore();
+
+    // Halo exterior de energía
+    ctx.globalAlpha = 0.2 * pulse;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Status Bars (Pequeñas barras sobre el dron)
+    const barW = 30;
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+    ctx.fillRect(-barW/2, -35, barW, 3);
+    ctx.fillStyle = '#00ffcc';
+    ctx.fillRect(-barW/2, -35, barW * (eco.integrity / 100), 3);
+
+    if (eco.max_shield > 0) {
+        ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+        ctx.fillRect(-barW/2, -30, barW, 2);
+        ctx.fillStyle = '#00ccff';
+        ctx.fillRect(-barW/2, -30, barW * (eco.shield / eco.max_shield), 2);
+    }
+
+    ctx.restore();
 };
 
 // --- FUNCIONES DE RENDERIZADO DE ALIENS ---
@@ -1364,16 +1425,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       }
       
       ctx.drawImage(img, -s/2, -s/2, s, s);
-      ctx.restore();
-
-      ctx.restore();
-      
-      // 3. Brillo Orbital (Eliminado a petición del usuario)
-      // ctx.globalAlpha = 0.05 + (speedRatio * 0.1);
-      // ctx.strokeStyle = engineColor;
-      // ...
-      
-      ctx.restore();
+      ctx.restore(); // Restores #2 (Filters/Composite)
+      ctx.restore(); // Restores #1 (Transformation/Shadows)
     };
 
     // Calcular ratio de velocidad (0 a 1) para los motores
@@ -1486,8 +1539,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     
     ctx.restore();
     
-    // --- DIBUJAR WIPS (SISTEMA DE DRONES) ---
+    // --- DIBUJAR WIPS Y ECO (SISTEMA DE APOYO) ---
     drawWips(ctx, player.wips || [], size, heading);
+    drawEco(ctx, player.eco || {}, size, heading, player.x, player.y);
     
     // Name
     ctx.fillStyle = '#fff';
@@ -1696,6 +1750,93 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     }
   });
 
+  // --- 8. EVENTOS DE DAÑO ---
+  if (gameState.damage_events) {
+    gameState.damage_events.forEach(evt => {
+      const elapsed = (Date.now() - evt.time * 1000) / 1000;
+      if (elapsed > 1.0) return;
+      
+      const opacity = 1 - elapsed;
+      const floatY = elapsed * 80; // Sube 80 píxeles
+      
+      ctx.save();
+      ctx.font = `bold ${evt.amount > 300 ? '24px' : '16px'} Orbitron`;
+      
+      // Aplicar color personalizado si existe, de lo contrario blanco predeterminado
+      if (evt.color) {
+        ctx.fillStyle = evt.color;
+        ctx.globalAlpha = opacity;
+      } else {
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      }
+      
+      ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+      ctx.lineWidth = 3;
+      ctx.textAlign = 'center';
+      
+      // Para eventos de daño RECIBIDO por el jugador (color rojo = alien atacando),
+      // usar la posición visual del jugador en vez de la posición del servidor
+      // para evitar desync entre posición interpolada y la del servidor.
+      let drawX = evt.x;
+      let drawY = evt.y;
+      if (evt.color === '#ff4444' && me) {
+        // Daño recibido: mostrar sobre la nave del jugador (posición visual)
+        // Offset determinista basado en el ID del evento para evitar jitter
+        const hash = (evt.id || '').toString().split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+        drawX = me.x + ((hash % 30) - 15);
+        drawY = me.y + ((hash * 7 % 30) - 15);
+      }
+      
+      const screenX = drawX;
+      const screenY = drawY - floatY;
+      
+      ctx.strokeText(`-${evt.amount}`, screenX, screenY);
+      ctx.fillText(`-${evt.amount}`, screenX, screenY);
+      ctx.restore();
+    });
+  }
+
+  // --- 9. EVENTOS DE DESTRUCCIÓN ---
+  if (gameState.destruction_events) {
+    gameState.destruction_events.forEach(evt => {
+      const elapsed = (Date.now() - evt.time * 1000) / 1000;
+      if (elapsed > 2.0) return;
+
+      ctx.save();
+      ctx.translate(evt.x, evt.y);
+
+      // Partículas de explosión
+      const numParticles = 20;
+      for (let i = 0; i < numParticles; i++) {
+        const angle = (i / numParticles) * Math.PI * 2;
+        const dist = elapsed * (100 + Math.random() * 150);
+        const pSize = (10 + Math.random() * 15) * (1 - elapsed / 2.0);
+        
+        ctx.fillStyle = i % 2 === 0 ? '#ff6600' : '#ff3300';
+        ctx.globalAlpha = 1 - elapsed / 2.0;
+        
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, pSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Destello central
+      const flashSize = (1 - elapsed) * 200;
+      if (flashSize > 0) {
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, flashSize);
+        grad.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
+        grad.addColorStop(0.5, 'rgba(255, 150, 0, 0.4)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, 0, flashSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    });
+  }
+
   ctx.restore(); // FIN DE RENDERIZADO DEL MUNDO
 
   // 4. DIBUJAR MINIMAPA (Fijo en la UI)
@@ -1846,82 +1987,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     }
   };
 
-  // --- 8. EVENTOS DE DAÑO (NUEVO) ---
-  if (gameState.damage_events) {
-    gameState.damage_events.forEach(evt => {
-      const elapsed = (Date.now() - evt.time * 1000) / 1000;
-      if (elapsed > 1.0) return;
-      
-      const opacity = 1 - elapsed;
-      const floatY = elapsed * 80; // Sube 80 píxeles
-      
-      ctx.save();
-      ctx.font = `bold ${evt.amount > 300 ? '24px' : '16px'} Orbitron`;
-      
-      // Aplicar color personalizado si existe, de lo contrario blanco predeterminado
-      if (evt.color) {
-        ctx.fillStyle = evt.color;
-        ctx.globalAlpha = opacity;
-      } else {
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-      }
-      
-      ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
-      ctx.lineWidth = 3;
-      ctx.textAlign = 'center';
-      
-      const screenX = evt.x - camX;
-      const screenY = evt.y - camY - floatY;
-      
-      ctx.strokeText(`-${evt.amount}`, screenX, screenY);
-      ctx.fillText(`-${evt.amount}`, screenX, screenY);
-      ctx.restore();
-    });
-  }
 
-  // --- 9. EVENTOS DE DESTRUCCIÓN (NUEVO) ---
-  if (gameState.destruction_events) {
-    gameState.destruction_events.forEach(evt => {
-      const elapsed = (Date.now() - evt.time * 1000) / 1000;
-      if (elapsed > 2.0) return;
-
-      const screenX = evt.x - camX;
-      const screenY = evt.y - camY;
-
-      ctx.save();
-      ctx.translate(screenX, screenY);
-
-      // Partículas de explosión
-      const numParticles = 20;
-      for (let i = 0; i < numParticles; i++) {
-        const angle = (i / numParticles) * Math.PI * 2;
-        const dist = elapsed * (100 + Math.random() * 150);
-        const pSize = (10 + Math.random() * 15) * (1 - elapsed / 2.0);
-        
-        ctx.fillStyle = i % 2 === 0 ? '#ff6600' : '#ff3300';
-        ctx.globalAlpha = 1 - elapsed / 2.0;
-        
-        ctx.beginPath();
-        ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, pSize, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Destello central
-      const flashSize = (1 - elapsed) * 200;
-      if (flashSize > 0) {
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, flashSize);
-        grad.addColorStop(0, 'rgba(255, 255, 200, 0.8)');
-        grad.addColorStop(0.5, 'rgba(255, 150, 0, 0.4)');
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(0, 0, flashSize, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.restore();
-    });
-  }
 
   drawMinimap();
 };

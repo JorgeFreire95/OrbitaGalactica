@@ -10,11 +10,14 @@ import FactionSelect from './components/FactionSelect'
 import AdminPanel from './components/AdminPanel'
 import TopBar from './components/TopBar'
 import NavigationBar from './components/NavigationBar'
-import { SHIPS } from './utils/gameData'
+import { SHIPS, WIPS_CATALOG } from './utils/gameData'
 import Ranking from './components/Ranking'
 import Packages from './components/Packages'
 import Missions from './components/Missions'
 import './index.css'
+
+const API_URL = 'http://127.0.0.1:8000/api';
+const WS_BASE_URL = 'ws://127.0.0.1:8000';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -117,6 +120,28 @@ function App() {
   const [wips, setWips] = useState(() => {
     const saved = localStorage.getItem('game_wips');
     return saved ? JSON.parse(saved) : [];
+  });
+
+  const [eco, setEco] = useState(() => {
+    const saved = localStorage.getItem('game_eco');
+    return saved ? JSON.parse(saved) : {
+      active: false,
+      deployed: false,
+      mode: 'passive', // 'passive' or 'aggressive'
+      level: 1,
+      xp: 0,
+      integrity: 100,
+      fuel: 5000,
+      shield: 100,
+      max_shield: 100,
+      speed: 0,
+      equipped: {
+        lasers: [],
+        generators: [],
+        protocols: [],
+        utility: []
+      }
+    };
   });
 
   // One-time fleet cleanup: remove 'tank' if it was a default assignment from previous versions
@@ -283,6 +308,10 @@ function App() {
     localStorage.setItem('game_wips', JSON.stringify(wips));
   }, [wips]);
 
+  useEffect(() => {
+    localStorage.setItem('game_eco', JSON.stringify(eco));
+  }, [eco]);
+
   // SYNC STATS WITH BACKEND (Debounced to prevent race conditions during multiple state updates)
   const syncStats = async () => {
     if (!user || currentView === 'auth') return;
@@ -383,9 +412,14 @@ function App() {
     let ws;
     let reconnectTimeout;
 
+    let pollInterval = null;
     const connectPresence = () => {
-      const WS_PRESENCE_URL = 'ws://127.0.0.1:8000/ws/presence';
-      ws = new WebSocket(WS_PRESENCE_URL);
+      const WS_STATUS_URL = `${WS_BASE_URL}/ws/status`;
+      ws = new WebSocket(WS_STATUS_URL);
+
+      ws.onopen = () => {
+        if (pollInterval) clearInterval(pollInterval);
+      };
 
       ws.onmessage = (event) => {
         try {
@@ -403,8 +437,19 @@ function App() {
         reconnectTimeout = setTimeout(connectPresence, 5000);
       };
 
-      ws.onerror = (err) => {
-        console.error("Presence WS error:", err);
+      ws.onerror = () => {
+        console.info("Presence System: WebSocket restricted locally. Using HTTP Fallback.");
+        if (!pollInterval) {
+          const fetchCount = async () => {
+            try {
+              const resp = await fetch(`${API_URL}/health`);
+              const data = await resp.json();
+              setOnlineCount(data.online_count ?? data.online_game ?? 0);
+            } catch (e) {}
+          };
+          fetchCount();
+          pollInterval = setInterval(fetchCount, 10000);
+        }
         ws.close();
       };
     };
@@ -414,6 +459,7 @@ function App() {
     return () => {
       if (ws) ws.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, []);
 
@@ -453,7 +499,6 @@ function App() {
     return () => clearInterval(interval);
   }, [upgrades]);
 
-  const API_URL = 'http://localhost:8000/api';
 
   const handleLogin = async (username, password) => {
     try {
@@ -756,9 +801,68 @@ function App() {
     setWips(prev => [...prev, {
       instanceId: Date.now(),
       type: wipId, // 'dron' or 'sparks'
-      equipped: []
+      equipped: [],
+      integrity: 100
     }]);
     return true;
+  };
+
+  const handleBuyEco = (cost) => {
+    if (credits < cost) return false;
+    if (eco.active) return false;
+    setCredits(prev => prev - cost);
+    setEco(prev => ({ ...prev, active: true }));
+    return true;
+  };
+
+  const handleBuyProtocol = (protocol, cost) => {
+    if (credits < cost) return false;
+    setCredits(prev => prev - cost);
+    setInventory(prev => [...prev, { ...protocol, instanceId: Date.now() }]);
+    return true;
+  };
+
+  const handleEquipEco = (inventoryIndex, ecoSlotType) => {
+    if (isGameActive && !inSafeZone) {
+      alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura para modificar el E.C.O.");
+      return;
+    }
+    const item = inventory[inventoryIndex];
+    if (!item) return;
+
+    const currentEquipped = eco.equipped[ecoSlotType] || [];
+    const limits = { lasers: 5, generators: 10, protocols: 10, utility: 5 };
+    if (currentEquipped.length >= (limits[ecoSlotType] || 0)) {
+      alert(`El E.C.O. no tiene más ranuras disponibles para ${ecoSlotType}.`);
+      return;
+    }
+
+    setInventory(prev => prev.filter((_, i) => i !== inventoryIndex));
+    setEco(prev => ({
+      ...prev,
+      equipped: {
+        ...prev.equipped,
+        [ecoSlotType]: [...(prev.equipped[ecoSlotType] || []), item]
+      }
+    }));
+  };
+
+  const handleUnequipEco = (moduleInstanceId, ecoSlotType) => {
+    if (isGameActive && !inSafeZone) {
+      alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura para modificar el E.C.O.");
+      return;
+    }
+    const item = eco.equipped[ecoSlotType].find(m => m.instanceId === moduleInstanceId);
+    if (!item) return;
+
+    setEco(prev => ({
+      ...prev,
+      equipped: {
+        ...prev.equipped,
+        [ecoSlotType]: prev.equipped[ecoSlotType].filter(m => m.instanceId !== moduleInstanceId)
+      }
+    }));
+    setInventory(prev => [...prev, item]);
   };
 
   const handleUnequip = (instanceId, shipId) => {
@@ -992,6 +1096,9 @@ function App() {
           wips={wips}
           onEquipWip={handleEquipWip}
           onUnequipWip={handleUnequipWip}
+          eco={eco}
+          onEquipEco={handleEquipEco}
+          onUnequipEco={handleUnequipEco}
         />
       )}
 
@@ -1018,6 +1125,9 @@ function App() {
           user={user}
           onBuyWip={handleBuyWip}
           wipsCount={wips.length}
+          eco={eco}
+          onBuyEco={handleBuyEco}
+          onBuyProtocol={handleBuyProtocol}
         />
       )}
 
@@ -1085,6 +1195,7 @@ function App() {
             initialMinerals={minerals}
             initialUpgrades={upgrades}
             initialWips={wips}
+            initialEco={eco}
             initialClan={user?.faction}
             initialClanTag={clan?.tag}
             onUpdateAmmo={(newAmmo) => setAmmo(newAmmo)}
@@ -1095,6 +1206,8 @@ function App() {
             onRepair={handleRepair}
             isInvisible={isInvisible}
             onUpdateInvisibility={setIsInvisible}
+            onUpdateWips={(newWips) => setWips(newWips)}
+            onUpdateEco={(newEco) => setEco(newEco)}
           />
         </>
       )}

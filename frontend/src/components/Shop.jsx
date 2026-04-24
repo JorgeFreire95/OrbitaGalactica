@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, getRank } from '../utils/gameData';
+import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
 
@@ -21,7 +21,10 @@ export default function Shop({
   setIsInvisible,
   user,
   onBuyWip,
-  wipsCount
+  wipsCount,
+  eco,
+  onBuyEco,
+  onBuyProtocol
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
   const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
@@ -45,6 +48,7 @@ export default function Shop({
     { id: 'municion', label: 'Munición', icon: '📦' },
     { id: 'generadores', label: 'Generadores', icon: '🛡️' },
     { id: 'wips', label: 'Wips', icon: '🛰️' },
+    { id: 'eco', label: 'E.C.O.', icon: '🤖' },
     { id: 'naves', label: 'Naves', icon: '🚀' },
     { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'materiales', label: 'Materiales', icon: '💎' },
@@ -58,6 +62,7 @@ export default function Shop({
       case 'naves': return SHIPS;
       case 'extras': return MODULES_CATALOG.filter(m => m.type === 'utility');
       case 'wips': return WIPS_CATALOG;
+      case 'eco': return [ECO_CONFIG, ...ECO_PROTOCOLS];
       case 'materiales': return MINERAL_TYPES;
       default: return [];
     }
@@ -136,13 +141,16 @@ export default function Shop({
       return;
     }
 
-    // Wip Purchase
-    if (activeCategory === 'wips') {
-      const success = onBuyWip(selectedItem.id, selectedItem.cost);
-      if (success) {
-        triggerSuccess(`Adquisición de ${selectedItem.name} completada`);
+    // ECO Purchase
+    if (activeCategory === 'eco') {
+      if (selectedItem.id === 'eco') {
+        if (eco.active) return alert('Ya posees el E.C.O.');
+        const success = onBuyEco(selectedItem.cost);
+        if (success) triggerSuccess(`Adquisición de ${selectedItem.name} completada`);
+        else alert('No tienes suficientes créditos');
       } else {
-        if (wipsCount >= 8) alert('Ya has alcanzado el límite de 8 Wips');
+        const success = onBuyProtocol(selectedItem, selectedItem.cost);
+        if (success) triggerSuccess(`Protocolo ${selectedItem.name} adquirido`);
         else alert('No tienes suficientes créditos');
       }
       return;
@@ -374,8 +382,12 @@ export default function Shop({
             <h2 style={{ fontFamily: 'Orbitron', color: '#00ffcc', marginBottom: '15px', letterSpacing: '2px' }}>
               REQUERIDA CONFIRMACIÓN
             </h2>
-            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>
-              {selectedItem?.icon || '📦'}
+            <div style={{ marginBottom: '20px' }}>
+              {selectedItem?.image ? (
+                <img src={selectedItem.image} alt={selectedItem.name} style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+              ) : (
+                <div style={{ fontSize: '3rem' }}>{selectedItem?.icon || '📦'}</div>
+              )}
             </div>
             <p style={{ color: '#ccc', marginBottom: '30px', lineHeight: '1.6' }}>
               ¿Estás seguro de que deseas proceder con la adquisición de 

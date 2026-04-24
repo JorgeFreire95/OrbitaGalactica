@@ -303,7 +303,7 @@ class GameState:
             for _ in range(5):
                 self.spawn_special_chest(map_id)
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None, initial_wips=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None, initial_wips=None, initial_eco=None):
         self.clients[client_id] = websocket
         
         prof = self.SHIP_PROFILES.get(ship_type, self.SHIP_PROFILES["starter"])
@@ -369,7 +369,13 @@ class GameState:
             "needs_mission_sync": True, # Enviar misiones al unirse
             "is_invisible": False,
             "repair_bot_active": False,
-            "wips": initial_wips if (initial_wips and isinstance(initial_wips, list)) else []
+            "wips": initial_wips if (initial_wips and isinstance(initial_wips, list)) else [],
+            "eco": initial_eco if (initial_eco and isinstance(initial_eco, dict)) else {
+                "active": False, "deployed": False, "mode": "passive", "level": 1, 
+                "integrity": 100, "shield": 500, "max_shield": 500, "fuel": 5000, "speed": 0,
+                "x": 1750, "y": 1150, "vx": 0, "vy": 0,
+                "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []}
+            }
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -478,6 +484,10 @@ class GameState:
         if initial_modules:
             for mod in initial_modules:
                 self.buy_module(client_id, mod, free=True)
+                
+        # Apply initial wips if provided
+        player["wips"] = initial_wips if isinstance(initial_wips, list) else []
+        self.recalculate_player_stats(player)
 
     def remove_player(self, client_id):
         if client_id in self.players:
@@ -522,9 +532,16 @@ class GameState:
             player["target_x"] = None # Persistencia en el objeto player si existiera
             player["target_y"] = None
         
-        # Sincronización de destino de mouse persistente
-        if "target_x" in keys: player["target_x"] = keys["target_x"]
-        if "target_y" in keys: player["target_y"] = keys["target_y"]
+        # Sincronización de destino de mouse: Solo actualizar si el cliente envía coordenadas reales.
+        # Si el cliente envía cancel_nav, limpiar explícitamente el destino.
+        if keys.get("cancel_nav"):
+            player["target_x"] = None
+            player["target_y"] = None
+            player["vx"] = 0
+            player["vy"] = 0
+        elif keys.get("target_x") is not None and keys.get("target_y") is not None:
+            player["target_x"] = keys["target_x"]
+            player["target_y"] = keys["target_y"]
         
         # Usar los valores persistentes del objeto player para la navegación
         nav_x = player.get("target_x")
@@ -799,6 +816,29 @@ class GameState:
                         "time": now,
                         "owner_id": pid
                     })
+                    # --- SISTEMA DE INTEGRIDAD DE WIPS ---
+                    # Cada vez que mueres, tus Wips pierden un 10% de integridad
+                    new_wips = []
+                    for wip in p.get("wips", []):
+                        wip["integrity"] = max(0, wip.get("integrity", 100) - 10)
+                        if wip["integrity"] > 0:
+                            new_wips.append(wip)
+                    
+                    p["wips"] = new_wips
+
+                    # --- SISTEMA DE INTEGRIDAD DE E.C.O. ---
+                    eco = p.get("eco", {})
+                    if eco.get("active"):
+                        eco["integrity"] = max(0, eco.get("integrity", 100) - 10)
+                        if eco["integrity"] <= 0:
+                            # Si llega a 0 se rompe (se desactiva hasta ser reparado o comprado de nuevo)
+                            # Por ahora lo dejamos como inactivo
+                            eco["active"] = False
+                            eco["integrity"] = 0
+                        p["eco"] = eco
+
+                    # Recalcular stats por si perdimos un Wip o el ECO con módulos
+                    self.recalculate_player_stats(p)
                 continue
             
             # Si el jugador estaba muerto (reparado), reseter flag
@@ -978,6 +1018,94 @@ class GameState:
                 if not target_exists:
                     p["locked_target_id"] = None
                     p["shoot_active"] = False # Detener disparo al morir el blanco
+
+        # --- UPDATE E.C.O. SYSTEMS ---
+        for pid, p in self.players.items():
+            eco = p.get("eco")
+            if not eco or not eco.get("active") or not eco.get("deployed"):
+                continue
+            
+            # 1. Consumo de combustible (1 unidad por segundo)
+            eco["fuel"] = max(0, eco["fuel"] - dt)
+            if eco["fuel"] <= 0:
+                eco["deployed"] = False
+                continue
+
+            # 2. IA de comportamiento
+            target_x, target_y = p["x"], p["y"]
+            attacking = False
+            target_id = None
+
+            if eco.get("mode") == "aggressive":
+                # Si el jugador ha sido atacado recientemente (en los últimos 5s)
+                if now - p.get("last_dmg_time", 0) < 5.0:
+                    attacker_id = p.get("last_attacker_id")
+                    if attacker_id:
+                        # Buscar atacante en enemigos
+                        attacker = next((e for e in self.enemies if e["id"] == attacker_id), None)
+                        if not attacker and attacker_id in self.players:
+                            attacker = self.players[attacker_id]
+                        
+                        if attacker and attacker.get("hp", 0) > 0:
+                            a_map = attacker.get("map_id") or attacker.get("current_map")
+                            if a_map == p["current_map"]:
+                                dist_to_attacker = math.hypot(attacker["x"] - p["x"], attacker["y"] - p["y"])
+                                # Rango de ataque del ECO: 600m
+                                if dist_to_attacker < 600:
+                                    target_x, target_y = attacker["x"], attacker["y"]
+                                    attacking = True
+                                    target_id = attacker_id
+            
+            # 3. Movimiento del ECO
+            # El ECO intenta estar a ~100m del objetivo (jugador o enemigo)
+            dx = target_x - eco["x"]
+            dy = target_y - eco["y"]
+            dist = math.hypot(dx, dy)
+            ideal_dist = 100 if not attacking else 250 # Mantener más distancia si ataca
+
+            if dist > ideal_dist + 20:
+                # Perseguir
+                speed = eco.get("speed", 300)
+                angle = math.atan2(dy, dx)
+                eco["vx"] = math.cos(angle) * speed
+                eco["vy"] = math.sin(angle) * speed
+            elif dist < ideal_dist - 20 and dist > 0:
+                # Alejarse un poco
+                speed = eco.get("speed", 300) * 0.5
+                angle = math.atan2(dy, dx)
+                eco["vx"] = -math.cos(angle) * speed
+                eco["vy"] = -math.sin(angle) * speed
+            else:
+                eco["vx"] *= 0.9 # Frenado suave
+                eco["vy"] *= 0.9
+
+            eco["x"] += eco.get("vx", 0) * dt
+            eco["y"] += eco.get("vy", 0) * dt
+
+            # 4. Lógica de Disparo del ECO
+            if attacking and target_id and now - eco.get("last_shot", 0) > 0.8:
+                # Disparar al atacante
+                angle = math.atan2(target_y - eco["y"], target_x - eco["x"])
+                self.projectiles.append({
+                    "id": f"eco_laser_{pid}_{random.random()}",
+                    "owner_id": pid,
+                    "is_player": True, # Se trata como daño de jugador para recompensas
+                    "x": eco["x"],
+                    "y": eco["y"],
+                    "vx": math.cos(angle) * 600,
+                    "vy": math.sin(angle) * 600,
+                    "damage": eco.get("atk", 25),
+                    "life": 1.0,
+                    "map_id": p["current_map"],
+                    "color": "#00ffcc" # Color cian para el ECO
+                })
+                eco["last_shot"] = now
+            
+            # Regenerar escudo del ECO
+            if now - p.get("last_dmg_time", 0) > 5.0: # Si el dueño no recibe daño, el eco regenera
+                eco["shield"] = min(eco["max_shield"], eco.get("shield", 0) + (15 * dt))
+
+            p["eco"] = eco
 
 
         # 3. Update Projectiles
@@ -1258,6 +1386,7 @@ class GameState:
                     if dist < 20:
                         damage = p["damage"]
                         target["last_dmg_time"] = now
+                        target["last_attacker_id"] = p["owner_id"]
                         if target["shld"] >= damage:
                             target["shld"] -= damage
                         else:
@@ -1276,6 +1405,7 @@ class GameState:
                     if dist < 25: # Colisión un poco más generosa para aliens
                         damage = p["damage"]
                         target["last_dmg_time"] = now
+                        target["last_attacker_id"] = p["owner_id"]
                         if target["shld"] >= damage:
                             target["shld"] -= damage
                         else:
@@ -1645,6 +1775,8 @@ class GameState:
             if mod.get("is_auto_repair"): player["has_auto_repair"] = True
 
             # Recount for visuals
+            m_type = mod.get("type", "")
+            if m_type == "lasers": player["lasers"] += 1
             if m_type == "shields": player["shields"] += 1
 
         # 1.5. Sumar Módulos de Wips (Drones)
@@ -1660,6 +1792,51 @@ class GameState:
                 m_type = mod.get("type", "")
                 if m_type == "lasers": player["lasers"] += 1
                 if m_type == "shields": player["shields"] += 1
+
+        # 1.6 Sumar Módulos de E.C.O. (Solo si está activo Y desplegado)
+        eco = player.get("eco", {})
+        if eco.get("active") and eco.get("deployed"):
+            equipped_eco = eco.get("equipped", {})
+            # Solo los protocolos del ECO afectan a la nave principal (mejoras globales)
+            for mod in equipped_eco.get("protocols", []):
+                # Protocolos pueden dar bonos especiales o stats planas
+                if "atk" in mod: player["atk"] += mod["atk"]
+                if "shld" in mod: player["max_shld"] += mod["shld"]
+                if "spd" in mod: player["spd"] += mod["spd"]
+                if "hp" in mod: player["max_hp"] += mod["hp"]
+                if "cargo" in mod: player["max_cargo"] = player.get("max_cargo", 1500) + mod["cargo"]
+                
+                if mod.get("type") == "protocol" or mod.get("type") == "protocols":
+                    if "atk_bonus" in mod: player["atk"] *= (1 + mod["atk_bonus"])
+                    if "shld_bonus" in mod: player["max_shld"] *= (1 + mod["shld_bonus"])
+
+        # --- CALCULO DE STATS PROPIAS DEL E.C.O. ---
+        eco = player.get("eco", {})
+        if eco.get("active"):
+            # Base stats del dron (escalan ligeramente con el nivel del dron)
+            lvl_mult = 1 + (eco.get("level", 1) * 0.05)
+            eco["max_shield"] = 500 * lvl_mult
+            eco["atk"] = 25 * lvl_mult
+            # La velocidad base del ECO es un 20% superior a la del jugador para poder alcanzarlo
+            eco["speed"] = player["spd"] * 1.2
+            
+            if eco.get("deployed"):
+                # Sumar módulos equipados específicamente en el ECO
+                equipped = eco.get("equipped", {})
+                for cat, mods in equipped.items():
+                    for mod in mods:
+                        if "atk" in mod: eco["atk"] += mod["atk"]
+                        if "shld" in mod: eco["max_shield"] += mod["shld"]
+                        
+                        # Protocolos del ECO (bonos directos a sus propias stats)
+                        if mod.get("type") == "protocol":
+                            if "atk_bonus" in mod: eco["atk"] *= (1 + mod["atk_bonus"])
+                            if "shld_bonus" in mod: eco["max_shield"] *= (1 + mod["shld_bonus"])
+            
+            # Asegurar consistencia de escudo actual
+            if "shield" not in eco: eco["shield"] = eco["max_shield"]
+            eco["shield"] = min(eco["shield"], eco["max_shield"])
+            player["eco"] = eco
 
         # 2. Sumar Mejoras Temporales (Laboratorio) - ACUMULATIVO
         if "timed_upgrades" in player:
@@ -1726,6 +1903,32 @@ class GameState:
         player["wips"] = wips if isinstance(wips, list) else []
         self.recalculate_player_stats(player)
         print(f"Drones Wips sincronizados para {client_id}: {len(player['wips'])} drones.")
+
+    def update_eco(self, client_id, eco_data):
+        """Sincroniza el sistema de apoyo E.C.O. en tiempo real."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        # El equipamiento del ECO solo se cambia en zona segura, pero el estado deployed/active puede cambiar en vuelo
+        # La lógica de zona segura ya se maneja en el frontend (Hangar), aquí solo sincronizamos.
+        player["eco"] = eco_data if isinstance(eco_data, dict) else {"active": False}
+        self.recalculate_player_stats(player)
+
+    def toggle_eco(self, client_id, deployed):
+        """Activa o desactiva el despliegue del E.C.O. en tiempo real."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        if "eco" in player:
+            player["eco"]["deployed"] = deployed
+            self.recalculate_player_stats(player)
+
+    def update_eco_mode(self, client_id, mode):
+        """Cambia el modo de comportamiento del E.C.O. (pasivo/agresivo)."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        if "eco" in player:
+            player["eco"]["mode"] = mode
+            print(f"Modo ECO cambiado a {mode} para {client_id}")
 
     def update_timed_upgrades(self, client_id, updates):
         """Sincroniza las mejoras temporales del laboratorio en tiempo real (pestaña Lab -> Juego)."""
@@ -2086,6 +2289,40 @@ class GameState:
             del self.parties[party_id]
         elif party["leader"] == client_id:
             party["leader"] = party["members"][0]
+
+    def update_eco(self, client_id, eco_data):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        if "eco" not in player:
+            player["eco"] = {"active": False, "deployed": False, "mode": "passive", "equipped": {}, "hp": 5000, "max_hp": 5000, "shld": 2000, "max_shld": 2000}
+        
+        # Merge basic structure
+        player["eco"].update(eco_data)
+        
+        # Recalculate stats since protocol bonuses may have changed
+        self.recalculate_player_stats(player)
+
+    def toggle_eco(self, client_id, deployed):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        if "eco" in player and player["eco"].get("active", False):
+            player["eco"]["deployed"] = deployed
+            # Also position the ECO next to the player on deployment
+            if deployed:
+                player["eco"]["x"] = player["x"] - 50
+                player["eco"]["y"] = player["y"] - 50
+                player["eco"]["tx"] = player["eco"]["x"]
+                player["eco"]["ty"] = player["eco"]["y"]
+            
+            # Recalculate stats since protocols activate/deactivate
+            self.recalculate_player_stats(player)
+
+    def update_eco_mode(self, client_id, mode):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        if "eco" in player and player["eco"].get("active", False):
+            player["eco"]["mode"] = mode
+
     def handle_chat(self, sender_id, text, channel="global"):
         if sender_id not in self.players:
             return

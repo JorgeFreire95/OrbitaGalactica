@@ -37,10 +37,21 @@
 - **Recompensas Compartidas**: Pelear en grupo tiene sus beneficios; todas las victorias conseguidas estando en el mismo sector otorgan Créditos compartidos para acelerar el desarrollo del escuadrón.
 
 ### 🎯 Sistema de Misiones Tácticas
-- **HUD de Seguimiento en Tiempo Real**: Nueva mini-ventana persistente en la cabina de combate que monitorea el progreso de tus misiones activas (tipo de alien, contador de bajas y recompensas). Su diseño *glassmorphism* permite leer los objetivos sin obstruir la vista del espacio.
-- **Cobro Automático de Recompensas**: Las misiones ahora aplican sus beneficios (XP, Créditos, Munición) de forma **instantánea** al alcanzar el objetivo. Ya no es necesario navegar por los menús para cobrar tus premios.
-- **Bitácora Dinámica**: La lista de objetivos se actualiza en tiempo real; las misiones completadas y cobradas desaparecen automáticamente del HUD para mantener una interfaz limpia y enfocada en el combate.
-- **Sincronización Optimizada (On-Demand Sync)**: Sistema de comunicación inteligente que actualiza los datos de misiones solo cuando hay cambios significativos, garantizando que el HUD esté siempre al día con el mínimo impacto en la latencia.
+...
+43: - **Sincronización Optimizada (On-Demand Sync)**: Sistema de comunicación inteligente que actualiza los datos de misiones solo cuando hay cambios significativos, garantizando que el HUD esté siempre al día con el mínimo impacto en la latencia.
+
+### 🐝 Sistema de Wips (Drones de Combate)
+- **Escolta Automatizada**: Despliega hasta un máximo de **10 drones Wips** simultáneamente. Estas unidades robóticas orbitan tu nave y proporcionan una potencia de fuego adicional masiva.
+- **Sincronización de Fuego**: Los Wips detectan automáticamente tu objetivo fijado y disparan en sincronía con tus cañones láser, multiplicando tu daño por segundo (DPS) de forma exponencial.
+- **Visualización Dinámica**: Cada drone tiene su propia representación visual en el radar y en el campo de batalla, con estelas de movimiento suavizadas que siguen la trayectoria de la nave nodriza.
+- **Persistencia en Hangar**: Al igual que los módulos de la nave, los Wips se gestionan desde el Hangar y su configuración se guarda de forma permanente en tu perfil de piloto.
+
+### 🤖 E.C.O. (Emergency Companion Observer)
+- **Unidad de Apoyo Avanzada**: El sistema E.C.O. es un dron de apoyo inteligente con IA dedicada que actúa de forma independiente para asistir al piloto en situaciones críticas.
+- **IA de Seguimiento Dinámico**: A diferencia de los Wips, el E.C.O. posee su propio vector de velocidad y rotación. Utiliza un algoritmo de seguimiento que le permite orbitar la nave o posicionarse tácticamente durante el combate.
+- **HUD de Estado Dedicado**: El dron proyecta sus propias barras de integridad y escudo sobre su chasis, permitiendo al piloto monitorear su estado de salud de un solo vistazo sin distraerse del HUD principal.
+- **Rotación Adaptativa**: El E.C.O. orienta su chasis automáticamente hacia la dirección de su movimiento o hacia el rumbo de la nave principal, proporcionando un feedback visual inmersivo.
+- **Modos de Operación**: Puede alternar entre estados Pasivos (escolta pura) y Activos (asistencia táctica), gestionados directamente a través de los protocolos del servidor.
 
 ### 🛡️ Zonas Seguras y Estaciones
 - **Estación Central: Mega-Estructura Industrial**: Rediseño completo de la base principal. Una imponente estructura isométrica vertical con plataformas de aterrizaje asimétricas, iluminación de balizas dinámica, paneles de advertencia ("hazard stripes") y un puente de mando hexagonal iluminado por neón.

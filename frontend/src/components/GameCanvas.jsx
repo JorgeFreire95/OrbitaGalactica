@@ -5,7 +5,7 @@ import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -33,18 +33,20 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
-  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', is_invisible: null });
+  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', ammo: '', wips: '', eco: '', is_invisible: null });
   
   const [inviteIdText, setInviteIdText] = useState('');
   const [showPartyMenu, setShowPartyMenu] = useState(false);
   const [missionNotification, setMissionNotification] = useState(null);
+  const [eco, setEco] = useState(initialEco || { active: false, deployed: false, mode: 'passive', level: 1, integrity: 100, shield: 100, max_shield: 100, fuel: 5000, speed: 0, equipped: { lasers: [], generators: [], protocols: [], utility: [] } });
 
   // Keyboard state
   const keys = useRef({
     up: false, down: false, left: false, right: false,
     shoot: false, missile_shoot: false,
     target_x: null, target_y: null, locked_target_id: null,
-    is_targeting_click: false
+    is_targeting_click: false,
+    cancel_nav: false
   });
 
   // --- LOADING SCREEN STATE ---
@@ -189,6 +191,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         keys.current.locked_target_id = hitPlayer.id;
         keys.current.target_x = null; 
         keys.current.target_y = null;
+        keys.current.cancel_nav = true;
         keys.current.is_targeting_click = true;
         return; 
       }
@@ -198,6 +201,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         keys.current.locked_target_id = hitTarget.id;
         keys.current.target_x = null; 
         keys.current.target_y = null;
+        keys.current.cancel_nav = true;
         keys.current.is_targeting_click = true;
       } else {
         keys.current.target_x = mouseX; 
@@ -289,14 +293,14 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   // --- STABLE PROPS REF ---
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
-    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialClan, initialClanTag,
-    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility
+    user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag,
+    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco
   });
   
   useEffect(() => {
     propsRef.current = {
-      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialClan, initialClanTag,
-      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility
+      user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag,
+      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco
     };
   });
 
@@ -450,6 +454,21 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 p.onUpdateInvisibility(me.is_invisible);
                 last.is_invisible = me.is_invisible;
             }
+            if (p.onUpdateWips) {
+                const wipsStr = JSON.stringify(me.wips || []);
+                if (wipsStr !== last.wips) {
+                    p.onUpdateWips(me.wips || []);
+                    last.wips = wipsStr;
+                }
+            }
+            if (p.onUpdateEco) {
+                const ecoStr = JSON.stringify(me.eco || {});
+                if (ecoStr !== last.eco) {
+                    p.onUpdateEco(me.eco || {});
+                    setEco(me.eco || {});
+                    last.eco = ecoStr;
+                }
+            }
             
             // Check portal prompt
             if (data.state.portal) {
@@ -501,9 +520,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
              if (dist > 500) {
                  p.x = p.tx; p.y = p.ty;
              } else {
-                 // Perseguir suavemente el objetivo del servidor (interpolate visualmente)
-                 // Se ajusta el factor según el framerate real (dt) para siempre deslizarse continuo
-                 const glide = Math.min(1.0, dt * 25.0); 
+                 // El jugador propio necesita interpolación más agresiva
+                 // para que la cámara siga de cerca y evite desync visual
+                 const glideFactor = p.is_self ? 40.0 : 15.0;
+                 const glide = Math.min(1.0, dt * glideFactor); 
                  p.x += (p.tx - p.x) * glide;
                  p.y += (p.ty - p.y) * glide;
              }
@@ -538,17 +558,20 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
 
       const inputNow = Date.now();
       if (wsRef.current?.readyState === WebSocket.OPEN && inputNow - lastInputTime > 50) {
-        // --- CLEAN ARRIVAL: Limpieza de destino si ya llegamos ---
-        const me = gameStateRef.current?.players?.find(p => p.is_self);
-        if (me && keys.current.target_x !== null && keys.current.target_y !== null) {
-          const distToTarget = Math.hypot(me.x - keys.current.target_x, me.y - keys.current.target_y);
-          if (distToTarget < 10) {
-            keys.current.target_x = null;
-            keys.current.target_y = null;
-          }
+        // Construir payload limpio: solo enviar target_x/y si tienen coordenadas reales
+        const payload = { ...keys.current };
+        if (payload.target_x === null || payload.target_y === null) {
+          delete payload.target_x;
+          delete payload.target_y;
         }
-        wsRef.current.send(JSON.stringify({ type: 'input', keys: keys.current }));
-        lastInputTime = now;
+        // Consumir cancel_nav después de enviarlo una vez
+        if (payload.cancel_nav) {
+          keys.current.cancel_nav = false;
+        } else {
+          delete payload.cancel_nav;
+        }
+        wsRef.current.send(JSON.stringify({ type: 'input', keys: payload }));
+        lastInputTime = inputNow;
       }
       const canvas = canvasRef.current;
       if (gameStateRef.current && canvas) {
@@ -603,7 +626,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         initialPaladio: propsRef.current.initialPaladio,
         minerals: p.initialMinerals, upgrades: p.initialUpgrades,
         clan: p.initialClan, clanTag: p.initialClanTag,
-        wips: p.initialWips
+        wips: p.initialWips,
+        eco: p.initialEco
       }));
       joinSentRef.current = true;
     }
@@ -637,6 +661,24 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       }));
     }
   }, [initialUpgrades, gameStarted]);
+
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'update_wips', 
+        wips: initialWips 
+      }));
+    }
+  }, [initialWips, gameStarted]);
+
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'update_eco', 
+        eco_data: eco 
+      }));
+    }
+  }, [eco, gameStarted]);
 
   useEffect(() => {
     if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
@@ -889,6 +931,140 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         ))}
                     </div>
                 </div>
+            </div>
+
+            {/* ECO CONTROL HUD */}
+            <div className="eco-control-hud" style={{
+                position: 'fixed',
+                top: '20px',
+                right: '420px', 
+                width: '180px',
+                background: 'rgba(5, 8, 16, 0.9)',
+                backdropFilter: 'blur(10px)',
+                border: `1px solid ${eco.deployed ? '#00ffcc88' : '#ff336644'}`,
+                borderRadius: '8px',
+                padding: '12px',
+                zIndex: 1000,
+                fontFamily: 'Orbitron',
+                boxShadow: eco.deployed ? '0 0 15px rgba(0, 255, 204, 0.1)' : 'none',
+                pointerEvents: 'auto'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ 
+                        width: '32px', height: '32px', 
+                        background: '#070b16', 
+                        borderRadius: '4px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        border: `1px solid ${eco.deployed ? '#00ffcc' : '#333'}`
+                    }}>
+                        <img src="/eco_drone.png" alt="ECO" style={{ width: '24px', height: '24px', objectFit: 'contain', opacity: eco.deployed ? 1 : 0.4 }} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold' }}>SISTEMA E.C.O.</div>
+                        <div style={{ fontSize: '0.5rem', color: eco.deployed ? '#00ffcc' : '#ff3366' }}>{eco.deployed ? 'MODO ACTIVO' : 'DESCONECTADO'}</div>
+                    </div>
+                </div>
+
+                {!eco.active ? (
+                    <div style={{ fontSize: '0.6rem', color: '#555', textAlign: 'center', padding: '5px' }}>SISTEMA NO ADQUIRIDO</div>
+                ) : (
+                    <>
+                        {/* Stats Bars */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                            {/* Integrity (Vida) */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
+                                <span>INTEGRIDAD</span>
+                                <span>{Math.floor(eco?.integrity ?? 100)}%</span>
+                            </div>
+                            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ width: `${eco?.integrity ?? 100}%`, height: '100%', background: (eco?.integrity ?? 100) > 30 ? '#00ffcc' : '#ff3366', boxShadow: '0 0 5px rgba(0,255,204,0.3)' }} />
+                            </div>
+
+                            {/* Shield (Escudo) */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
+                                <span>ESCUDO</span>
+                                <span>{Math.floor(((eco?.shield ?? 0) / (eco?.max_shield || 500)) * 100)}%</span>
+                            </div>
+                            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ width: `${((eco?.shield ?? 0) / (eco?.max_shield || 500)) * 100}%`, height: '100%', background: '#00ccff', boxShadow: '0 0 5px rgba(0,204,255,0.3)' }} />
+                            </div>
+
+                            {/* Fuel (Combustible) */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
+                                <span>COMBUSTIBLE</span>
+                                <span>{Math.floor(eco?.fuel ?? 5000)}</span>
+                            </div>
+                            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ width: `${((eco?.fuel ?? 5000) / 5000) * 100}%`, height: '100%', background: '#ffaa00', boxShadow: '0 0 5px rgba(255,170,0,0.3)' }} />
+                            </div>
+
+                            {/* Speed */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa' }}>
+                                <span>VELOCIDAD</span>
+                                <span style={{ color: '#fff' }}>{Math.floor(eco.speed || 0)} KM/H</span>
+                            </div>
+                        </div>
+
+                        {/* Mode Selector */}
+                        <div style={{ marginBottom: '12px' }}>
+                            <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '4px' }}>PROTOCOLO DE ACCIÓN</div>
+                            <select 
+                                value={eco.mode}
+                                onChange={(e) => {
+                                    const newMode = e.target.value;
+                                    const newEco = { ...eco, mode: newMode };
+                                    setEco(newEco);
+                                    if (onUpdateEco) onUpdateEco(newEco);
+                                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                        wsRef.current.send(JSON.stringify({ type: 'update_eco_mode', mode: newMode }));
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    background: '#070b16',
+                                    border: '1px solid #1a2a4a',
+                                    color: '#00ffcc',
+                                    fontSize: '0.65rem',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="passive">MODO PASIVO</option>
+                                <option value="aggressive">MODO AGRESIVO</option>
+                            </select>
+                        </div>
+
+                        <button 
+                            onClick={() => {
+                                const newEco = { ...eco, deployed: !eco.deployed };
+                                setEco(newEco);
+                                if (onUpdateEco) onUpdateEco(newEco);
+                                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(JSON.stringify({ type: 'toggle_eco', deployed: newEco.deployed }));
+                                }
+                            }}
+                            className={`eco-toggle-btn ${eco.deployed ? 'active' : ''}`}
+                            style={{
+                                width: '100%',
+                                padding: '8px',
+                                background: eco.deployed ? 'rgba(0, 255, 204, 0.2)' : 'rgba(255, 51, 102, 0.1)',
+                                border: `1px solid ${eco.deployed ? '#00ffcc' : '#ff3366'}`,
+                                color: eco.deployed ? '#00ffcc' : '#ff3366',
+                                borderRadius: '4px',
+                                fontSize: '0.65rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s'
+                            }}
+                        >
+                            {eco.deployed ? 'DESACTIVAR SISTEMA' : 'ACTIVAR SISTEMA'}
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* MISSION TRACKER HUD */}

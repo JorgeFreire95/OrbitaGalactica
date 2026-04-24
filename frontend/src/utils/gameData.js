@@ -157,6 +157,23 @@ export const MISSILE_CATALOG = [
   { id: 'missile_3', name: 'M-3 "Giga-Nuke"', damage: 3500, cost: 0,  count: 1000, icon: '☢️', color: '#ff0000' },
 ];
 
+export const ECO_CONFIG = {
+  id: 'eco',
+  name: 'E.C.O. (Extra Combat Observer)',
+  cost: 0,
+  slots: { lasers: 5, generators: 10, protocols: 10, utility: 5 },
+  image: '/eco_drone.png',
+  desc: 'Nave de apoyo táctico de alta capacidad diseñada para escolta pesada.'
+};
+
+export const ECO_PROTOCOLS = [
+  { id: 'proto_laser_1', type: 'protocols', name: 'Protocolo de Precisión I', cost: 0, atk: 15, icon: '🎯', desc: 'Aumenta la potencia de fuego del E.C.O.' },
+  { id: 'proto_shield_1', type: 'protocols', name: 'Protocolo de Escudo I', cost: 0, shld: 200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva del E.C.O.' },
+  { id: 'proto_cargo_1', type: 'protocols', name: 'Protocolo de Carga I', cost: 0, cargo: 2000, icon: '📦', desc: 'Expande la bodega de carga total.' },
+  { id: 'proto_radar_1', type: 'protocols', name: 'Protocolo de Radar I', cost: 0, radar: 1000, icon: '📡', desc: 'Aumenta el rango de detección de enemigos.' },
+  { id: 'proto_hp_1', type: 'protocols', name: 'Protocolo de Casco I', cost: 0, hp: 500, icon: '❤️', desc: 'Aumenta la integridad estructural del E.C.O.' },
+];
+
 export const getRank = (level) => {
   if (level >= 35) return "Almirante Estelar";
   if (level >= 30) return "General";
