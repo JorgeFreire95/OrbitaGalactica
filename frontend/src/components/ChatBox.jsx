@@ -18,7 +18,18 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
     const handleMessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'chat_update') {
-        setMessages((prev) => [...prev, data.message].slice(-100)); // Increased limit
+        const msg = data.message;
+        setMessages((prev) => [...prev, msg].slice(-100));
+        
+        // Si es un mensaje privado recibido, asegurar que la pestaña esté abierta
+        if (msg.channel === 'private' && msg.sender !== user?.username) {
+          setPrivateTabs(prev => {
+            if (!prev.includes(msg.sender)) {
+              return [...prev, msg.sender];
+            }
+            return prev;
+          });
+        }
       } else if (data.type === 'user_list_update') {
         setOnlineUsers(data.users);
       } else if (data.type === 'friend_request_received') {
@@ -46,7 +57,7 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
 
     socket.addEventListener('message', handleMessage);
     return () => socket.removeEventListener('message', handleMessage);
-  }, [socket]);
+  }, [socket, user]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -102,8 +113,8 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
   const handleUserContextMenu = (e, targetUser) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("Context menu triggered for:", targetUser.username);
-    if (targetUser.username === user?.username) return;
+    console.log("Context menu triggered for:", targetUser.username, "at", e.clientX, e.clientY);
+    
     setContextMenu({
         x: e.clientX,
         y: e.clientY,
@@ -131,13 +142,8 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
     closeContextMenu();
   };
 
-  useEffect(() => {
-    const handleClick = () => closeContextMenu();
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, []);
-
   const getFactionName = (f) => {
+
     if (f === 'MARS') return 'Mars';
     if (f === 'MOON') return 'Selene';
     if (f === 'PLUTO') return 'Caronte';
@@ -145,6 +151,7 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
   };
 
   return (
+    <>
     <div 
       className={`chat-container ${isOpen ? 'open' : 'closed'} ${showUserList ? 'with-user-list' : ''}`}
       onMouseDown={(e) => e.stopPropagation()}
@@ -208,12 +215,16 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
                 <div 
                   key={msg.id} 
                   className={`chat-message channel-${msg.channel}`}
-                  onContextMenu={(e) => handleUserContextMenu(e, { username: msg.sender })}
                 >
                   <span className="msg-time">{new Date(msg.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  <span className={`msg-sender faction-${msg.faction}`}>
+                  <span 
+                    className={`msg-sender faction-${msg.faction}`}
+                    onContextMenu={(e) => handleUserContextMenu(e, { username: msg.sender, display_name: msg.display_name })}
+                    onClick={(e) => handleUserContextMenu(e, { username: msg.sender, display_name: msg.display_name })}
+                  >
                     {msg.display_name}: 
                   </span>
+
                   <span className="msg-text">{msg.text}</span>
                 </div>
               ))}
@@ -253,21 +264,39 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
         </div>
       )}
 
-      {contextMenu && (
-          <div 
-            className="chat-context-menu" 
-            style={{ 
-              top: Math.min(contextMenu.y, window.innerHeight - 100), 
-              left: Math.min(contextMenu.x, window.innerWidth - 160) 
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-              <div className="menu-header">{contextMenu.targetUser.username}</div>
-              <button onClick={() => startPrivateChat(contextMenu.targetUser.username)}>💬 Hablar al privado</button>
-              <button onClick={() => sendFriendRequest(contextMenu.targetUser.username)}>👤 Agregar a amigos</button>
-          </div>
-      )}
     </div>
+
+    {contextMenu && (
+        <div 
+          className="chat-context-menu" 
+          style={{ 
+            top: Math.min(contextMenu.y, window.innerHeight - 120), 
+            left: Math.min(contextMenu.x, window.innerWidth - 180) 
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+            <div className="menu-header">
+              <span className="menu-user-icon">👤</span>
+              {contextMenu.targetUser.display_name || contextMenu.targetUser.username}
+              {contextMenu.targetUser.username === user?.username && " (Tú)"}
+            </div>
+            <button 
+              className="menu-item" 
+              onClick={() => startPrivateChat(contextMenu.targetUser.username)}
+              disabled={contextMenu.targetUser.username === user?.username}
+            >
+              <span className="item-icon">💬</span> Hablar al privado
+            </button>
+            <button 
+              className="menu-item" 
+              onClick={() => sendFriendRequest(contextMenu.targetUser.username)}
+              disabled={contextMenu.targetUser.username === user?.username}
+            >
+              <span className="item-icon">➕</span> Agregar amigos
+            </button>
+        </div>
+    )}
+    </>
   );
 };
 

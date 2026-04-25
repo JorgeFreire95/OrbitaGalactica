@@ -9,6 +9,7 @@ const NavigationBar = ({ currentView, onNavigate }) => {
     { id: 'clan', label: 'Clan' },
     { id: 'missions', label: 'Misiones' },
     { id: 'friends', label: 'Amigos' },
+    { id: 'messages', label: 'Correos' },
     { id: 'packages', label: 'Paquetes' },
     { id: 'subasta', label: 'Subasta', wip: true },
   ];

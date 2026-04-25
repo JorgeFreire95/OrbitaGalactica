@@ -514,6 +514,7 @@ class GameState:
                 sync_user_stats(user_id, player["level"], player["xp"], player["credits"], player.get("paladio", 0), is_invisible=player.get("is_invisible", False))
                 
             del self.players[client_id]
+            self.broadcast_user_list()
             
         if client_id in self.clients:
             del self.clients[client_id]
@@ -2430,7 +2431,9 @@ class GameState:
         sender_name = sender.get("user_id")
         
         from database import send_friend_request
-        if send_friend_request(sender_name, receiver_name):
+        result = send_friend_request(sender_name, receiver_name)
+        
+        if result.get("success"):
             # Buscar si el receptor está online para notificarle en tiempo real
             for pid, p in self.players.items():
                 if p.get("user_id") == receiver_name:
@@ -2446,6 +2449,30 @@ class GameState:
                         except:
                             pass
                     break
+        else:
+            # Notificar al remitente del error vía chat de sistema
+            ws_sender = self.clients.get(sender_id)
+            if ws_sender:
+                try:
+                    import asyncio
+                    import json
+                    loop = asyncio.get_event_loop()
+                    error_msg = json.dumps({
+                        "type": "chat_update",
+                        "message": {
+                            "id": "sys_" + str(time.time()),
+                            "sender": "SISTEMA",
+                            "display_name": "SISTEMA",
+                            "text": f"Error al enviar solicitud: {result.get('error')}",
+                            "channel": "global",
+                            "faction": "SYSTEM",
+                            "time": time.time()
+                        }
+                    })
+                    if loop.is_running():
+                        loop.create_task(ws_sender.send_text(error_msg))
+                except:
+                    pass
 
     def handle_friend_accept(self, receiver_id, sender_name):
         if receiver_id not in self.players: return

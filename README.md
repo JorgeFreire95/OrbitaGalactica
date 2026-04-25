@@ -56,13 +56,17 @@
 ### 💬 Sistema Social y Chat Integrado
 - **Chat Multi-Canal**: Comunícate a través de canales dedicados: **Global** (todos los pilotos), **Empresa** (solo miembros de tu facción), **Clan** (mensajes internos de la alianza) y **Privado** (pestañas dedicadas para chats 1 a 1).
 - **Listado de Usuarios en Tiempo Real**: Panel lateral derecho en el chat que muestra a todos los pilotos conectados. Los usuarios se filtran automáticamente según el canal seleccionado para facilitar la interacción táctica.
-- **Menú Contextual de Interacción**: Clic derecho sobre cualquier piloto en el chat o en la lista para desplegar opciones rápidas:
-    - **💬 Hablar al privado**: Abre una pestaña directa de comunicación.
-    - **👤 Agregar a amigos**: Envía una solicitud formal de amistad.
-- **Página de Amigos Avanzada**: Dashboard social completo accesible desde el menú principal.
-    - **Buscador Global de Pilotos**: Encuentra a cualquier usuario registrado en la galaxia mediante el sistema de búsqueda en tiempo real.
-    - **Gestor de Solicitudes**: Panel dedicado para revisar, aceptar o rechazar peticiones de amistad pendientes.
-    - **Lista de Contactos**: Visualiza a tus amigos y su estado de conexión (Online/Offline) de un solo vistazo.
+- **Interacción Contextual (Chat)**: Clic derecho sobre cualquier piloto en el chat o en la lista para desplegar opciones rápidas:
+    - **💬 Susurrar**: Abre una pestaña directa de chat privado. El destinatario recibirá una notificación y la pestaña se abrirá automáticamente en su pantalla.
+    - **👤 Agregar a amigos**: Envía una solicitud formal de amistad. El sistema detecta automáticamente si ya sois amigos.
+- **👤 Sistema de Amigos Avanzado**: Dashboard social completo accesible desde el menú principal para gestionar tu red de aliados.
+    - **Visualización de Estado**: Lista detallada de amigos con indicadores de conexión (Online/Offline).
+    - **Menú de Gestión (Clic Derecho)**: Control total sobre tus contactos: **Mandar Correo, Eliminar, Bloquear y Reportar**.
+    - **Buscador Global**: Encuentra a cualquier usuario registrado en la galaxia.
+- **📬 Sistema de Correos (SISTEMA DE CORREO)**: Nuevo centro de mensajería asíncrona.
+    - **Bandejas Separadas**: Organización por Entrada y Enviados.
+    - **Gestión de Lectura**: Notificaciones de mensajes no leídos en tiempo real.
+    - **Avisos de Sistema**: Recepción automática de notificaciones de clan y sistema.
 
 ### 🛡️ Zonas Seguras y Estaciones
 - **Estación Central: Mega-Estructura Industrial**: Rediseño completo de la base principal. Una imponente estructura isométrica vertical con plataformas de aterrizaje asimétricas, iluminación de balizas dinámica, paneles de advertencia ("hazard stripes") y un puente de mando hexagonal iluminado por neón.

@@ -655,37 +655,19 @@ async def api_send_message(req: MessageSendRequest):
 
 @app.get("/api/messages")
 async def get_messages(username: str):
-    from database import get_connection
-    conn = get_connection()
-    c = conn.cursor()
-    c.execute("SELECT id, sender, subject, body, type, sent_at, is_read FROM messages WHERE receiver = ? ORDER BY sent_at DESC", (username,))
-    rows = c.fetchall()
-    conn.close()
-    return [
-        {"id": r[0], "sender": r[1], "subject": r[2], "body": r[3], "type": r[4], "sent_at": r[5], "is_read": r[6]}
-        for r in rows
-    ]
+    from database import get_user_messages_db
+    return get_user_messages_db(username)
 
 @app.post("/api/messages/mark_read")
 async def mark_message_read(msg_id: int = Body(..., embed=True)):
-    from database import get_connection
-    conn = get_connection()
-    c = conn.cursor()
-    c.execute("UPDATE messages SET is_read = 1 WHERE id = ?", (msg_id,))
-    conn.commit()
-    conn.close()
-    return {"success": True}
+    from database import mark_message_read_db
+    if mark_message_read_db(msg_id):
+        return {"success": True}
+    return {"success": False}
 
 @app.get("/api/users")
 async def list_all_users():
     return get_all_users_db()
-
-@app.get("/api/friends/{username}")
-async def get_user_friends(username: str):
-    from database import get_friends, get_friend_requests
-    friends = get_friends(username)
-    requests = get_friend_requests(username)
-    return {"friends": friends, "requests": requests}
 
 @app.post("/api/friends/accept")
 async def api_accept_friend(data: dict = Body(...)):
@@ -693,6 +675,80 @@ async def api_accept_friend(data: dict = Body(...)):
     receiver = data.get("receiver")
     from database import accept_friend_request
     if accept_friend_request(sender, receiver):
+        return {"success": True}
+    return {"success": False}
+
+@app.post("/api/friends/request")
+async def api_send_friend_request(data: dict = Body(...)):
+    sender = data.get("sender")
+    receiver = data.get("receiver")
+    if not sender or not receiver:
+        raise HTTPException(status_code=400, detail="Faltan datos de remitente o destinatario")
+    
+    from database import send_friend_request
+    result = send_friend_request(sender, receiver)
+    return result
+
+@app.get("/api/friends/{username}")
+async def get_user_friends(username: str):
+    from database import get_friends, get_friend_requests
+    return {"friends": get_friends(username), "requests": get_friend_requests(username)}
+
+@app.post("/api/friends/remove")
+async def api_remove_friend(data: dict = Body(...)):
+    from database import remove_friend_db
+    user_a = data.get("user_a")
+    user_b = data.get("user_b")
+    if remove_friend_db(user_a, user_b):
+        return {"success": True}
+    return {"success": False}
+
+@app.post("/api/users/block")
+async def api_block_user(data: dict = Body(...)):
+    from database import block_user_db
+    blocker = data.get("blocker")
+    blocked = data.get("blocked")
+    if block_user_db(blocker, blocked):
+        return {"success": True}
+    return {"success": False}
+
+@app.post("/api/users/report")
+async def api_report_user(data: dict = Body(...)):
+    from database import report_user_db
+    reporter = data.get("reporter")
+    reported = data.get("reported")
+    reason = data.get("reason")
+    details = data.get("details", "")
+    if report_user_db(reporter, reported, reason, details):
+        return {"success": True}
+    return {"success": False}
+
+@app.post("/api/mail/send")
+async def api_send_mail(data: dict = Body(...)):
+    from database import send_user_message_db
+    sender = data.get("sender")
+    receiver = data.get("receiver")
+    subject = data.get("subject")
+    body = data.get("body")
+    if send_user_message_db(sender, receiver, subject, body, msg_type='mail'):
+        return {"success": True}
+    return {"success": False}
+
+@app.get("/api/mail/list/{username}")
+async def api_get_mail(username: str):
+    from database import get_user_messages_db
+    return {"messages": get_user_messages_db(username)}
+
+@app.get("/api/mail/sent/{username}")
+async def api_get_sent_mail(username: str):
+    from database import get_sent_messages_db
+    return {"messages": get_sent_messages_db(username)}
+
+@app.post("/api/mail/read")
+async def api_mark_read(data: dict = Body(...)):
+    from database import mark_message_read_db
+    msg_id = data.get("id")
+    if mark_message_read_db(msg_id):
         return {"success": True}
     return {"success": False}
 
@@ -1116,6 +1172,5 @@ async def claim_mission(req: MissionClaimRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    # En Windows, usar reload=True dentro del script puede causar errores de multiprocessing.
-    # Se recomienda el objeto 'app' directamente para mayor estabilidad.
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Habilitamos reload=True para que los cambios se apliquen automáticamente
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

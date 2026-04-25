@@ -7,6 +7,9 @@ const FriendsPage = ({ user, onNavigate }) => {
     const [allUsers, setAllUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    const [contextMenu, setContextMenu] = useState(null);
+    const [mailModal, setMailModal] = useState(null);
+    const [reportModal, setReportModal] = useState(null);
     const API_URL = 'http://localhost:8000/api';
 
     const fetchFriends = async () => {
@@ -47,6 +50,12 @@ const FriendsPage = ({ user, onNavigate }) => {
         return () => clearInterval(interval);
     }, [user]);
 
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+
     const handleAccept = async (sender) => {
         try {
             const resp = await fetch(`${API_URL}/friends/accept`, {
@@ -78,6 +87,99 @@ const FriendsPage = ({ user, onNavigate }) => {
         } catch (err) {
             console.error("Error sending request:", err);
         }
+    };
+
+    const handleAction = async (type, target) => {
+        setContextMenu(null);
+        if (type === 'mail') {
+            setMailModal(target);
+            return;
+        }
+        if (type === 'report') {
+            setReportModal(target);
+            return;
+        }
+
+        const endpoint = type === 'remove' ? 'friends/remove' : 'users/block';
+        const body = type === 'remove' ? 
+            { user_a: user.username, user_b: target } : 
+            { blocker: user.username, blocked: target };
+
+        const confirmText = type === 'remove' ? 
+            `¿Seguro que quieres eliminar a ${target}?` : 
+            `¿Seguro que quieres bloquear a ${target}? Se eliminará de tus amigos.`;
+
+        if (!window.confirm(confirmText)) return;
+
+        try {
+            const resp = await fetch(`${API_URL}/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) {
+                fetchFriends();
+            }
+        } catch (err) {
+            console.error(`Error in action ${type}:`, err);
+        }
+    };
+
+    const submitMail = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const body = {
+            sender: user.username,
+            receiver: mailModal,
+            subject: formData.get('subject'),
+            body: formData.get('body')
+        };
+        try {
+            const resp = await fetch(`${API_URL}/mail/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) {
+                alert('Correo enviado con éxito');
+                setMailModal(null);
+            }
+        } catch (err) {
+            alert('Error al enviar correo');
+        }
+    };
+
+    const submitReport = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const body = {
+            reporter: user.username,
+            reported: reportModal,
+            reason: formData.get('reason'),
+            details: formData.get('details')
+        };
+        try {
+            const resp = await fetch(`${API_URL}/users/report`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) {
+                alert('Reporte enviado al comando central');
+                setReportModal(null);
+            }
+        } catch (err) {
+            alert('Error al enviar reporte');
+        }
+    };
+
+    const handleContextMenu = (e, target) => {
+        e.preventDefault();
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            target
+        });
     };
 
     const filteredUsers = allUsers.filter(u => 
@@ -163,7 +265,11 @@ const FriendsPage = ({ user, onNavigate }) => {
                         ) : (
                             <div className="friends-list">
                                 {friends.map(friend => (
-                                    <div key={friend} className="member-item">
+                                    <div 
+                                        key={friend} 
+                                        className="member-item clickable" 
+                                        onContextMenu={(e) => handleContextMenu(e, friend)}
+                                    >
                                         <div className="member-info">
                                             <span className="member-name">{friend}</span>
                                             <span className="member-role">Amigo</span>
@@ -178,6 +284,69 @@ const FriendsPage = ({ user, onNavigate }) => {
                     </div>
                 </div>
             </div>
+
+            {contextMenu && (
+                <div 
+                    className="social-context-menu"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="social-menu-header">
+                        <span className="social-item-icon">👤</span> {contextMenu.target}
+                    </div>
+                    <button className="social-menu-item" onClick={() => handleAction('mail', contextMenu.target)}>
+                        <span className="social-item-icon">📧</span> Mandar correo
+                    </button>
+                    <button className="social-menu-item" onClick={() => handleAction('remove', contextMenu.target)}>
+                        <span className="social-item-icon">🗑️</span> Eliminar amigo
+                    </button>
+                    <button className="social-menu-item danger" onClick={() => handleAction('block', contextMenu.target)}>
+                        <span className="social-item-icon">🚫</span> Bloquear amigo
+                    </button>
+                    <button className="social-menu-item danger" onClick={() => handleAction('report', contextMenu.target)}>
+                        <span className="social-item-icon">⚠️</span> Reportar
+                    </button>
+                </div>
+            )}
+
+            {mailModal && (
+                <div className="modal-overlay">
+                    <div className="friends-panel modal-content-social">
+                        <div className="panel-header">ENVIAR CORREO A {mailModal}</div>
+                        <form onSubmit={submitMail} className="modal-form">
+                            <input name="subject" type="text" placeholder="Asunto" required />
+                            <textarea name="body" placeholder="Mensaje..." required rows={5}></textarea>
+                            <div className="modal-buttons">
+                                <button type="submit" className="add-btn">ENVIAR</button>
+                                <button type="button" className="back-button" onClick={() => setMailModal(null)}>CANCELAR</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {reportModal && (
+                <div className="modal-overlay">
+                    <div className="friends-panel modal-content-social">
+                        <div className="panel-header">REPORTAR PILOTO: {reportModal}</div>
+                        <form onSubmit={submitReport} className="modal-form">
+                            <select name="reason" required>
+                                <option value="">Selecciona un motivo...</option>
+                                <option value="spam">Spam / Publicidad</option>
+                                <option value="toxic">Comportamiento Tóxico</option>
+                                <option value="cheat">Trampas / Hacks</option>
+                                <option value="name">Nombre Inapropiado</option>
+                                <option value="other">Otro</option>
+                            </select>
+                            <textarea name="details" placeholder="Detalles del reporte..." required rows={3}></textarea>
+                            <div className="modal-buttons">
+                                <button type="submit" className="add-btn danger-btn">ENVIAR REPORTE</button>
+                                <button type="button" className="back-button" onClick={() => setReportModal(null)}>CANCELAR</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

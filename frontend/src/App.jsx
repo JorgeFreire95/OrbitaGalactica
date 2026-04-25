@@ -16,6 +16,7 @@ import Ranking from './components/Ranking'
 import Packages from './components/Packages'
 import Missions from './components/Missions'
 import FriendsPage from './components/FriendsPage'
+import MessagesPage from './components/MessagesPage'
 import './index.css'
 
 const API_URL = 'http://127.0.0.1:8000/api';
@@ -1183,6 +1184,13 @@ function App() {
             user={user}
             paladio={paladio}
             setPaladio={setPaladio}
+            onBack={() => setCurrentView('menu')}
+          />
+        )}
+
+        {currentView === 'messages' && (
+          <MessagesPage 
+            user={user}
             onBack={() => setCurrentView('menu')}
           />
         )}

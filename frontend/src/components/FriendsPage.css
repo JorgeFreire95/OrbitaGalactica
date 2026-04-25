@@ -198,3 +198,130 @@
     color: #00ffcc;
     border: 1px solid #00ffcc;
 }
+
+/* Context Menu Styles */
+.social-context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: rgba(10, 15, 30, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 255, 204, 0.3);
+    border-radius: 8px;
+    padding: 8px 0;
+    min-width: 180px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 255, 204, 0.1);
+    animation: fadeInScale 0.15s ease-out;
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.social-menu-header {
+    padding: 8px 15px;
+    font-size: 0.7rem;
+    color: #88aaff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.social-menu-item {
+    width: 100%;
+    background: none;
+    border: none;
+    color: #fff;
+    padding: 10px 15px;
+    text-align: left;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
+}
+
+.social-menu-item:hover:not(:disabled) {
+    background: rgba(0, 255, 204, 0.1);
+    color: #00ffcc;
+    padding-left: 20px;
+}
+
+.social-menu-item:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.social-menu-item.danger:hover {
+    background: rgba(255, 50, 50, 0.1);
+    color: #ff4444;
+}
+
+.social-item-icon {
+    font-size: 0.9rem;
+    width: 15px;
+    display: inline-block;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 11000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content-social {
+    width: 90%;
+    max-width: 500px;
+    background: #0d1426;
+    border: 1px solid #00ffcc !important;
+}
+
+.modal-form {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.modal-form input, .modal-form textarea, .modal-form select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 204, 0.3);
+    border-radius: 4px;
+    padding: 12px;
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+}
+
+.modal-form textarea {
+    resize: vertical;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.danger-btn {
+    background: linear-gradient(135deg, #ff4444, #990000) !important;
+    color: white !important;
+}
+
+.member-item.clickable {
+    cursor: context-menu;
+}

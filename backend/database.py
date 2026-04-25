@@ -139,6 +139,28 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            blocker TEXT NOT NULL,
+            blocked TEXT NOT NULL,
+            blocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(blocker, blocked)
+        )
+    ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reporter TEXT NOT NULL,
+            reported TEXT NOT NULL,
+            reason TEXT,
+            details TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     c.execute('''
         CREATE TABLE IF NOT EXISTS missions (
@@ -1223,7 +1245,6 @@ def send_system_message_db(receiver, subject, body):
         return False
     finally:
         conn.close()
-
 def get_user_messages_db(username):
     conn = get_connection()
     c = conn.cursor()
@@ -1242,8 +1263,8 @@ def get_user_messages_db(username):
                 "sender": r[1],
                 "subject": r[2],
                 "body": r[3],
-                "date": r[4],
-                "read": bool(r[5]),
+                "sent_at": r[4],
+                "is_read": bool(r[5]),
                 "type": r[6]
             })
         return msgs
@@ -1252,17 +1273,43 @@ def get_user_messages_db(username):
     finally:
         conn.close()
 
-def mark_message_read_db(msg_id):
+def get_sent_messages_db(username):
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('UPDATE messages SET is_read = 1 WHERE id = ?', (msg_id,))
+        c.execute('''
+            SELECT id, receiver, subject, body, sent_at, is_read, type
+            FROM messages 
+            WHERE sender = ?
+            ORDER BY sent_at DESC
+        ''', (username,))
+        rows = c.fetchall()
+        return [{
+            "id": r[0],
+            "receiver": r[1],
+            "subject": r[2],
+            "body": r[3],
+            "sent_at": r[4],
+            "is_read": bool(r[5]),
+            "type": r[6]
+        } for r in rows]
+    except Exception:
+        return []
+    finally:
+        conn.close()
+
+def mark_message_read_db(message_id):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute("UPDATE messages SET is_read=1 WHERE id=?", (message_id,))
         conn.commit()
         return True
     except Exception:
         return False
     finally:
         conn.close()
+
 def get_user_by_email_db(email):
     conn = get_connection()
     c = conn.cursor()
@@ -1668,12 +1715,22 @@ def send_friend_request(sender, receiver):
     c = conn.cursor()
     try:
         # Don't add yourself
-        if sender == receiver: return False
+        if sender == receiver: 
+            return {"success": False, "error": "No puedes agregarte a ti mismo."}
+        
+        # Check if already friends
+        a, b = sorted([sender, receiver])
+        c.execute("SELECT 1 FROM friends WHERE user_a=? AND user_b=?", (a, b))
+        if c.fetchone():
+            return {"success": False, "error": "Ya son amigos."}
+            
         c.execute("INSERT INTO friend_requests (sender, receiver) VALUES (?, ?)", (sender, receiver))
         conn.commit()
-        return True
+        return {"success": True}
     except sqlite3.IntegrityError:
-        return False
+        return {"success": False, "error": "Ya existe una solicitud pendiente."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
     finally:
         conn.close()
 
@@ -1724,4 +1781,45 @@ def get_all_users_db():
     rows = c.fetchall()
     conn.close()
     return [{"username": r[0], "faction": r[1], "level": r[2]} for r in rows]
+
+def remove_friend_db(user_a, user_b):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        u1, u2 = sorted([user_a, user_b])
+        c.execute("DELETE FROM friends WHERE user_a=? AND user_b=?", (u1, u2))
+        # Also delete friend request if any
+        c.execute("DELETE FROM friend_requests WHERE (sender=? AND receiver=?) OR (sender=? AND receiver=?)", (user_a, user_b, user_b, user_a))
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
+
+def block_user_db(blocker, blocked):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT OR IGNORE INTO blocked_users (blocker, blocked) VALUES (?, ?)", (blocker, blocked))
+        # Optional: remove from friends if they were
+        remove_friend_db(blocker, blocked)
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
+
+def report_user_db(reporter, reported, reason, details=""):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO user_reports (reporter, reported, reason, details) VALUES (?, ?, ?, ?)", (reporter, reported, reason, details))
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
 
