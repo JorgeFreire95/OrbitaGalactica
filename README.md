@@ -53,6 +53,17 @@
 - **Rotación Adaptativa**: El E.C.O. orienta su chasis automáticamente hacia la dirección de su movimiento o hacia el rumbo de la nave principal, proporcionando un feedback visual inmersivo.
 - **Modos de Operación**: Puede alternar entre estados Pasivos (escolta pura) y Activos (asistencia táctica), gestionados directamente a través de los protocolos del servidor.
 
+### 💬 Sistema Social y Chat Integrado
+- **Chat Multi-Canal**: Comunícate a través de canales dedicados: **Global** (todos los pilotos), **Empresa** (solo miembros de tu facción), **Clan** (mensajes internos de la alianza) y **Privado** (pestañas dedicadas para chats 1 a 1).
+- **Listado de Usuarios en Tiempo Real**: Panel lateral derecho en el chat que muestra a todos los pilotos conectados. Los usuarios se filtran automáticamente según el canal seleccionado para facilitar la interacción táctica.
+- **Menú Contextual de Interacción**: Clic derecho sobre cualquier piloto en el chat o en la lista para desplegar opciones rápidas:
+    - **💬 Hablar al privado**: Abre una pestaña directa de comunicación.
+    - **👤 Agregar a amigos**: Envía una solicitud formal de amistad.
+- **Página de Amigos Avanzada**: Dashboard social completo accesible desde el menú principal.
+    - **Buscador Global de Pilotos**: Encuentra a cualquier usuario registrado en la galaxia mediante el sistema de búsqueda en tiempo real.
+    - **Gestor de Solicitudes**: Panel dedicado para revisar, aceptar o rechazar peticiones de amistad pendientes.
+    - **Lista de Contactos**: Visualiza a tus amigos y su estado de conexión (Online/Offline) de un solo vistazo.
+
 ### 🛡️ Zonas Seguras y Estaciones
 - **Estación Central: Mega-Estructura Industrial**: Rediseño completo de la base principal. Una imponente estructura isométrica vertical con plataformas de aterrizaje asimétricas, iluminación de balizas dinámica, paneles de advertencia ("hazard stripes") y un puente de mando hexagonal iluminado por neón.
 - **Santuario Galáctico**: Tanto la Estación Central como los Portales Estelares cuentan con **Zonas Seguras** (anillo turquesa) donde eres invulnerable a los ataques.

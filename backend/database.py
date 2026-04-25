@@ -99,6 +99,27 @@ def init_db():
     ''')
 
     c.execute('''
+        CREATE TABLE IF NOT EXISTS friends (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_a TEXT NOT NULL,
+            user_b TEXT NOT NULL,
+            since TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_a, user_b)
+        )
+    ''')
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS friend_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender TEXT NOT NULL,
+            receiver TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(sender, receiver)
+        )
+    ''')
+
+    c.execute('''
         CREATE TABLE IF NOT EXISTS announcements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -1641,3 +1662,66 @@ def claim_mission_reward_db(username, mission_id):
         }
     finally:
         conn.close()
+
+def send_friend_request(sender, receiver):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Don't add yourself
+        if sender == receiver: return False
+        c.execute("INSERT INTO friend_requests (sender, receiver) VALUES (?, ?)", (sender, receiver))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def accept_friend_request(sender, receiver):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        # Check if exists (sender is the one who sent, receiver is the one who accepts)
+        c.execute("SELECT id FROM friend_requests WHERE sender=? AND receiver=? AND status='pending'", (sender, receiver))
+        row = c.fetchone()
+        if not row: return False
+        
+        c.execute("UPDATE friend_requests SET status='accepted' WHERE id=?", (row[0],))
+        # Add to friends
+        a, b = sorted([sender, receiver])
+        c.execute("INSERT OR IGNORE INTO friends (user_a, user_b) VALUES (?, ?)", (a, b))
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
+
+def get_friends(username):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT user_a, user_b FROM friends WHERE user_a=? OR user_b=?", (username, username))
+    rows = c.fetchall()
+    friends = []
+    for r in rows:
+        friends.append(r[1] if r[0] == username else r[0])
+    conn.close()
+    return friends
+
+def get_friend_requests(username):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT sender FROM friend_requests WHERE receiver=? AND status='pending'", (username,))
+    rows = c.fetchall()
+    conn.close()
+    return [r[0] for r in rows]
+
+def get_all_users_db():
+    conn = get_connection()
+    c = conn.cursor()
+    # Obtenemos username, faction y level para el buscador
+    c.execute("SELECT username, faction, level FROM users")
+    rows = c.fetchall()
+    conn.close()
+    return [{"username": r[0], "faction": r[1], "level": r[2]} for r in rows]
+

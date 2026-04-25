@@ -9,6 +9,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
+  const joinSentRef = useRef(false);
+  const lastToggleRef = useRef(0); // Cooldown para el botón de ECO
   const cameraRef = useRef({ x: 0, y: 0 });
   
   const [gameState, setGameState] = useState(null);
@@ -19,9 +21,17 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const [showJumpPrompt, setShowJumpPrompt] = useState(false);
   const [activeMissions, setActiveMissions] = useState([]);
   const [missionTrackerExpanded, setMissionTrackerExpanded] = useState(false);
-  const joinSentRef = useRef(false);
+  
+  // Estados para la ventana arrastrable del ECO
+  const [ecoPos, setEcoPos] = useState({ x: window.innerWidth - 620, y: 20 });
+  const [isEcoMinimized, setIsEcoMinimized] = useState(false);
+  const [isDraggingEco, setIsDraggingEco] = useState(false);
+  const ecoDragOffset = useRef({ x: 0, y: 0 });
+  const isNavigatingRef = useRef(false);
   const lastFrameTimeRef = useRef(performance.now());
   const lastReactRenderRef = useRef(0);
+  const isDraggingEcoRef = useRef(false);
+  const isDraggingRef = useRef(false);
 
   // --- DRAGGABLE HUD STATE ---
   const [hotbarPos, setHotbarPos] = useState(() => {
@@ -98,6 +108,42 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     }
   }, []);
 
+  // Handlers para arrastrar la ventana del ECO
+  const handleEcoMouseDown = (e) => {
+    e.stopPropagation(); // Evitar que el clic mueva la nave
+    setIsDraggingEco(true);
+    isDraggingEcoRef.current = true;
+    ecoDragOffset.current = {
+      x: e.clientX - ecoPos.x,
+      y: e.clientY - ecoPos.y
+    };
+  };
+
+  const handleEcoMouseMove = useCallback((e) => {
+    if (isDraggingEco) {
+      setEcoPos({
+        x: e.clientX - ecoDragOffset.current.x,
+        y: e.clientY - ecoDragOffset.current.y
+      });
+    }
+  }, [isDraggingEco]);
+
+  const handleEcoMouseUp = useCallback(() => {
+    setIsDraggingEco(false);
+    isDraggingEcoRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    if (isDraggingEco) {
+      window.addEventListener('mousemove', handleEcoMouseMove);
+      window.addEventListener('mouseup', handleEcoMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleEcoMouseMove);
+      window.removeEventListener('mouseup', handleEcoMouseUp);
+    };
+  }, [isDraggingEco, handleEcoMouseMove, handleEcoMouseUp]);
+
   // --- INPUT HANDLERS ---
   const handleKeyDown = useCallback((e) => {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -167,7 +213,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   }, []);
 
   const handleMouseDown = useCallback((e) => { 
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || e.target !== canvasRef.current) return;
+    isNavigatingRef.current = true;
     const rect = canvasRef.current.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
@@ -216,23 +263,33 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   }, []);
 
   const handleMouseUp = useCallback(() => { 
-    if (isDragging) {
+    if (isDraggingRef.current) {
       localStorage.setItem('og_hotbar_pos', JSON.stringify(hotbarPos));
     }
     setIsDragging(false);
-  }, [isDragging, hotbarPos]);
+    isDraggingRef.current = false;
+    isNavigatingRef.current = false;
+  }, [hotbarPos]);
 
   const handleMouseMove = useCallback((e) => {
-    if (isDragging) {
-      setHotbarPos({
-        x: e.clientX - dragOffset.current.x,
-        y: e.clientY - dragOffset.current.y
-      });
+    if (isDraggingRef.current || isDraggingEcoRef.current) {
+      if (isDraggingRef.current) {
+        setHotbarPos({
+          x: e.clientX - dragOffset.current.x,
+          y: e.clientY - dragOffset.current.y
+        });
+      }
+      if (isDraggingEcoRef.current) {
+          setEcoPos({
+            x: e.clientX - ecoDragOffset.current.x,
+            y: e.clientY - ecoDragOffset.current.y
+          });
+      }
       return;
     }
 
     // MOVIMIENTO CONTINUO: Si se mantiene el click izquierdo (buttons === 1)
-    if (e.buttons === 1 && canvasRef.current) {
+    if (e.buttons === 1 && canvasRef.current && isNavigatingRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
@@ -254,11 +311,12 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           keys.current.target_y = screenY + cameraRef.current.y;
         }
     }
-  }, [isDragging]);
+  }, [isDragging, isDraggingEco]);
 
   const handleHotbarMouseDown = useCallback((e) => {
     if (isUiLocked) return;
     setIsDragging(true);
+    isDraggingRef.current = true;
     dragOffset.current = { x: e.clientX - hotbarPos.x, y: e.clientY - hotbarPos.y };
     e.stopPropagation();
   }, [isUiLocked, hotbarPos]);
@@ -345,8 +403,15 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                if (oldP && p.hp > 0) {
                    p.tx = p.x; p.ty = p.y; // Meta del servidor
                    p.x = oldP.x; p.y = oldP.y; // Conservar pos visual local actual
+                   
+                   // Sincronizar interpolación del ECO si existe
+                   if (p.eco && oldP.eco && p.eco.x !== undefined) {
+                       p.eco.tx = p.eco.x; p.eco.ty = p.eco.y;
+                       p.eco.x = oldP.eco.x; p.eco.y = oldP.eco.y;
+                   }
                } else {
                    p.tx = p.x; p.ty = p.y;
+                   if (p.eco) { p.eco.tx = p.eco.x; p.eco.ty = p.eco.y; }
                }
             });
 
@@ -522,10 +587,21 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
              } else {
                  // El jugador propio necesita interpolación más agresiva
                  // para que la cámara siga de cerca y evite desync visual
-                 const glideFactor = p.is_self ? 40.0 : 15.0;
-                 const glide = Math.min(1.0, dt * glideFactor); 
-                 p.x += (p.tx - p.x) * glide;
-                 p.y += (p.ty - p.y) * glide;
+                  const glideFactor = p.is_self ? 40.0 : 15.0;
+                  const glide = Math.min(1.0, dt * glideFactor); 
+                  p.x += (p.tx - p.x) * glide;
+                  p.y += (p.ty - p.y) * glide;
+
+                  // Interpolar posición del ECO con la misma suavidad que la nave para evitar desincronización visual
+                  if (p.eco && p.eco.tx !== undefined) {
+                      if (p.eco.x === undefined) {
+                          p.eco.x = p.eco.tx;
+                          p.eco.y = p.eco.ty;
+                      }
+                      // IMPORTANTE: El ECO debe usar el MISMO glide que la nave para no "tiritar"
+                      p.eco.x += (p.eco.tx - p.eco.x) * glide;
+                      p.eco.y += (p.eco.ty - p.eco.y) * glide;
+                  }
              }
              p.x = Math.max(20, Math.min(M_WIDTH - 20, p.x));
              p.y = Math.max(20, Math.min(M_HEIGHT - 20, p.y));
@@ -590,27 +666,39 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       animationId = requestAnimationFrame(renderLoop);
     };
 
-    window.addEventListener('resize', resize);
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('mousemove', handleMouseMove);
-    
-    resize();
     connectWs();
     renderLoop();
 
     return () => {
       isMounted = false;
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('mousemove', handleMouseMove);
       cancelAnimationFrame(animationId);
       if (wsRef.current) wsRef.current.close();
     };
   }, []); // WE ONLY CONNECT ONCE
+
+  // Event Listeners effect
+  useEffect(() => {
+    const handleResize = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Llamada inicial para establecer el tamaño correcto
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [handleKeyDown, handleKeyUp, handleMouseUp, handleMouseMove]);
 
   // --- SEND JOIN MESSAGE ONLY WHEN STARTED ---
   useEffect(() => {
@@ -671,14 +759,20 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     }
   }, [initialWips, gameStarted]);
 
+  // Sincronizar ECO solo cuando cambie el equipamiento o estado básico (no por integridad/fuel que vienen del server)
   useEffect(() => {
     if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      // Evitamos enviar actualizaciones constantes si no hay cambios estructurales
       wsRef.current.send(JSON.stringify({ 
         type: 'update_eco', 
-        eco_data: eco 
+        eco_data: {
+          active: eco.active,
+          equipped: eco.equipped,
+          mode: eco.mode
+        }
       }));
     }
-  }, [eco, gameStarted]);
+  }, [eco.equipped, eco.active, gameStarted]);
 
   useEffect(() => {
     if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
@@ -933,85 +1027,171 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 </div>
             </div>
 
-            {/* ECO CONTROL HUD */}
-            <div className="eco-control-hud" style={{
+            {/* ECO CONTROL HUD - Arrastrable y Minimizable */}
+            <div className="eco-control-hud" 
+                onMouseDown={(e) => {
+                    e.stopPropagation();
+                    isNavigatingRef.current = false;
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                    e.stopPropagation();
+                    isNavigatingRef.current = false;
+                }}
+                style={{
                 position: 'fixed',
-                top: '20px',
-                right: '420px', 
-                width: '180px',
+                left: `${ecoPos.x}px`,
+                top: `${ecoPos.y}px`,
+                width: isEcoMinimized ? '40px' : '180px',
+                height: isEcoMinimized ? '40px' : 'auto',
                 background: 'rgba(5, 8, 16, 0.9)',
                 backdropFilter: 'blur(10px)',
                 border: `1px solid ${eco.deployed ? '#00ffcc88' : '#ff336644'}`,
                 borderRadius: '8px',
-                padding: '12px',
+                padding: isEcoMinimized ? '0' : '12px',
                 zIndex: 1000,
                 fontFamily: 'Orbitron',
                 boxShadow: eco.deployed ? '0 0 15px rgba(0, 255, 204, 0.1)' : 'none',
-                pointerEvents: 'auto'
+                pointerEvents: 'auto',
+                transition: 'width 0.3s, height 0.3s, padding 0.3s',
+                overflow: 'hidden',
+                userSelect: 'none'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    <div style={{ 
-                        width: '32px', height: '32px', 
-                        background: '#070b16', 
-                        borderRadius: '4px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        border: `1px solid ${eco.deployed ? '#00ffcc' : '#333'}`
-                    }}>
-                        <img src="/eco_drone.png" alt="ECO" style={{ width: '24px', height: '24px', objectFit: 'contain', opacity: eco.deployed ? 1 : 0.4 }} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold' }}>SISTEMA E.C.O.</div>
-                        <div style={{ fontSize: '0.5rem', color: eco.deployed ? '#00ffcc' : '#ff3366' }}>{eco.deployed ? 'MODO ACTIVO' : 'DESCONECTADO'}</div>
-                    </div>
+                {/* Botón Minimizar/Maximizar - Siempre visible */}
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEcoMinimized(!isEcoMinimized);
+                    }}
+                    style={{
+                        position: 'absolute',
+                        top: '5px',
+                        right: '5px',
+                        background: 'none',
+                        border: 'none',
+                        color: '#00ffcc',
+                        cursor: 'pointer',
+                        zIndex: 1001,
+                        fontSize: '1rem'
+                    }}
+                >
+                    {isEcoMinimized ? '🔲' : '➖'}
+                </button>
+
+                {/* Handle para arrastrar - Header */}
+                <div 
+                    onMouseDown={handleEcoMouseDown}
+                    style={{ 
+                        cursor: isDraggingEco ? 'grabbing' : 'grab',
+                        padding: '5px',
+                        marginBottom: isEcoMinimized ? '0' : '10px',
+                        borderBottom: isEcoMinimized ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        justifyContent: isEcoMinimized ? 'center' : 'flex-start',
+                        alignItems: 'center',
+                        height: isEcoMinimized ? '40px' : 'auto'
+                    }}
+                >
+                    {isEcoMinimized ? (
+                         <img src="/eco_drone.png" alt="ECO" style={{ width: '20px', height: '20px', objectFit: 'contain', opacity: eco.deployed ? 1 : 0.4, mixBlendMode: 'screen', filter: 'contrast(1.8) brightness(1.4)' }} />
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ 
+                                width: '32px', height: '32px', 
+                                background: '#070b16', 
+                                borderRadius: '4px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                border: `1px solid ${eco.deployed ? '#00ffcc' : '#333'}`,
+                                overflow: 'hidden'
+                            }}>
+                                <img src="/eco_drone.png" alt="ECO" style={{ width: '24px', height: '24px', objectFit: 'contain', opacity: eco.deployed ? 1 : 0.4, mixBlendMode: 'screen', filter: 'contrast(1.8) brightness(1.4)' }} />
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold' }}>SISTEMA E.C.O.</div>
+                                <div style={{ fontSize: '0.5rem', color: eco.deployed ? '#00ffcc' : '#ff3366' }}>{eco.deployed ? 'MODO ACTIVO' : 'DESCONECTADO'}</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {!eco.active ? (
-                    <div style={{ fontSize: '0.6rem', color: '#555', textAlign: 'center', padding: '5px' }}>SISTEMA NO ADQUIRIDO</div>
-                ) : (
-                    <>
+                {!isEcoMinimized && (
+                    <div className="eco-content-wrapper" style={{ opacity: 1, transition: 'opacity 0.3s' }}>
+                        {!eco.active ? (
+                            <div style={{ fontSize: '0.6rem', color: '#555', textAlign: 'center', padding: '5px' }}>SISTEMA NO ADQUIRIDO</div>
+                        ) : (
+                            <>
                         {/* Stats Bars */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: '6px', 
+                            marginBottom: '12px',
+                            opacity: eco.deployed ? 1 : 0.5,
+                            transition: 'opacity 0.3s ease'
+                        }}>
                             {/* Integrity (Vida) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
                                 <span>INTEGRIDAD</span>
-                                <span>{Math.floor(eco?.integrity ?? 100)}%</span>
+                                <span>{eco.deployed ? `${Math.floor((eco?.integrity / 100) * (eco?.max_hp || 500))} / ${Math.floor(eco?.max_hp || 500)}` : '0 / 0'}</span>
                             </div>
                             <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-                                <div style={{ width: `${eco?.integrity ?? 100}%`, height: '100%', background: (eco?.integrity ?? 100) > 30 ? '#00ffcc' : '#ff3366', boxShadow: '0 0 5px rgba(0,255,204,0.3)' }} />
+                                <div style={{ 
+                                    width: `${eco.deployed ? (eco?.integrity ?? 100) : 0}%`, 
+                                    height: '100%', 
+                                    background: (eco?.integrity ?? 100) > 30 ? '#00ffcc' : '#ff3366', 
+                                    boxShadow: '0 0 5px rgba(0,255,204,0.3)',
+                                    transition: 'width 0.5s ease-in-out'
+                                }} />
                             </div>
 
                             {/* Shield (Escudo) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
                                 <span>ESCUDO</span>
-                                <span>{Math.floor(((eco?.shield ?? 0) / (eco?.max_shield || 500)) * 100)}%</span>
+                                <span>{eco.deployed ? `${Math.floor(eco?.shield || 0)} / ${Math.floor(eco?.max_shield || 500)}` : '0 / 0'}</span>
                             </div>
                             <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-                                <div style={{ width: `${((eco?.shield ?? 0) / (eco?.max_shield || 500)) * 100}%`, height: '100%', background: '#00ccff', boxShadow: '0 0 5px rgba(0,204,255,0.3)' }} />
+                                <div style={{ 
+                                    width: `${eco.deployed ? ((eco?.shield ?? 0) / (eco?.max_shield || 500)) * 100 : 0}%`, 
+                                    height: '100%', 
+                                    background: '#00ccff', 
+                                    boxShadow: '0 0 5px rgba(0,204,255,0.3)',
+                                    transition: 'width 0.5s ease-in-out'
+                                }} />
                             </div>
 
                             {/* Fuel (Combustible) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
                                 <span>COMBUSTIBLE</span>
-                                <span>{Math.floor(eco?.fuel ?? 5000)}</span>
+                                <span>{eco.deployed ? `${Math.floor(eco?.fuel ?? 5000)} / 5000` : '0 / 0'}</span>
                             </div>
                             <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-                                <div style={{ width: `${((eco?.fuel ?? 5000) / 5000) * 100}%`, height: '100%', background: '#ffaa00', boxShadow: '0 0 5px rgba(255,170,0,0.3)' }} />
+                                <div style={{ 
+                                    width: `${eco.deployed ? ((eco?.fuel ?? 5000) / 5000) * 100 : 0}%`, 
+                                    height: '100%', 
+                                    background: '#ffaa00', 
+                                    boxShadow: '0 0 5px rgba(255,170,0,0.3)',
+                                    transition: 'width 0.5s ease-in-out'
+                                }} />
                             </div>
 
                             {/* Speed */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa' }}>
                                 <span>VELOCIDAD</span>
-                                <span style={{ color: '#fff' }}>{Math.floor(eco.speed || 0)} KM/H</span>
+                                <span style={{ color: eco.deployed ? '#fff' : '#444' }}>{eco.deployed ? Math.floor(eco.speed || 0) : 0} KM/H</span>
                             </div>
                         </div>
 
                         {/* Mode Selector */}
-                        <div style={{ marginBottom: '12px' }}>
-                            <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '4px' }}>PROTOCOLO DE ACCIÓN</div>
+                        <div style={{ marginBottom: '12px', opacity: eco.deployed ? 1 : 0.4 }}>
+                            <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '4px' }}>PROTOCOLO DE ACCIÓN {eco.deployed ? '' : '(APAGADO)'}</div>
                             <select 
+                                disabled={!eco.deployed}
                                 value={eco.mode}
+                                onMouseDown={(e) => { e.stopPropagation(); isNavigatingRef.current = false; }}
+                                onPointerDown={(e) => { e.stopPropagation(); isNavigatingRef.current = false; }}
+                                onClick={(e) => { e.stopPropagation(); isNavigatingRef.current = false; }}
                                 onChange={(e) => {
                                     const newMode = e.target.value;
                                     const newEco = { ...eco, mode: newMode };
@@ -1039,7 +1219,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         </div>
 
                         <button 
-                            onClick={() => {
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                isNavigatingRef.current = false;
+                                const now = Date.now();
+                                if (now - lastToggleRef.current < 1000) return; // 1s cooldown
+                                lastToggleRef.current = now;
+
                                 const newEco = { ...eco, deployed: !eco.deployed };
                                 setEco(newEco);
                                 if (onUpdateEco) onUpdateEco(newEco);
@@ -1064,6 +1250,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             {eco.deployed ? 'DESACTIVAR SISTEMA' : 'ACTIVAR SISTEMA'}
                         </button>
                     </>
+                )}
+            </div>
                 )}
             </div>
 

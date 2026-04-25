@@ -479,6 +479,7 @@ class GameState:
         
         player["party_id"] = None
         self.players[client_id] = player
+        self.broadcast_user_list()
 
         # Apply initial modules if provided
         if initial_modules:
@@ -1056,31 +1057,57 @@ class GameState:
                                     attacking = True
                                     target_id = attacker_id
             
-            # 3. Movimiento del ECO
-            # El ECO intenta estar a ~100m del objetivo (jugador o enemigo)
-            dx = target_x - eco["x"]
-            dy = target_y - eco["y"]
+            # 3. Movimiento del ECO (Sistema de Referencia Móvil)
+            # Guardamos posición anterior para derivar vx/vy
+            old_x = eco.get("x", p["x"])
+            old_y = eco.get("y", p["y"])
+            
+            # El ECO intenta estar a una distancia ideal del objetivo (jugador o atacante)
+            dx = target_x - old_x
+            dy = target_y - old_y
             dist = math.hypot(dx, dy)
-            ideal_dist = 100 if not attacking else 250 # Mantener más distancia si ataca
+            ideal_dist = 120 if not attacking else 280
 
-            if dist > ideal_dist + 20:
-                # Perseguir
-                speed = eco.get("speed", 300)
-                angle = math.atan2(dy, dx)
-                eco["vx"] = math.cos(angle) * speed
-                eco["vy"] = math.sin(angle) * speed
-            elif dist < ideal_dist - 20 and dist > 0:
-                # Alejarse un poco
-                speed = eco.get("speed", 300) * 0.5
-                angle = math.atan2(dy, dx)
-                eco["vx"] = -math.cos(angle) * speed
-                eco["vy"] = -math.sin(angle) * speed
+            # Calculamos el punto exacto donde el ECO "quiere" estar
+            if dist > 0.1:
+                target_x_point = target_x - (dx / dist) * ideal_dist
+                target_y_point = target_y - (dy / dist) * ideal_dist
             else:
-                eco["vx"] *= 0.9 # Frenado suave
-                eco["vy"] *= 0.9
+                target_x_point = target_x - ideal_dist
+                target_y_point = target_y
 
-            eco["x"] += eco.get("vx", 0) * dt
-            eco["y"] += eco.get("vy", 0) * dt
+            # LÓGICA DE MOVIMIENTO ESTABLE:
+            # 1. Primero, movemos el ECO lo mismo que se movió la nave (Inercia base)
+            ship_move_x = p.get("vx", 0) * dt
+            ship_move_y = p.get("vy", 0) * dt
+            
+            new_x = old_x + ship_move_x
+            new_y = old_y + ship_move_y
+            
+            # 2. Luego, aplicamos una corrección suave hacia el punto ideal (LERP)
+            # Aumentamos el umbral de calma y suavizamos el aterrizaje
+            dist_to_ideal = math.hypot(target_x_point - new_x, target_y_point - new_y)
+            
+            if dist_to_ideal > 8.0: # Umbral de calma aumentado significativamente
+                # Factor de suavizado variable: si está a menos de 40px, reduce la velocidad
+                arrival_factor = 1.0
+                if dist_to_ideal < 40.0:
+                    arrival_factor = dist_to_ideal / 40.0
+                
+                lerp_speed = 5.0 * arrival_factor
+                lerp_factor = min(1.0, lerp_speed * dt)
+                new_x += (target_x_point - new_x) * lerp_factor
+                new_y += (target_y_point - new_y) * lerp_factor
+
+            # 3. Actualizar y derivar velocidades para el frontend (rotación)
+            eco["x"] = new_x
+            eco["y"] = new_y
+            # Aplicamos un filtro de paso bajo a la velocidad para evitar tirones visuales en la rotación
+            v_inst_x = (new_x - old_x) / dt if dt > 0 else 0
+            v_inst_y = (new_y - old_y) / dt if dt > 0 else 0
+            
+            eco["vx"] = (eco.get("vx", 0) * 0.7) + (v_inst_x * 0.3)
+            eco["vy"] = (eco.get("vy", 0) * 0.7) + (v_inst_y * 0.3)
 
             # 4. Lógica de Disparo del ECO
             if attacking and target_id and now - eco.get("last_shot", 0) > 0.8:
@@ -1767,6 +1794,13 @@ class GameState:
         player["has_auto_repair"] = False
         
         for mod in player.get("equipped", []):
+            # SEGURIDAD: Los protocolos NUNCA afectan a la nave principal ni a los Wips
+            # Filtramos por tipo y por ID para evitar cualquier fuga de estadísticas
+            m_type = str(mod.get("type", "")).lower()
+            m_id = str(mod.get("id", "")).lower()
+            if "protocol" in m_type or "proto" in m_id:
+                continue
+
             if "atk" in mod: player["atk"] += mod["atk"]
             if "shld" in mod: player["max_shld"] += mod["shld"]
             if "spd" in mod: player["spd"] += mod["spd"]
@@ -1782,6 +1816,12 @@ class GameState:
         # 1.5. Sumar Módulos de Wips (Drones)
         for wip in player.get("wips", []):
             for mod in wip.get("equipped", []):
+                # SEGURIDAD: Los protocolos solo afectan al ECO
+                m_type = str(mod.get("type", "")).lower()
+                m_id = str(mod.get("id", "")).lower()
+                if "protocol" in m_type or "proto" in m_id:
+                    continue
+
                 if "atk" in mod: player["atk"] += mod["atk"]
                 if "shld" in mod: player["max_shld"] += mod["shld"]
                 if "spd" in mod: player["spd"] += mod["spd"]
@@ -1796,19 +1836,8 @@ class GameState:
         # 1.6 Sumar Módulos de E.C.O. (Solo si está activo Y desplegado)
         eco = player.get("eco", {})
         if eco.get("active") and eco.get("deployed"):
-            equipped_eco = eco.get("equipped", {})
-            # Solo los protocolos del ECO afectan a la nave principal (mejoras globales)
-            for mod in equipped_eco.get("protocols", []):
-                # Protocolos pueden dar bonos especiales o stats planas
-                if "atk" in mod: player["atk"] += mod["atk"]
-                if "shld" in mod: player["max_shld"] += mod["shld"]
-                if "spd" in mod: player["spd"] += mod["spd"]
-                if "hp" in mod: player["max_hp"] += mod["hp"]
-                if "cargo" in mod: player["max_cargo"] = player.get("max_cargo", 1500) + mod["cargo"]
-                
-                if mod.get("type") == "protocol" or mod.get("type") == "protocols":
-                    if "atk_bonus" in mod: player["atk"] *= (1 + mod["atk_bonus"])
-                    if "shld_bonus" in mod: player["max_shld"] *= (1 + mod["shld_bonus"])
+            # Los protocolos ahora solo afectan al propio E.C.O. para potenciar su rendimiento individual
+            pass
 
         # --- CALCULO DE STATS PROPIAS DEL E.C.O. ---
         eco = player.get("eco", {})
@@ -1817,8 +1846,9 @@ class GameState:
             lvl_mult = 1 + (eco.get("level", 1) * 0.05)
             eco["max_shield"] = 500 * lvl_mult
             eco["atk"] = 25 * lvl_mult
-            # La velocidad base del ECO es un 20% superior a la del jugador para poder alcanzarlo
-            eco["speed"] = player["spd"] * 1.2
+            eco["max_hp"] = 500 * lvl_mult
+            # Sincronizar velocidad con la nave principal (multiplicador aumentado a 4.0 para ser siempre superior)
+            eco["speed"] = player["spd"] * 4.0
             
             if eco.get("deployed"):
                 # Sumar módulos equipados específicamente en el ECO
@@ -1827,15 +1857,23 @@ class GameState:
                     for mod in mods:
                         if "atk" in mod: eco["atk"] += mod["atk"]
                         if "shld" in mod: eco["max_shield"] += mod["shld"]
+                        if "spd" in mod: eco["speed"] += mod["spd"]
+                        if "hp" in mod: eco["max_hp"] += mod["hp"]
                         
                         # Protocolos del ECO (bonos directos a sus propias stats)
-                        if mod.get("type") == "protocol":
+                        if mod.get("type") == "protocol" or mod.get("type") == "protocols":
                             if "atk_bonus" in mod: eco["atk"] *= (1 + mod["atk_bonus"])
                             if "shld_bonus" in mod: eco["max_shield"] *= (1 + mod["shld_bonus"])
+                            if "spd_bonus" in mod: eco["speed"] *= (1 + mod["spd_bonus"])
+                            if "hp_bonus" in mod: eco["max_hp"] *= (1 + mod["hp_bonus"])
             
-            # Asegurar consistencia de escudo actual
+            # Asegurar consistencia de escudo e integridad actual
             if "shield" not in eco: eco["shield"] = eco["max_shield"]
             eco["shield"] = min(eco["shield"], eco["max_shield"])
+            
+            # La integridad es un porcentaje (0-100)
+            if "integrity" not in eco: eco["integrity"] = 100
+            
             player["eco"] = eco
 
         # 2. Sumar Mejoras Temporales (Laboratorio) - ACUMULATIVO
@@ -1904,31 +1942,7 @@ class GameState:
         self.recalculate_player_stats(player)
         print(f"Drones Wips sincronizados para {client_id}: {len(player['wips'])} drones.")
 
-    def update_eco(self, client_id, eco_data):
-        """Sincroniza el sistema de apoyo E.C.O. en tiempo real."""
-        if client_id not in self.players: return
-        player = self.players[client_id]
-        
-        # El equipamiento del ECO solo se cambia en zona segura, pero el estado deployed/active puede cambiar en vuelo
-        # La lógica de zona segura ya se maneja en el frontend (Hangar), aquí solo sincronizamos.
-        player["eco"] = eco_data if isinstance(eco_data, dict) else {"active": False}
-        self.recalculate_player_stats(player)
-
-    def toggle_eco(self, client_id, deployed):
-        """Activa o desactiva el despliegue del E.C.O. en tiempo real."""
-        if client_id not in self.players: return
-        player = self.players[client_id]
-        if "eco" in player:
-            player["eco"]["deployed"] = deployed
-            self.recalculate_player_stats(player)
-
-    def update_eco_mode(self, client_id, mode):
-        """Cambia el modo de comportamiento del E.C.O. (pasivo/agresivo)."""
-        if client_id not in self.players: return
-        player = self.players[client_id]
-        if "eco" in player:
-            player["eco"]["mode"] = mode
-            print(f"Modo ECO cambiado a {mode} para {client_id}")
+    # Los métodos de ECO se han consolidado al final del archivo para evitar duplicados.
 
     def update_timed_upgrades(self, client_id, updates):
         """Sincroniza las mejoras temporales del laboratorio en tiempo real (pestaña Lab -> Juego)."""
@@ -2291,39 +2305,46 @@ class GameState:
             party["leader"] = party["members"][0]
 
     def update_eco(self, client_id, eco_data):
+        """Sincroniza los datos del ECO (equipamiento, estado activo, etc)."""
         if client_id not in self.players: return
         player = self.players[client_id]
         if "eco" not in player:
             player["eco"] = {"active": False, "deployed": False, "mode": "passive", "equipped": {}, "hp": 5000, "max_hp": 5000, "shld": 2000, "max_shld": 2000}
         
-        # Merge basic structure
-        player["eco"].update(eco_data)
+        # Sincronización segura de datos
+        if isinstance(eco_data, dict):
+            player["eco"].update(eco_data)
         
-        # Recalculate stats since protocol bonuses may have changed
         self.recalculate_player_stats(player)
 
     def toggle_eco(self, client_id, deployed):
+        """Maneja el despliegue/repliegue del dron."""
         if client_id not in self.players: return
         player = self.players[client_id]
+        
+        # Solo permitimos toggle si el jugador posee el sistema ECO
         if "eco" in player and player["eco"].get("active", False):
             player["eco"]["deployed"] = deployed
-            # Also position the ECO next to the player on deployment
-            if deployed:
-                player["eco"]["x"] = player["x"] - 50
-                player["eco"]["y"] = player["y"] - 50
-                player["eco"]["tx"] = player["eco"]["x"]
-                player["eco"]["ty"] = player["eco"]["y"]
             
-            # Recalculate stats since protocols activate/deactivate
+            # Posicionamiento inicial al desplegar para evitar que aparezca en el origen
+            if deployed:
+                player["eco"]["x"] = player["x"] - 60
+                player["eco"]["y"] = player["y"] - 60
+                player["eco"]["vx"] = 0
+                player["eco"]["vy"] = 0
+            
             self.recalculate_player_stats(player)
 
     def update_eco_mode(self, client_id, mode):
+        """Cambia el modo de combate del ECO."""
         if client_id not in self.players: return
         player = self.players[client_id]
-        if "eco" in player and player["eco"].get("active", False):
+        if "eco" in player:
             player["eco"]["mode"] = mode
+            # Forzamos recalculación por si el modo afecta a bonos futuros
+            self.recalculate_player_stats(player)
 
-    def handle_chat(self, sender_id, text, channel="global"):
+    def handle_chat(self, sender_id, text, channel="global", receiver=None):
         if sender_id not in self.players:
             return
             
@@ -2340,17 +2361,15 @@ class GameState:
                 "display_name": display_name,
                 "text": text,
                 "channel": channel,
+                "receiver": receiver,
                 "faction": sender["faction"],
                 "time": time.time()
             }
         }
         
-        # Broadcast logic
         import json
         msg_str = json.dumps(chat_msg)
         
-        # Use a separate thread or non-blocking way if possible, 
-        # but since we are in the main loop context, we use the websockets directly.
         for pid, ws in list(self.clients.items()):
             target_p = self.players.get(pid)
             if not target_p: continue
@@ -2362,13 +2381,93 @@ class GameState:
                 should_send = True
             elif channel == "clan" and sender.get("clan_tag") and target_p.get("clan_tag") == sender["clan_tag"]:
                 should_send = True
+            elif channel == "private":
+                # Solo remitente y destinatario
+                if target_p["user_id"] == receiver or target_p["user_id"] == sender_name:
+                    should_send = True
                 
             if should_send:
                 try:
                     import asyncio
-                    # Use the current event loop to schedule sending
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
                         loop.create_task(ws.send_text(msg_str))
-                except Exception as e:
-                    print(f"Error sending chat: {e}")
+                except:
+                    pass
+
+
+    def broadcast_user_list(self):
+        # Enviar lista de usuarios online con su info básica
+        online_users = []
+        for pid in self.players:
+            p = self.players[pid]
+            online_users.append({
+                "username": p.get("user_id"),
+                "display_name": f"[{p['clan_tag']}] {p.get('user_id')}" if p.get("clan_tag") else p.get("user_id"),
+                "faction": p.get("faction"),
+                "clan_tag": p.get("clan_tag")
+            })
+        
+        msg = {
+            "type": "user_list_update",
+            "users": online_users
+        }
+        
+        import json
+        msg_str = json.dumps(msg)
+        for ws in self.clients.values():
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(ws.send_text(msg_str))
+            except:
+                pass
+
+    def handle_friend_request(self, sender_id, receiver_name):
+        if sender_id not in self.players: return
+        sender = self.players[sender_id]
+        sender_name = sender.get("user_id")
+        
+        from database import send_friend_request
+        if send_friend_request(sender_name, receiver_name):
+            # Buscar si el receptor está online para notificarle en tiempo real
+            for pid, p in self.players.items():
+                if p.get("user_id") == receiver_name:
+                    ws = self.clients.get(pid)
+                    if ws:
+                        try:
+                            import asyncio
+                            import json
+                            loop = asyncio.get_event_loop()
+                            msg = json.dumps({"type": "friend_request_received", "from": sender_name})
+                            if loop.is_running():
+                                loop.create_task(ws.send_text(msg))
+                        except:
+                            pass
+                    break
+
+    def handle_friend_accept(self, receiver_id, sender_name):
+        if receiver_id not in self.players: return
+        receiver = self.players[receiver_id]
+        receiver_name = receiver.get("user_id")
+        
+        from database import accept_friend_request
+        if accept_friend_request(sender_name, receiver_name):
+            # Notificar a ambos que ahora son amigos
+            # (El receptor ya está procesando la acción, notificamos al remitente si está online)
+            for pid, p in self.players.items():
+                if p.get("user_id") == sender_name:
+                    ws = self.clients.get(pid)
+                    if ws:
+                        try:
+                            import asyncio
+                            import json
+                            loop = asyncio.get_event_loop()
+                            msg = json.dumps({"type": "friend_request_accepted", "by": receiver_name})
+                            if loop.is_running():
+                                loop.create_task(ws.send_text(msg))
+                        except:
+                            pass
+                    break
+

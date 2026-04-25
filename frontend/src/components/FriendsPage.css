@@ -1,0 +1,200 @@
+.friends-container {
+    padding: 30px;
+    background: rgba(5, 8, 16, 0.95);
+    min-height: 100vh;
+    font-family: 'Orbitron', sans-serif;
+    color: #fff;
+}
+
+.friends-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+}
+
+.friends-header-left {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.back-button {
+    background: none;
+    border: 1px solid #334466;
+    color: #88aaff;
+    padding: 8px 20px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    transition: all 0.3s;
+}
+
+.back-button:hover {
+    background: rgba(136, 170, 255, 0.1);
+    border-color: #88aaff;
+}
+
+.friends-header h1 {
+    font-size: 1.5rem;
+    letter-spacing: 4px;
+    margin: 0;
+    text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+.friends-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    background: rgba(0, 255, 204, 0.05);
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 255, 204, 0.1);
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.6rem;
+    color: #88aaff;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #00ffcc;
+}
+
+.friends-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
+
+.friends-panel {
+    background: rgba(13, 20, 38, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.search-panel {
+    border: 1px solid rgba(0, 255, 204, 0.2);
+}
+
+.panel-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 15px 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #00ffcc;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-bar {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-bar input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 255, 204, 0.3);
+    border-radius: 4px;
+    padding: 10px;
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+}
+
+.panel-content {
+    padding: 15px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 60vh;
+}
+
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 0.8rem;
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 8px;
+}
+
+.member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid transparent;
+    transition: all 0.3s;
+}
+
+.member-item:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(0, 255, 204, 0.2);
+}
+
+.member-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.member-name {
+    font-weight: bold;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.member-name.faction-MARS { color: #ff6600; }
+.member-name.faction-MOON { color: #00ffff; }
+.member-name.faction-PLUTO { color: #6666ff; }
+
+.member-role {
+    font-size: 0.7rem;
+    color: #88aaff;
+}
+
+.accept-btn, .add-btn {
+    background: linear-gradient(135deg, #00ffcc, #009977);
+    border: none;
+    color: #000;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    transition: all 0.3s;
+}
+
+.accept-btn:hover, .add-btn:hover {
+    box-shadow: 0 0 10px #00ffcc;
+    transform: scale(1.05);
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.6rem;
+    font-weight: bold;
+}
+
+.status-badge.active {
+    background: rgba(0, 255, 204, 0.1);
+    color: #00ffcc;
+    border: 1px solid #00ffcc;
+}

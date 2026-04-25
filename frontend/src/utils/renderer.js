@@ -68,12 +68,15 @@ const drawWips = (ctx, wips, shipSize, heading) => {
         const color = isSparks ? '#bf00ff' : '#00bbff'; // Púrpura para Sparks, Azul para Dron
         const pulse = 0.8 + Math.sin(time * 5 + i) * 0.2;
 
-        // Dibujar Imagen del Drone con Screen Blending para eliminar fondo negro
+        // Dibujar Imagen del Drone con Screen Blending para eliminar fondos negros perfectamente
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.7; // Reducimos opacidad general para que no brille tanto
+        ctx.globalAlpha = isSparks ? 0.9 : 1.0; 
+        // Filtro para asegurar que los fondos oscuros sean negros puros para el blending screen
+        if (!isSparks) ctx.filter = 'contrast(1.5) brightness(1.1)'; 
         const size = 28;
         ctx.drawImage(img, -size/2, -size/2, size, size);
+        ctx.filter = 'none';
         ctx.restore();
 
         // Núcleo brillante extra (Casi invisible ahora para evitar exceso de brillo)
@@ -98,8 +101,10 @@ const drawEco = (ctx, eco, shipSize, heading, playerX, playerY) => {
     if (eco.x !== undefined && eco.y !== undefined) {
         ctx.translate(eco.x - playerX, eco.y - playerY + hover);
         // Nueva rotación dinámica:
-        // Si el dron se está moviendo, mira hacia donde va. Si no, copia la rotación de la nave.
-        if (eco.vx !== 0 || eco.vy !== 0) {
+        // Si el dron se está moviendo con suficiente velocidad, mira hacia donde va. 
+        // Si no, copia la rotación de la nave para mantenerse alineado.
+        const vMag = Math.hypot(eco.vx || 0, eco.vy || 0);
+        if (vMag > 5) { // Threshold para evitar rotaciones erráticas por ruido
             ctx.rotate(Math.atan2(eco.vy, eco.vx) + Math.PI/2);
         } else {
             ctx.rotate(heading);
@@ -113,12 +118,14 @@ const drawEco = (ctx, eco, shipSize, heading, playerX, playerY) => {
     const color = '#00ffcc';
     const pulse = 0.8 + Math.sin(time * 8) * 0.2;
 
-    // Dibujar Imagen del ECO con Screen Blending
+    // Dibujar Imagen del ECO con Screen Blending (Efecto Energético Limpio)
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.globalAlpha = 0.9;
+    ctx.globalAlpha = 1.0;
+    ctx.filter = 'contrast(1.5) brightness(1.2)';
     const size = 50; // Tamaño de la ECO
     ctx.drawImage(ecoImg, -size/2, -size/2, size, size);
+    ctx.filter = 'none';
     ctx.restore();
 
     // Halo exterior de energía

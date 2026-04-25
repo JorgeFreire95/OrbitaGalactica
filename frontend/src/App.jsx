@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+// Last update: 2026-04-25 01:17
+import { useState, useEffect, useRef, useCallback } from 'react'
 import GameCanvas from './components/GameCanvas'
 import Hangar from './components/Hangar'
 import Shop from './components/Shop'
@@ -14,6 +15,7 @@ import { SHIPS, WIPS_CATALOG } from './utils/gameData'
 import Ranking from './components/Ranking'
 import Packages from './components/Packages'
 import Missions from './components/Missions'
+import FriendsPage from './components/FriendsPage'
 import './index.css'
 
 const API_URL = 'http://127.0.0.1:8000/api';
@@ -469,7 +471,7 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible]);
+  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible, eco, wips]);
 
   useEffect(() => {
     if (user && user.faction) {
@@ -1059,16 +1061,23 @@ function App() {
         />
       )}
 
-       {currentView === 'missions' && (
-         <Missions 
-           user={user}
-           onNavigate={(view) => setCurrentView(view)}
-           credits={credits}
-           paladio={paladio}
-           level={level}
-           xp={xp}
-         />
-       )}
+        {currentView === 'missions' && (
+          <Missions 
+            user={user} 
+            onNavigate={setCurrentView}
+            credits={credits}
+            level={level}
+            xp={xp}
+            paladio={paladio}
+          />
+        )}
+        {currentView === 'friends' && (
+          <FriendsPage 
+            user={user}
+            onNavigate={setCurrentView}
+          />
+        )}
+        {currentView === 'ranking' && <Ranking onNavigate={setCurrentView} />}
 
       {currentView === 'hangar' && (
         <Hangar 

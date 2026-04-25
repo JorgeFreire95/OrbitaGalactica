@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
@@ -15,7 +15,7 @@ from typing import Optional, List, Dict
 import mercadopago
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db
+from database import init_db, register_user, login_user, set_user_faction, get_all_users_db, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db, send_friend_request, accept_friend_request, get_friends, get_friend_requests
 
 class RegisterRequest(BaseModel):
     username: str
@@ -183,7 +183,7 @@ async def broadcast_online_count():
 async def game_loop():
     while True:
         try:
-            game_state.update(1.0 / 60.0) # 60 FPS update
+            game_state.update(1.0 / 30.0) # Match 30 FPS update interval
             # Enviar estado a todos los clientes (con timeout para evitar bloqueos)
             for client_id, ws in list(game_state.clients.items()):
                 try:
@@ -197,7 +197,7 @@ async def game_loop():
                     logger.debug(f"Error sending to {client_id}: {e}")
                     game_state.remove_player(client_id)
             
-            await asyncio.sleep(1.0 / 30.0) # Reduce to 30 FPS update for better stability
+            await asyncio.sleep(1.0 / 30.0) # 30 FPS update for stability
 
         except Exception as e:
             logger.error(f"Game loop master exception: {e}")
@@ -348,8 +348,9 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "chat" and player_added:
                 text = data.get("text")
                 channel = data.get("channel", "global")
+                receiver = data.get("receiver")
                 if text:
-                    game_state.handle_chat(client_id, text, channel)
+                    game_state.handle_chat(client_id, text, channel, receiver)
 
             elif data.get("type") == "party_invite" and player_added:
                 target_id = data.get("target_id")
@@ -396,6 +397,16 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "update_eco_mode" and player_added:
                 mode = data.get("mode", "passive")
                 game_state.update_eco_mode(client_id, mode)
+
+            elif data.get("type") == "friend_request" and player_added:
+                receiver = data.get("receiver")
+                if receiver:
+                    game_state.handle_friend_request(client_id, receiver)
+            
+            elif data.get("type") == "friend_accept" and player_added:
+                sender_name = data.get("sender")
+                if sender_name:
+                    game_state.handle_friend_accept(client_id, sender_name)
                 
     except WebSocketDisconnect as e:
         logger.info(f"DEBUG: Game client disconnected: {client_id} Code: {e.code}")
@@ -634,10 +645,6 @@ async def api_update_user_ship(req: ShipUpdateRequest):
         raise HTTPException(status_code=500, detail="Error al actualizar la nave activa en la base de datos.")
     return {"success": True, "message": "Nave actualizada correctamente."}
 
-@app.get("/api/messages")
-async def api_get_messages(username: str):
-    msgs = get_user_messages_db(username)
-    return {"messages": msgs}
 
 @app.post("/api/messages/send")
 async def api_send_message(req: MessageSendRequest):
@@ -645,6 +652,49 @@ async def api_send_message(req: MessageSendRequest):
     if not success:
         raise HTTPException(status_code=500, detail="Error al enviar el mensaje.")
     return {"message": "Mensaje enviado con éxito."}
+
+@app.get("/api/messages")
+async def get_messages(username: str):
+    from database import get_connection
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT id, sender, subject, body, type, sent_at, is_read FROM messages WHERE receiver = ? ORDER BY sent_at DESC", (username,))
+    rows = c.fetchall()
+    conn.close()
+    return [
+        {"id": r[0], "sender": r[1], "subject": r[2], "body": r[3], "type": r[4], "sent_at": r[5], "is_read": r[6]}
+        for r in rows
+    ]
+
+@app.post("/api/messages/mark_read")
+async def mark_message_read(msg_id: int = Body(..., embed=True)):
+    from database import get_connection
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("UPDATE messages SET is_read = 1 WHERE id = ?", (msg_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True}
+
+@app.get("/api/users")
+async def list_all_users():
+    return get_all_users_db()
+
+@app.get("/api/friends/{username}")
+async def get_user_friends(username: str):
+    from database import get_friends, get_friend_requests
+    friends = get_friends(username)
+    requests = get_friend_requests(username)
+    return {"friends": friends, "requests": requests}
+
+@app.post("/api/friends/accept")
+async def api_accept_friend(data: dict = Body(...)):
+    sender = data.get("sender")
+    receiver = data.get("receiver")
+    from database import accept_friend_request
+    if accept_friend_request(sender, receiver):
+        return {"success": True}
+    return {"success": False}
 
 @app.get("/api/user/stats")
 async def api_get_user_stats(username: str):
