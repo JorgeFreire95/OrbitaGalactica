@@ -5,7 +5,7 @@ import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, onUpdateOwnedShips }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -532,6 +532,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     p.onUpdateEco(me.eco || {});
                     setEco(me.eco || {});
                     last.eco = ecoStr;
+                }
+            }
+            if (p.onUpdateOwnedShips) {
+                const shipsStr = JSON.stringify(me.owned_ships || ["starter"]);
+                if (shipsStr !== last.owned_ships) {
+                    p.onUpdateOwnedShips(me.owned_ships || ["starter"]);
+                    last.owned_ships = shipsStr;
                 }
             }
             

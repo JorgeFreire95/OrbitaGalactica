@@ -370,11 +370,14 @@ class GameState:
             "is_invisible": False,
             "repair_bot_active": False,
             "wips": initial_wips if (initial_wips and isinstance(initial_wips, list)) else [],
+            "owned_ships": ["starter"],
             "eco": initial_eco if (initial_eco and isinstance(initial_eco, dict)) else {
                 "active": False, "deployed": False, "mode": "passive", "level": 1, 
                 "integrity": 100, "shield": 500, "max_shield": 500, "fuel": 5000, "speed": 0,
                 "x": 1750, "y": 1150, "vx": 0, "vy": 0,
-                "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []}
+                "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []},
+                "unlocked_slots": {"lasers": 1, "generators": 1, "protocols": 1, "utility": 1},
+                "xp": 0, "xp_next": 1000
             }
         }
         
@@ -392,7 +395,13 @@ class GameState:
                         initial_upgrades = db_stats["timed_upgrades"]
                     if "is_invisible" in db_stats:
                         player["is_invisible"] = bool(db_stats["is_invisible"])
-                    print(f"Estado cargado desde DB para {user_id}: upgrades={initial_upgrades}, invisible={player['is_invisible']}")
+                    if "eco" in db_stats:
+                        player["eco"] = db_stats["eco"]
+                    if "wips" in db_stats:
+                        player["wips"] = db_stats["wips"]
+                    if "owned_ships" in db_stats:
+                        player["owned_ships"] = db_stats["owned_ships"]
+                    print(f"Estado cargado desde DB para {user_id}: upgrades={initial_upgrades}, invisible={player['is_invisible']}, eco_active={player['eco'].get('active')}, ships={player['owned_ships']}")
             except Exception as e:
                 print(f"Error loading missions/upgrades for {user_id}: {e}")
 
@@ -1031,6 +1040,30 @@ class GameState:
             eco["fuel"] = max(0, eco["fuel"] - dt)
             if eco["fuel"] <= 0:
                 eco["deployed"] = False
+                
+                # Notificar al jugador vía chat de sistema
+                ws = self.clients.get(pid)
+                if ws:
+                    try:
+                        import asyncio
+                        import json
+                        loop = asyncio.get_event_loop()
+                        error_msg = json.dumps({
+                            "type": "chat_update",
+                            "message": {
+                                "id": "sys_" + str(time.time()),
+                                "sender": "SISTEMA",
+                                "display_name": "SISTEMA",
+                                "text": "🛑 El E.C.O. se ha quedado sin combustible y ha regresado a la base.",
+                                "channel": "global",
+                                "faction": "SYSTEM",
+                                "time": time.time()
+                            }
+                        })
+                        if loop.is_running():
+                            loop.create_task(ws.send_text(error_msg))
+                    except:
+                        pass
                 continue
 
             # 2. IA de comportamiento
@@ -1760,7 +1793,7 @@ class GameState:
     
     def _apply_mission_rewards(self, player, rewards):
         """Aplica las recompensas de una misión al jugador en memoria."""
-        player["xp"] += rewards.get("xp", 0)
+        self.gain_xp(player, rewards.get("xp", 0))
         player["credits"] += rewards.get("credits", 0)
         player["paladio"] = player.get("paladio", 0) + rewards.get("paladio", 0)
         
@@ -2066,17 +2099,40 @@ class GameState:
         print(f"Cambio de nave completado para {client_id}.")
 
     def gain_xp(self, player, amount):
+        # El 15% de la experiencia se desvía al ECO si está activo
+        if player.get("eco") and player["eco"].get("active"):
+            eco_portion = int(amount * 0.15)
+            self.gain_eco_xp(player, eco_portion)
+            # El jugador recibe el resto (opcionalmente podrías darle el 100% y al ECO extra, 
+            # pero el usuario dijo "cierto porcentaje se vaya", lo que suele implicar división)
+            # amount = amount - eco_portion # Si queremos que sea compartido. 
+            # Mantendré el 100% para el jugador para que no sienta que el ECO le "roba" XP, 
+            # pero el ECO recibe su propia porción.
+
         player["xp"] += amount
         # Level up logic (Cumulative System)
         while player["xp"] >= player["xp_next"]:
             player["level"] += 1
-            # Next threshold: Sum of all requirements up to current level
-            # Formula: (L * (L + 1) / 2) * 1000
             player["xp_next"] = (player["level"] * (player["level"] + 1) // 2) * 1000
-            
-            # Bonus per level up (Example: heal a bit)
             player["hp"] = min(player["max_hp"], player["hp"] + 25)
-            # You could also add a notification flag here if needed
+
+    def gain_eco_xp(self, player, amount):
+        if not player.get("eco"): return
+        eco = player["eco"]
+        if not eco.get("active"): return
+        
+        # Inicializar campos si no existen (migración)
+        if "xp" not in eco: eco["xp"] = 0
+        if "xp_next" not in eco: eco["xp_next"] = (eco.get("level", 1) * (eco.get("level", 1) + 1) // 2) * 500
+        
+        eco["xp"] += amount
+        
+        # Level up logic for ECO (Max Level 15)
+        while eco["xp"] >= eco.get("xp_next", 9999999) and eco.get("level", 1) < 15:
+            eco["level"] = eco.get("level", 1) + 1
+            # Requisitos de nivel más suaves para el ECO (escalado x500 en lugar de x1000)
+            eco["xp_next"] = (eco["level"] * (eco["level"] + 1) // 2) * 500
+            print(f"DEBUG: ECO Level Up! Player {player.get('username')} | ECO Level: {eco['level']}")
 
     def _update_mission_progress(self, player, alien_name):
         """Actualiza el progreso de las misiones activas si el alien coincide."""
@@ -2325,6 +2381,35 @@ class GameState:
         
         # Solo permitimos toggle si el jugador posee el sistema ECO
         if "eco" in player and player["eco"].get("active", False):
+            # BLOQUEO: Si intenta activar pero no tiene combustible
+            if deployed and player["eco"].get("fuel", 0) <= 0:
+                player["eco"]["deployed"] = False
+                
+                # Notificar al jugador vía chat de sistema
+                ws = self.clients.get(client_id)
+                if ws:
+                    try:
+                        import asyncio
+                        import json
+                        loop = asyncio.get_event_loop()
+                        error_msg = json.dumps({
+                            "type": "chat_update",
+                            "message": {
+                                "id": "sys_" + str(time.time()),
+                                "sender": "SISTEMA",
+                                "display_name": "SISTEMA",
+                                "text": "⚠️ El E.C.O. no tiene combustible y no puede activarse.",
+                                "channel": "global",
+                                "faction": "SYSTEM",
+                                "time": time.time()
+                            }
+                        })
+                        if loop.is_running():
+                            loop.create_task(ws.send_text(error_msg))
+                    except:
+                        pass
+                return
+
             player["eco"]["deployed"] = deployed
             
             # Posicionamiento inicial al desplegar para evitar que aparezca en el origen

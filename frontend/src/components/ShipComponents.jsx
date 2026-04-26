@@ -1,39 +1,47 @@
 import React from 'react';
 
-export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequip, isBlocked = false }) => (
+export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequip, isBlocked = false, unlockedCount = 999, onUnlock }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 'bold' }}>
       <span>{icon} {label}</span>
-      <span style={{ color }}>{equipped.length} / {count}</span>
+      <span style={{ color }}>{equipped.length} / {Math.min(count, unlockedCount)} {unlockedCount < count && <span style={{ color: '#666', fontSize: '0.7rem' }}>({count} max)</span>}</span>
     </div>
     <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
       {Array.from({ length: count }).map((_, i) => {
-        const item = equipped[i];
+        const isLocked = i >= unlockedCount;
+        const item = !isLocked ? equipped[i] : null;
         const slotKey = `slot-${label.toLowerCase()}-${i}`;
+        
         return (
           <div 
             key={slotKey} 
-            onClick={() => !isBlocked && item && onUnequip && onUnequip(item.instanceId)}
-            title={isBlocked ? 'Bloqueado: No estás en zona segura' : (item ? `${item.name} (Clic para desequipar)` : 'Vacío')}
+            onClick={() => {
+              if (isLocked) {
+                if (onUnlock) onUnlock();
+                return;
+              }
+              if (!isBlocked && item && onUnequip) onUnequip(item.instanceId);
+            }}
+            title={isLocked ? 'Ranura Bloqueada - Clic para desbloquear' : (isBlocked ? 'Bloqueado: No estás en zona segura' : (item ? `${item.name} (Clic para desequipar)` : 'Vacío'))}
             style={{ 
               width: '22px', 
               height: '22px', 
-              backgroundColor: item ? (isBlocked ? '#444' : color) : 'rgba(255,255,255,0.05)', 
+              backgroundColor: isLocked ? '#111' : (item ? (isBlocked ? '#444' : color) : 'rgba(255,255,255,0.05)'), 
               borderRadius: '4px',
-              border: item ? 'none' : '1px dashed #444',
+              border: isLocked ? '1px solid #333' : (item ? 'none' : '1px dashed #444'),
               boxShadow: (item && !isBlocked) ? `0 0 10px ${color}88` : 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '12px',
-              cursor: (item && !isBlocked) ? 'pointer' : (isBlocked && item ? 'not-allowed' : 'default'),
+              cursor: (isLocked || (item && !isBlocked)) ? 'pointer' : (isBlocked && item ? 'not-allowed' : 'default'),
               transition: 'all 0.2s',
               opacity: isBlocked && item ? 0.6 : 1
             }} 
-            onMouseOver={(e) => { if(item && !isBlocked) e.currentTarget.style.transform = 'scale(1.1)'; }}
-            onMouseOut={(e) => { if(item && !isBlocked) e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseOver={(e) => { if((item || isLocked) && !isBlocked) e.currentTarget.style.transform = 'scale(1.1)'; }}
+            onMouseOut={(e) => { if((item || isLocked) && !isBlocked) e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            {item && '✅'}
+            {isLocked ? '🔒' : (item && '✅')}
           </div>
         );
       })}

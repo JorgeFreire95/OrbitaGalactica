@@ -147,24 +147,7 @@ function App() {
     };
   });
 
-  // One-time fleet cleanup: remove 'tank' if it was a default assignment from previous versions
-  useEffect(() => {
-    if (ownedShips.includes('tank') && ownedShips.includes('starter')) {
-      // Only do this once to avoid annoying legitimate buyers later
-      const hasCleaned = localStorage.getItem('og_tank_cleaned');
-      if (!hasCleaned) {
-        const newShips = ownedShips.filter(id => id !== 'tank');
-        setOwnedShips(newShips);
-        localStorage.setItem('owned_ships', JSON.stringify(newShips));
-        localStorage.setItem('og_tank_cleaned', 'true');
-        
-        if (selectedShipId === 'tank') {
-          setSelectedShipId('starter');
-          localStorage.setItem('selected_ship_id', 'starter');
-        }
-      }
-    }
-  }, [ownedShips]);
+  // Legacy fleet cleanup removed.
 
   // Auto-lanzamiento si se abre en pestaña nueva con ?play=true
   useEffect(() => {
@@ -345,7 +328,8 @@ function App() {
             inventory,
             equipped: equippedByShip,
             timed_upgrades: upgrades,
-            wips
+            wips,
+            eco
           })
         });
       } catch (e) {
@@ -380,6 +364,9 @@ function App() {
         }
         if (data.minerals && JSON.stringify(data.minerals) !== JSON.stringify(minerals)) {
           setMinerals(data.minerals);
+        }
+        if (data.eco && JSON.stringify(data.eco) !== JSON.stringify(eco)) {
+          setEco(data.eco);
         }
       }
       // Also refresh clan data periodically
@@ -516,7 +503,6 @@ function App() {
         return;
       }
       const data = await resp.json();
-      setUser(data);
       if (data.clan) {
         setClan(data.clan);
       }
@@ -558,11 +544,18 @@ function App() {
         setWips(data.wips);
         localStorage.setItem('game_wips', JSON.stringify(data.wips));
       }
+      if (data.eco) {
+        setEco(data.eco);
+        localStorage.setItem('game_eco', JSON.stringify(data.eco));
+      }
 
       if (!data.faction) {
+        setUser(data);
         setCurrentView('faction_select');
       } else {
         sessionStorage.setItem('game_user', JSON.stringify(data));
+        // Finalmente establecemos el usuario después de que todos los demás estados estén listos
+        setUser(data);
         setCurrentView('menu');
       }
     } catch (e) {
@@ -825,15 +818,46 @@ function App() {
     return true;
   };
 
+  const handleBuyEcoFuel = (amount, cost) => {
+    if (credits < cost) return false;
+    setCredits(prev => prev - cost);
+    setEco(prev => ({
+      ...prev,
+      fuel: (prev.fuel || 0) + amount
+    }));
+    return true;
+  };
+
   const handleEquipEco = (inventoryIndex, ecoSlotType) => {
     if (isGameActive && !inSafeZone) {
       alert("⚠️ PROTOCOLO DE SEGURIDAD: Debes estar en una Zona Segura para modificar el E.C.O.");
       return;
     }
+
     const item = inventory[inventoryIndex];
     if (!item) return;
 
-    const currentEquipped = eco.equipped[ecoSlotType] || [];
+    // REQUISITOS DE NIVEL DEL ECO
+    const ecoLevel = eco.level || 1;
+    const itemLevel = item.lvl || 1;
+    
+    if (itemLevel === 2 && ecoLevel < 5) {
+      alert("⚠️ REQUISITO DE NIVEL: El E.C.O. necesita nivel 5 para equipar este módulo.");
+      return;
+    }
+    if (itemLevel === 3 && ecoLevel < 10) {
+      alert("⚠️ REQUISITO DE NIVEL: El E.C.O. necesita nivel 10 para equipar este módulo.");
+      return;
+    }
+
+    const currentEquipped = eco.equipped?.[ecoSlotType] || [];
+    const unlockedCount = eco.unlocked_slots?.[ecoSlotType === 'generators' ? 'generators' : (ecoSlotType === 'lasers' ? 'lasers' : (ecoSlotType === 'protocols' ? 'protocols' : 'utility'))] || 1;
+    
+    if (currentEquipped.length >= unlockedCount) {
+      alert(`⚠️ ERROR DE CAPACIDAD: Necesitas desbloquear más ranuras de ${ecoSlotType} usando Paladio.`);
+      return;
+    }
+
     const limits = { lasers: 5, generators: 10, protocols: 10, utility: 5 };
     if (currentEquipped.length >= (limits[ecoSlotType] || 0)) {
       alert(`El E.C.O. no tiene más ranuras disponibles para ${ecoSlotType}.`);
@@ -848,6 +872,28 @@ function App() {
         [ecoSlotType]: [...(prev.equipped[ecoSlotType] || []), item]
       }
     }));
+  };
+
+  const handleUnlockEcoSlot = (category) => {
+    const UNLOCK_COST = 500;
+    if (paladio < UNLOCK_COST) {
+      alert(`Necesitas ${UNLOCK_COST} de Paladio para desbloquear una ranura de ${category}.`);
+      return;
+    }
+
+    if (!window.confirm(`¿Desbloquear ranura de ${category} por ${UNLOCK_COST} Paladio?`)) return;
+
+    setPaladio(p => p - UNLOCK_COST);
+    setEco(prev => {
+      const current = prev.unlocked_slots || { lasers: 1, generators: 1, protocols: 1, utility: 1 };
+      return {
+        ...prev,
+        unlocked_slots: {
+          ...current,
+          [category]: (current[category] || 1) + 1
+        }
+      };
+    });
   };
 
   const handleUnequipEco = (moduleInstanceId, ecoSlotType) => {
@@ -1109,6 +1155,7 @@ function App() {
           eco={eco}
           onEquipEco={handleEquipEco}
           onUnequipEco={handleUnequipEco}
+          onUnlockEcoSlot={handleUnlockEcoSlot}
         />
       )}
 
@@ -1138,6 +1185,7 @@ function App() {
           eco={eco}
           onBuyEco={handleBuyEco}
           onBuyProtocol={handleBuyProtocol}
+          onBuyEcoFuel={handleBuyEcoFuel}
         />
       )}
 
@@ -1225,6 +1273,7 @@ function App() {
             onUpdateInvisibility={setIsInvisible}
             onUpdateWips={(newWips) => setWips(newWips)}
             onUpdateEco={(newEco) => setEco(newEco)}
+            onUpdateOwnedShips={setOwnedShips}
           />
         </>
       )}

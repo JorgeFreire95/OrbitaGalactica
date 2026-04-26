@@ -123,20 +123,22 @@ export const SHIPS = [
 ];
 
 export const MODULES_CATALOG = [
-  { id: 'laser_1', type: 'lasers',  name: 'Láser Básico',     cost: 0,  atk: 5,   icon: '🎯', image: '/basic_laser.png' },
-  { id: 'laser_2', type: 'lasers',  name: 'Láser Plus',       cost: 0,  atk: 12,  icon: '🎯', image: '/plus_laser.png' },
-  { id: 'laser_3', type: 'lasers',  name: 'Cañón Pesado',     cost: 0, atk: 30,  icon: '🎯', image: '/heavy_laser.jpg' },
+  { id: 'laser_1', type: 'lasers',  lvl: 1, name: 'Láser Básico',     cost: 0,  atk: 5,   icon: '🎯', image: '/basic_laser.png' },
+  { id: 'laser_2', type: 'lasers',  lvl: 2, name: 'Láser Plus',       cost: 0,  atk: 12,  icon: '🎯', image: '/plus_laser.png' },
+  { id: 'laser_3', type: 'lasers',  lvl: 3, name: 'Cañón Pesado',     cost: 0, atk: 30,  icon: '🎯', image: '/heavy_laser.jpg' },
   
-  { id: 'shield_1', type: 'shields', name: 'Escudo Liviano',   cost: 0,  shld: 20, icon: '🛡️' },
-  { id: 'shield_2', type: 'shields', name: 'Escudo Reforzado', cost: 0,  shld: 50, icon: '🛡️' },
+  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 0,  shld: 20, icon: '🛡️' },
+  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 0,  shld: 50, icon: '🛡️' },
+  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper',    cost: 0,  shld: 150, icon: '🛡️' },
   
-  { id: 'engine_1', type: 'engines', name: 'Micro Motor',     cost: 0,  spd: 15,  icon: '🚀' },
-  { id: 'engine_2', type: 'engines', name: 'Turbo Motor',     cost: 0, spd: 40,  icon: '🚀' },
+  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor',     cost: 0,  spd: 15,  icon: '🚀' },
+  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 0, spd: 40,  icon: '🚀' },
+  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 0, spd: 85,  icon: '🚀' },
   
-  { id: 'util_repair_1', type: 'utility', name: 'Robot Reparación I', cost: 0, repair_rate: 5.0, icon: '🔧' },
-  { id: 'util_repair_2', type: 'utility', name: 'Robot Reparación II', cost: 0, repair_rate: 7.5, icon: '🛠️' },
-  { id: 'util_cloak', type: 'utility', name: 'Camuflaje Sigiloso', cost: 0, desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
-  { id: 'util_auto_repair', type: 'utility', name: 'Reparación Automática', cost: 0, desc: 'Activa el robot de reparación automáticamente cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
+  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 0, repair_rate: 5.0, icon: '🔧' },
+  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 0, repair_rate: 7.5, icon: '🛠️' },
+  { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 0, desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
+  { id: 'util_auto_repair', type: 'utility', lvl: 2, name: 'Reparación Automática', cost: 0, desc: 'Activa el robot de reparación automáticamente cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
 ];
 
 export const WIPS_CATALOG = [
@@ -167,11 +169,28 @@ export const ECO_CONFIG = {
 };
 
 export const ECO_PROTOCOLS = [
-  { id: 'proto_laser_1', type: 'protocols', name: 'Protocolo de Precisión I', cost: 0, atk: 15, icon: '🎯', desc: 'Aumenta la potencia de fuego del E.C.O.' },
-  { id: 'proto_shield_1', type: 'protocols', name: 'Protocolo de Escudo I', cost: 0, shld: 200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva del E.C.O.' },
-  { id: 'proto_cargo_1', type: 'protocols', name: 'Protocolo de Carga I', cost: 0, cargo: 2000, icon: '📦', desc: 'Expande la bodega de carga total.' },
-  { id: 'proto_radar_1', type: 'protocols', name: 'Protocolo de Radar I', cost: 0, radar: 1000, icon: '📡', desc: 'Aumenta el rango de detección de enemigos.' },
-  { id: 'proto_hp_1', type: 'protocols', name: 'Protocolo de Casco I', cost: 0, hp: 500, icon: '❤️', desc: 'Aumenta la integridad estructural del E.C.O.' },
+  // Nivel 1 (Habilitado para ECO Nivel 1-4)
+  { id: 'proto_laser_1', type: 'protocols', lvl: 1, name: 'Protocolo de Precisión I', cost: 1000, atk: 15, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 1).' },
+  { id: 'proto_shield_1', type: 'protocols', lvl: 1, name: 'Protocolo de Escudo I', cost: 1000, shld: 200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 1).' },
+  { id: 'proto_cargo_1', type: 'protocols', lvl: 1, name: 'Protocolo de Carga I', cost: 1000, cargo: 2000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 1).' },
+  { id: 'proto_hp_1', type: 'protocols', lvl: 1, name: 'Protocolo de Casco I', cost: 1000, hp: 500, icon: '❤️', desc: 'Aumenta la integridad estructural (Nivel 1).' },
+
+  // Nivel 2 (Habilitado para ECO Nivel 5-9)
+  { id: 'proto_laser_2', type: 'protocols', lvl: 2, name: 'Protocolo de Precisión II', cost: 5000, atk: 35, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 2).' },
+  { id: 'proto_shield_2', type: 'protocols', lvl: 2, name: 'Protocolo de Escudo II', cost: 5000, shld: 500, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 2).' },
+  { id: 'proto_cargo_2', type: 'protocols', lvl: 2, name: 'Protocolo de Carga II', cost: 5000, cargo: 5000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 2).' },
+  { id: 'proto_hp_2', type: 'protocols', lvl: 2, name: 'Protocolo de Casco II', cost: 5000, hp: 1200, icon: '❤️', desc: 'Aumenta la integridad estructural (Nivel 2).' },
+
+  // Nivel 3 (Habilitado para ECO Nivel 10-15)
+  { id: 'proto_laser_3', type: 'protocols', lvl: 3, name: 'Protocolo de Precisión III', cost: 25000, atk: 75, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 3).' },
+  { id: 'proto_shield_3', type: 'protocols', lvl: 3, name: 'Protocolo de Escudo III', cost: 25000, shld: 1200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 3).' },
+  { id: 'proto_cargo_3', type: 'protocols', lvl: 3, name: 'Protocolo de Carga III', cost: 25000, cargo: 12000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 3).' },
+  { id: 'proto_hp_3', type: 'protocols', lvl: 3, name: 'Protocolo de Casco III', cost: 25000, hp: 3000, icon: '❤️', desc: 'Aumenta la integridad estructural (Nivel 3).' },
+];
+
+export const ECO_FUEL = [
+  { id: 'eco_fuel_1', type: 'fuel', name: 'Combustible ECO (P)', cost: 1000, count: 1000, icon: '⛽', desc: 'Paquete pequeño de combustible para el E.C.O. (1.000 unidades)' },
+  { id: 'eco_fuel_2', type: 'fuel', name: 'Combustible ECO (M)', cost: 4500, count: 5000, icon: '⛽', desc: 'Paquete mediano de combustible para el E.C.O. (5.000 unidades)' },
 ];
 
 export const getRank = (level) => {

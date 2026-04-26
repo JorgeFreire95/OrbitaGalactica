@@ -375,7 +375,7 @@ def get_user_stats_db(username):
         try:
             c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json FROM users WHERE username = ?', (username,))
         except sqlite3.OperationalError:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -422,7 +422,7 @@ def login_user(username, password):
     try:
         c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json, is_invisible, wips_json, eco_json FROM users WHERE username = ?', (username,))
     except sqlite3.OperationalError:
-        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json FROM users WHERE username = ?', (username,))
+        c.execute('SELECT username, faction, is_admin, is_super_admin, level, xp, credits, paladio, password_hash, salt, selected_ship, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false, "level": 1, "integrity": 100, "fuel": 5000, "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []}}\' as eco_json FROM users WHERE username = ?', (username,))
     row = c.fetchone()
     conn.close()
     
@@ -648,6 +648,16 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
             fields.append("minerals_json = ?")
             params.append(json.dumps(minerals))
         if owned_ships is not None:
+            # PROTECCIÓN: No permitir que se "des-compren" naves
+            c.execute('SELECT owned_ships_json FROM users WHERE username = ?', (username,))
+            ships_row = c.fetchone()
+            if ships_row and ships_row[0]:
+                try:
+                    db_ships = set(json.loads(ships_row[0]))
+                    incoming_ships = set(owned_ships)
+                    owned_ships = list(db_ships.union(incoming_ships))
+                except:
+                    pass
             fields.append("owned_ships_json = ?")
             params.append(json.dumps(owned_ships))
         if inventory is not None:
@@ -666,6 +676,17 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
             fields.append("wips_json = ?")
             params.append(json.dumps(wips))
         if eco is not None:
+            # PROTECCIÓN: Si ya estaba activo en DB, no permitir desactivarlo
+            c.execute('SELECT eco_json FROM users WHERE username = ?', (username,))
+            eco_row = c.fetchone()
+            if eco_row and eco_row[0]:
+                try:
+                    current_eco = json.loads(eco_row[0])
+                    if current_eco.get("active", False):
+                        eco["active"] = True
+                except:
+                    pass
+            
             fields.append("eco_json = ?")
             params.append(json.dumps(eco))
             

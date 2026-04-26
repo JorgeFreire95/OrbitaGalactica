@@ -48,10 +48,15 @@
 
 ### 🤖 E.C.O. (Emergency Companion Observer)
 - **Unidad de Apoyo Avanzada**: El sistema E.C.O. es un dron de apoyo inteligente con IA dedicada que actúa de forma independiente para asistir al piloto en situaciones críticas.
+- **Sistema de Progresión y Veteranía**: El E.C.O. ahora posee su propio sistema de niveles (hasta **Nivel 15**). Recibe automáticamente el **15% de la experiencia** ganada por el piloto en combates y misiones, permitiendo una evolución paralela al rango del jugador.
+- **Tecnología Escalonada (Tiers)**: El acceso a protocolos y módulos avanzados está estrictamente vinculado al nivel de veteranía del dron:
+    - **Nivel 1-4**: Equipamiento Básico (Tier 1).
+    - **Nivel 5-9**: Equipamiento Avanzado (Tier 2).
+    - **Nivel 10-15**: Equipamiento de Élite (Tier 3).
+- **Expansión de Ranuras por Paladio**: El chasis del E.C.O. es altamente modular pero requiere inversión. Aunque comienza con una ranura básica por sección, el piloto puede desbloquear la capacidad total (hasta 5 láseres, 10 generadores, 10 protocolos y 5 módulos de utilidad) invirtiendo **500 de Paladio** por cada expansión de ranura.
+- **Tienda Inteligente y Dinámica**: Los suministros del E.C.O. en la tienda galáctica se han agrupado para evitar la saturación visual. Un nuevo selector de nivel dinámico permite elegir el grado tecnológico del protocolo, actualizando el precio y las especificaciones técnicas en tiempo real antes de la compra.
 - **IA de Seguimiento Dinámico**: A diferencia de los Wips, el E.C.O. posee su propio vector de velocidad y rotación. Utiliza un algoritmo de seguimiento que le permite orbitar la nave o posicionarse tácticamente durante el combate.
-- **HUD de Estado Dedicado**: El dron proyecta sus propias barras de integridad y escudo sobre su chasis, permitiendo al piloto monitorear su estado de salud de un solo vistazo sin distraerse del HUD principal.
-- **Rotación Adaptativa**: El E.C.O. orienta su chasis automáticamente hacia la dirección de su movimiento o hacia el rumbo de la nave principal, proporcionando un feedback visual inmersivo.
-- **Modos de Operación**: Puede alternar entre estados Pasivos (escolta pura) y Activos (asistencia táctica), gestionados directamente a través de los protocolos del servidor.
+- **HUD de Estado y XP**: El dron proyecta su propio HUD sobre su chasis, mostrando integridad, escudo y una **barra de experiencia (XP)** que refleja su progreso hacia el siguiente nivel.
 
 ### 💬 Sistema Social y Chat Integrado
 - **Chat Multi-Canal**: Comunícate a través de canales dedicados: **Global** (todos los pilotos), **Empresa** (solo miembros de tu facción), **Clan** (mensajes internos de la alianza) y **Privado** (pestañas dedicadas para chats 1 a 1).
@@ -87,7 +92,7 @@
 
 ### 💰 Economía y Recursos
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
-- **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda y mejoras de élite.
+- **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda, mejoras de élite y la **expansión de ranuras del sistema E.C.O.** (500 de Paladio por ranura).
 - **Laboratorio de Minerales (Sincronización Total y Persistencia)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras **acumulables** en Ataque, Escudo, Velocidad e Integridad de Casco (HP). Ahora el sistema es 100% autorritativo: las mejoras se guardan en el servidor y persisten entre sesiones, aplicándose instantáneamente a tu nave activa mediante WebSockets y APIs de sincronización.
 - **Beneficios VIP**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
 

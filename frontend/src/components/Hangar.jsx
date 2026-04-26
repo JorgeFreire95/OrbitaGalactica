@@ -31,7 +31,8 @@ export default function Hangar({
   onUnequipWip,
   eco,
   onEquipEco,
-  onUnequipEco
+  onUnequipEco,
+  onUnlockEcoSlot
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
@@ -239,7 +240,11 @@ export default function Hangar({
                           <img src="/eco_drone.png" alt="E.C.O." style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                        </div>
                        <div style={{ flex: 1 }}>
-                          <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>Nivel {eco.level}</div>
+                          <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>Nivel {eco.level} / 15</div>
+                          <div style={{ fontSize: '0.6rem', color: '#888', marginTop: '3px' }}>EXP: {eco.xp || 0} / {eco.xp_next || 1000}</div>
+                          <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '2px' }}>
+                             <div style={{ width: `${Math.min(100, ((eco.xp || 0) / (eco.xp_next || 1)) * 100)}%`, height: '100%', background: '#ffcc00' }}></div>
+                          </div>
                           <div style={{ fontSize: '0.7rem', color: '#888' }}>INTEGRIDAD: {eco.integrity}%</div>
                           <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '5px' }}>
                              <div style={{ width: `${eco.integrity}%`, height: '100%', background: '#00ffcc' }}></div>
@@ -251,6 +256,9 @@ export default function Hangar({
                        <div style={{ color: '#888' }}>Protocolos: <span style={{ color: '#fff' }}>{eco.equipped?.protocols?.length || 0}/10</span></div>
                        <div style={{ color: '#888' }}>Láseres: <span style={{ color: '#fff' }}>{eco.equipped?.lasers?.length || 0}/5</span></div>
                        <div style={{ color: '#888' }}>Generadores: <span style={{ color: '#fff' }}>{eco.equipped?.generators?.length || 0}/10</span></div>
+                    </div>
+                    <div style={{ marginTop: '10px', fontSize: '0.6rem', color: '#666', fontStyle: 'italic', borderTop: '1px solid #222', paddingTop: '5px' }}>
+                       Requisitos: Lvl 1 (ECO 1-4), Lvl 2 (ECO 5-9), Lvl 3 (ECO 10-15)
                     </div>
                  </div>
                )}
@@ -440,10 +448,10 @@ export default function Hangar({
                     <>
                       <div style={{ marginBottom: '15px', color: '#00ffcc', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DEL E.C.O.</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
-                         <SlotDisplay label="Sistemas Láser" count={5} icon="🎯" color="#ffcc00" equipped={eco.equipped?.lasers || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'lasers')} isBlocked={isBlocked} />
-                         <SlotDisplay label="Generadores (Escudos/Motores)" count={10} icon="🛡️" color="#00c8ff" equipped={eco.equipped?.generators || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'generators')} isBlocked={isBlocked} />
-                         <SlotDisplay label="Protocolos de I.A." count={10} icon="🤖" color="#00ffcc" equipped={eco.equipped?.protocols || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'protocols')} isBlocked={isBlocked} />
-                         <SlotDisplay label="Módulos de Utilidad" count={5} icon="⚛️" color="#9933ff" equipped={eco.equipped?.utility || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'utility')} isBlocked={isBlocked} />
+                         <SlotDisplay label="Sistemas Láser" count={5} icon="🎯" color="#ffcc00" equipped={eco.equipped?.lasers || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'lasers')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.lasers || 1} onUnlock={() => onUnlockEcoSlot('lasers')} />
+                         <SlotDisplay label="Generadores (Escudos/Motores)" count={10} icon="🛡️" color="#00c8ff" equipped={eco.equipped?.generators || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'generators')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.generators || 1} onUnlock={() => onUnlockEcoSlot('generators')} />
+                         <SlotDisplay label="Protocolos de I.A." count={10} icon="🤖" color="#00ffcc" equipped={eco.equipped?.protocols || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'protocols')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.protocols || 1} onUnlock={() => onUnlockEcoSlot('protocols')} />
+                         <SlotDisplay label="Módulos de Utilidad" count={5} icon="⚛️" color="#9933ff" equipped={eco.equipped?.utility || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'utility')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.utility || 1} onUnlock={() => onUnlockEcoSlot('utility')} />
                       </div>
                     </>
                   ) : (

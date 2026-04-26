@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, getRank } from '../utils/gameData';
+import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, ECO_FUEL, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
 
@@ -24,10 +24,12 @@ export default function Shop({
   wipsCount,
   eco,
   onBuyEco,
-  onBuyProtocol
+  onBuyProtocol,
+  onBuyEcoFuel
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
   const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
+  const [selectedLvl, setSelectedLvl] = useState(1);
   const [successMessage, setSuccessMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -55,23 +57,50 @@ export default function Shop({
   ];
 
   const getCategoryItems = () => {
+    let raw = [];
     switch (activeCategory) {
-      case 'armas': return MODULES_CATALOG.filter(m => m.type === 'lasers');
-      case 'municion': return [...AMMO_CATALOG, ...MISSILE_CATALOG];
-      case 'generadores': return MODULES_CATALOG.filter(m => m.type === 'shields' || m.type === 'engines');
-      case 'naves': return SHIPS;
-      case 'extras': return MODULES_CATALOG.filter(m => m.type === 'utility');
-      case 'wips': return WIPS_CATALOG;
-      case 'eco': return [ECO_CONFIG, ...ECO_PROTOCOLS];
-      case 'materiales': return MINERAL_TYPES;
-      default: return [];
+      case 'armas': raw = MODULES_CATALOG.filter(m => m.type === 'lasers'); break;
+      case 'municion': raw = [...AMMO_CATALOG, ...MISSILE_CATALOG]; break;
+      case 'generadores': raw = MODULES_CATALOG.filter(m => m.type === 'shields' || m.type === 'engines'); break;
+      case 'naves': raw = SHIPS; break;
+      case 'extras': raw = MODULES_CATALOG.filter(m => m.type === 'utility'); break;
+      case 'wips': raw = WIPS_CATALOG; break;
+      case 'eco': raw = [ECO_CONFIG, ...ECO_FUEL, ...ECO_PROTOCOLS]; break;
+      case 'materiales': raw = MINERAL_TYPES; break;
     }
+
+    const grouped = [];
+    const seen = new Set();
+    raw.forEach(item => {
+      if (item.lvl && activeCategory === 'eco') {
+        const baseId = item.id.replace(/_\d$/, '');
+        if (!seen.has(baseId)) {
+          seen.add(baseId);
+          grouped.push({ ...item, baseId, isLeveled: true });
+        }
+      } else {
+        grouped.push(item);
+      }
+    });
+    return grouped;
   };
 
   const items = getCategoryItems();
 
+  // Helper to get the actual item data based on selected level
+  const getCurrentItem = () => {
+    if (!selectedItem) return null;
+    if (!selectedItem.isLeveled) return selectedItem;
+    
+    const allLeveled = [...MODULES_CATALOG, ...ECO_PROTOCOLS];
+    return allLeveled.find(i => i.id === `${selectedItem.baseId}_${selectedLvl}`) || selectedItem;
+  };
+
+  const currentItem = getCurrentItem();
+
   const handleItemClick = (item) => {
     setSelectedItem(item);
+    setSelectedLvl(1); // Reset level when changing item
   };
 
   const handleAction = () => {
@@ -83,7 +112,6 @@ export default function Shop({
     setShowConfirm(false);
     if (!selectedItem) return;
     
-    // Mineral Sale
     if (activeCategory === 'materiales') {
       const amountOwned = minerals[selectedItem.id] || 0;
       if (amountOwned > 0) {
@@ -93,80 +121,54 @@ export default function Shop({
       return;
     }
 
-    // Ammo Purchase
-    if (selectedItem.count) {
-       onBuyAmmo(selectedItem.id, selectedItem.count, selectedItem.cost);
-       triggerSuccess(`Compra de ${selectedItem.name} exitosa`);
+    const targetItem = currentItem;
+
+    if (targetItem.count && activeCategory === 'municion') {
+       onBuyAmmo(targetItem.id, targetItem.count, targetItem.cost);
+       triggerSuccess(`Compra de ${targetItem.name} exitosa`);
        return;
     }
 
-    // Ship Purchase
+    if (targetItem.type === 'fuel') {
+      onBuyEcoFuel(targetItem.count, targetItem.cost);
+      triggerSuccess('Combustible adquirido');
+      return;
+    }
+
+    if (targetItem.id === 'eco') {
+      onBuyEco(targetItem.cost);
+      triggerSuccess('E.C.O. Adquirido');
+      return;
+    }
+
+    if (targetItem.type === 'protocols') {
+      onBuyProtocol(targetItem, targetItem.cost);
+      triggerSuccess('Protocolo adquirido');
+      return;
+    }
+
+    if (activeCategory === 'wips') {
+      onBuyWip(targetItem);
+      triggerSuccess('Wip adquirido');
+      return;
+    }
+
     if (activeCategory === 'naves') {
-      const alreadyOwned = ownedShips.includes(selectedItem.id);
-      if (alreadyOwned) return alert('Ya posees esta nave');
-      
-      const success = onBuyShip(selectedItem.id, selectedItem.cost);
-      if (success) {
-        triggerSuccess(`Adquisición de ${selectedItem.name} completada`);
-      } else {
-        alert('No tienes suficientes créditos');
-      }
+      onBuyShip(targetItem.id, targetItem.cost);
+      triggerSuccess(`Nave ${targetItem.name} adquirida`);
       return;
     }
 
-    // Module Purchase
-    if (selectedItem.id === 'util_cloak') {
-      if (credits < selectedItem.cost) return alert('No tienes suficientes créditos');
-      
-      // Llamada al backend para compra y activación inmediata
-      fetch('http://localhost:8000/api/user/buy_cloak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: user?.username, cost: selectedItem.cost })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setCredits(data.credits);
-          if (typeof setIsInvisible === 'function') {
-            setIsInvisible(true);
-          }
-          triggerSuccess('Camuflaje activado con éxito');
-        } else {
-          alert(data.detail || 'Error al comprar camuflaje');
-        }
-      })
-      .catch(() => alert('Error de conexión al comprar camuflaje'));
-      
-      return;
-    }
-
-    // ECO Purchase
-    if (activeCategory === 'eco') {
-      if (selectedItem.id === 'eco') {
-        if (eco.active) return alert('Ya posees el E.C.O.');
-        const success = onBuyEco(selectedItem.cost);
-        if (success) triggerSuccess(`Adquisición de ${selectedItem.name} completada`);
-        else alert('No tienes suficientes créditos');
-      } else {
-        const success = onBuyProtocol(selectedItem, selectedItem.cost);
-        if (success) triggerSuccess(`Protocolo ${selectedItem.name} adquirido`);
-        else alert('No tienes suficientes créditos');
-      }
-      return;
-    }
-
-    handleBuyModule(selectedItem);
+    handleBuyModule(targetItem);
   };
 
-  const isAffordable = selectedItem ? credits >= (selectedItem.cost || 0) : false;
+  const isAffordable = currentItem ? credits >= (currentItem.cost || 0) : false;
   const isMineral = activeCategory === 'materiales';
   const amountOwned = isMineral ? (minerals[selectedItem?.id] || 0) : 0;
 
   return (
     <div className="shop-view-container">
 
-      {/* SUCCESS NOTIFICATION */}
       {successMessage && (
         <div style={{
           position: 'fixed',
@@ -200,10 +202,8 @@ export default function Shop({
         </div>
       )}
 
-      {/* MAIN LAYOUT */}
       <div className="shop-main-layout">
         
-        {/* SIDEBAR */}
         <aside className="shop-sidebar">
           {categories.map(cat => (
             <div 
@@ -211,7 +211,7 @@ export default function Shop({
               className={`shop-tab ${activeCategory === cat.id ? 'active' : ''}`}
               onClick={() => {
                 setActiveCategory(cat.id);
-                setSelectedItem(null); // Reset selection on category change
+                setSelectedItem(null);
               }}
             >
               <span>{cat.label}</span>
@@ -220,7 +220,6 @@ export default function Shop({
           ))}
         </aside>
 
-        {/* ITEM GRID */}
         <section className="shop-grid-area">
           {items.map(item => (
             <div 
@@ -240,111 +239,126 @@ export default function Shop({
               </div>
               <div className="shop-item-name">{item.name}</div>
               <div className="shop-item-price">
-                {activeCategory === 'naves' && ownedShips.includes(item.id) ? '---' : 
-                 (item.cost !== undefined) ? `${item.cost.toLocaleString()} Cr` : `${item.sellPrice} Cr/u`}
+                {(item.cost !== undefined) ? `${item.cost.toLocaleString()} Cr` : `${item.sellPrice} Cr/u`}
               </div>
             </div>
           ))}
         </section>
 
-        {/* PREVIEW PANEL */}
         <aside className="shop-preview-panel">
-          {selectedItem ? (
+          {currentItem ? (
             <>
-              <div className="preview-top" style={{ display: 'flex', justifyContent: 'center', minHeight: '150px', alignItems: 'center' }}>
-                {activeCategory === 'naves' ? (
-                  <ShipIcon type={selectedItem.id} image={selectedItem.image} color={selectedItem.color || (selectedItem.id === 'sovereign' ? '#e6b800' : '#00b3ff')} size={150} />
-                ) : (
-                  <div style={{ fontSize: '8rem' }}>
-                    {selectedItem.image ? <img src={selectedItem.image} alt={selectedItem.name} style={{ width: '120px', height: '120px', objectFit: 'contain' }} /> : selectedItem.icon}
+                <div className="preview-header">
+                  <div className="preview-icon-container" style={{ display: 'flex', justifyContent: 'center', height: '120px' }}>
+                    {currentItem.image ? (
+                       <img src={currentItem.image} alt={currentItem.name} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                    ) : (
+                       <span style={{ fontSize: '3rem' }}>{currentItem.icon}</span>
+                    )}
                   </div>
-                )}
-              </div>
-
-              <div className="preview-info">
-                <div className="preview-title">{selectedItem.name}</div>
-                <div className="preview-desc">
-                  {selectedItem.desc || `Suministro de alto rendimiento para naves de clase ${getRank(level)}. Diseñado para operaciones en sectores peligrosos.`}
+                  <div className="preview-title">
+                    <h3>{currentItem.name}</h3>
+                    <div style={{ color: '#00ffcc', fontSize: '0.8rem' }}>{currentItem.type?.toUpperCase()}</div>
+                  </div>
                 </div>
 
-                <div className="preview-stats">
-                  {selectedItem.damage && (
-                    <div className="preview-stat-row">
-                      <span>Daño Base</span>
-                      <span style={{ color: '#ff3366' }}>{selectedItem.damage} {selectedItem.count ? 'pt' : 'x'}</span>
-                    </div>
-                  )}
-                  {selectedItem.atk && (
-                    <div className="preview-stat-row">
-                      <span>Potencia de Ataque</span>
-                      <span>+{selectedItem.atk}</span>
-                    </div>
-                  )}
-                  {selectedItem.shld && (
-                    <div className="preview-stat-row">
-                      <span>Refuerzo de Escudo</span>
-                      <span>+{selectedItem.shld}</span>
-                    </div>
-                  )}
-                  {selectedItem.count && (
-                    <div className="preview-stat-row">
-                      <span>Cantidad por pack</span>
-                      <span>{selectedItem.count} unidades</span>
-                    </div>
-                  )}
-                  {activeCategory === 'materiales' && (
-                    <div className="preview-stat-row">
-                      <span>En bodega</span>
-                      <span style={{ color: '#fff' }}>{amountOwned} unidades</span>
-                    </div>
-                  )}
-                  {activeCategory === 'naves' && (
-                    <>
-                      <div className="preview-stat-row">
-                        <span>Casco Estructural</span>
-                        <span style={{ color: '#00ffcc' }}>{selectedItem.hp} HP</span>
+                <div className="preview-content">
+                  <p className="item-description">{currentItem.desc || 'Módulo de equipamiento avanzado para naves espaciales.'}</p>
+                  
+                  {selectedItem.isLeveled && (
+                    <div style={{ margin: '15px 0', background: 'rgba(0,255,204,0.05)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(0,255,204,0.1)' }}>
+                      <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '8px', textTransform: 'uppercase' }}>Seleccionar Nivel tecnológico:</div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        {[1, 2, 3].map(lvl => (
+                          <button
+                            key={lvl}
+                            onClick={() => setSelectedLvl(lvl)}
+                            style={{
+                              flex: 1,
+                              padding: '8px',
+                              background: selectedLvl === lvl ? '#00ffcc' : 'transparent',
+                              border: `1px solid ${selectedLvl === lvl ? '#00ffcc' : '#333'}`,
+                              color: selectedLvl === lvl ? '#000' : '#888',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            LVL {lvl}
+                          </button>
+                        ))}
                       </div>
+                    </div>
+                  )}
+
+                  <div className="preview-stats">
+                    {currentItem.atk && (
                       <div className="preview-stat-row">
-                        <span>Escudo Base</span>
-                        <span style={{ color: '#00c8ff' }}>{selectedItem.shld} SB</span>
+                        <span>Daño de ataque</span>
+                        <span style={{ color: '#ffcc00' }}>+{currentItem.atk}</span>
                       </div>
+                    )}
+                    {currentItem.shld && (
                       <div className="preview-stat-row">
-                        <span>Velocidad Base</span>
-                        <span style={{ color: '#ffcc00' }}>{selectedItem.spd} m/s</span>
+                        <span>Escudo adicional</span>
+                        <span style={{ color: '#00c8ff' }}>+{currentItem.shld}</span>
                       </div>
+                    )}
+                    {currentItem.hp && activeCategory !== 'naves' && (
                       <div className="preview-stat-row">
-                        <span>Bodega Carga</span>
-                        <span style={{ color: '#88aaff' }}>{selectedItem.cargo_capacity} t</span>
+                        <span>Casco estructural</span>
+                        <span style={{ color: '#ff3366' }}>+{currentItem.hp}</span>
                       </div>
+                    )}
+                    {currentItem.spd && (
+                      <div className="preview-stat-row">
+                        <span>Velocidad motor</span>
+                        <span style={{ color: '#00ffcc' }}>+{currentItem.spd} m/s</span>
+                      </div>
+                    )}
+                    {currentItem.cargo && (
+                      <div className="preview-stat-row">
+                        <span>Capacidad carga</span>
+                        <span style={{ color: '#88aaff' }}>+{currentItem.cargo} t</span>
+                      </div>
+                    )}
+                    {currentItem.repair_rate && (
+                      <div className="preview-stat-row">
+                        <span>Tasa reparación</span>
+                        <span style={{ color: '#00ffcc' }}>{currentItem.repair_rate} HP/s</span>
+                      </div>
+                    )}
+                    {activeCategory === 'naves' && currentItem.slots && (
                       <div className="preview-stat-row">
                         <span>Ranuras Láser</span>
-                        <span>{selectedItem.slots.lasers}</span>
+                        <span>{currentItem.slots.lasers}</span>
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="shop-action-strip">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                    {activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? 'ESTADO:' : 'PRECIO FINAL:'}
+                <div className="shop-action-strip">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                      {(activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) ? 'ESTADO:' : 'PRECIO FINAL:'}
+                    </div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: (isAffordable || isMineral) ? '#00ffcc' : '#ff3366' }}>
+                      {(activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) ? 'ADQUIRIDO' :
+                       isMineral ? (amountOwned * currentItem.sellPrice).toLocaleString() : (currentItem.cost || 0).toLocaleString()} Cr
+                    </div>
                   </div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: (isAffordable || isMineral) ? '#00ffcc' : '#ff3366' }}>
-                    {activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? 'ADQUIRIDA' :
-                     isMineral ? (amountOwned * selectedItem.sellPrice).toLocaleString() : (selectedItem.cost || 0).toLocaleString()} Cr
-                  </div>
+                  <button 
+                    className="buy-button" 
+                    disabled={isMineral ? amountOwned === 0 : (activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) || !isAffordable}
+                    onClick={handleAction}
+                    style={{ background: ((activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active)) ? '#333' : '' }}
+                  >
+                    {(activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) ? 'YA EN PROPIEDAD' : isMineral ? 'VENDER TODO' : 'COMPRAR'}
+                  </button>
                 </div>
-                <button 
-                  className="buy-button" 
-                  disabled={isMineral ? amountOwned === 0 : (activeCategory === 'naves' && ownedShips.includes(selectedItem.id)) || !isAffordable}
-                  onClick={handleAction}
-                  style={{ background: activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? '#333' : '' }}
-                >
-                  {activeCategory === 'naves' && ownedShips.includes(selectedItem.id) ? 'YA EN PROPIEDAD' : isMineral ? 'VENDER TODO' : 'COMPRAR'}
-                </button>
-              </div>
-            </>
+              </>
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', textAlign: 'center', padding: '40px' }}>
               SELECCIONA UN ÍTEM PARA VER SUS ESPECIFICACIONES TÉCNICAS

@@ -462,6 +462,7 @@ async def api_login(req: LoginRequest):
         "timed_upgrades": result.get("timed_upgrades", {"atk":[], "shld":[], "spd":[], "hp":[]}),
         "is_invisible": result.get("is_invisible", False),
         "wips": result.get("wips", []),
+        "eco": result.get("eco"),
         "clan": clan_data
     }
 
@@ -773,7 +774,12 @@ async def api_sync_stats(req: SyncRequest):
             p["paladio"] = req.paladio
             p["level"] = req.level
             p["xp"] = req.xp
-            p["xp"] = req.xp
+            
+            if req.owned_ships is not None:
+                # Combinar naves para evitar pérdidas (solo añadir las nuevas)
+                current_ships = set(p.get("owned_ships", ["starter"]))
+                new_ships = set(req.owned_ships)
+                p["owned_ships"] = list(current_ships.union(new_ships))
             # ELIMINADO: p["is_invisible"] = req.is_invisible 
             # Dejamos que el backend sea el único que controle cuándo se rompe la invisibilidad
             # y que el endpoint de compra sea el único que la active.
@@ -789,7 +795,30 @@ async def api_sync_stats(req: SyncRequest):
                 p["wips"] = req.wips
                 game_state.recalculate_player_stats(p) # Drones may contribute stats
             if req.eco is not None:
-                p["eco"] = req.eco
+                if "eco" not in p or p["eco"] is None:
+                    p["eco"] = req.eco
+                else:
+                    # Preservar estados volátiles que el servidor controla en tiempo real
+                    # Evitamos que el cliente sobreescriba el estado de despliegue o recursos durante un sync rutinario
+                    current_active = p["eco"].get("active", False)
+                    current_deployed = p["eco"].get("deployed", False)
+                    current_fuel = p["eco"].get("fuel", 5000)
+                    current_integrity = p["eco"].get("integrity", 100)
+                    current_shield = p["eco"].get("shield", 0)
+                    
+                    p["eco"].update(req.eco)
+                    
+                    # PROTECCIÓN: Si ya estaba activo, no permitir que el cliente lo desactive (evita pérdida por desincronización)
+                    if current_active:
+                        p["eco"]["active"] = True
+                        
+                    # Restaurar estados volátiles para evitar desync desde el cliente
+                    p["eco"]["deployed"] = current_deployed
+                    p["eco"]["fuel"] = current_fuel
+                    p["eco"]["integrity"] = current_integrity
+                    if "shield" in p["eco"]:
+                        p["eco"]["shield"] = current_shield
+                    
                 game_state.recalculate_player_stats(p)
             break
             
@@ -1172,5 +1201,12 @@ async def claim_mission(req: MissionClaimRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    # Habilitamos reload=True para que los cambios se apliquen automáticamente
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # Habilitamos reload=True, pero excluimos la base de datos para evitar bucles de reinicio
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        reload_includes=["*.py"],
+        reload_excludes=["*.db", "*.db-journal", "**/__pycache__/*"]
+    )
