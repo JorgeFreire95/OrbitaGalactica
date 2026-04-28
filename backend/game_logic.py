@@ -240,54 +240,54 @@ class GameState:
         # --- PERFIL DE NAVES ---
         self.SHIP_PROFILES = {
             "starter": {
-                "hp": 60, "shld": 0, "atk": 40, "spd": 120, "color": "#ffffff",
+                "hp": 104000, "shld": 0, "atk": 40, "spd": 120, "color": "#ffffff",
                 "slots": {"lasers": 1, "shields": 1, "engines": 1, "utility": 1},
                 "cargo_capacity": 100
             },
             "tank": {
-                "hp": 180, "shld": 0, "atk": 70, "spd": 60, "color": "#ffb300",
+                "hp": 260000, "shld": 0, "atk": 70, "spd": 260, "color": "#ffb300",
                 "slots": {"lasers": 2, "shields": 6, "engines": 3, "utility": 2},
-                "cargo_capacity": 1500
+                "cargo_capacity": 800
             },
             "fast": {
-                "hp": 80, "shld": 0, "atk": 110, "spd": 160, "color": "#00ccff",
+                "hp": 116000, "shld": 0, "atk": 110, "spd": 330, "color": "#00ccff",
                 "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2},
-                "cargo_capacity": 500
+                "cargo_capacity": 400
             },
             "stealth": {
-                "hp": 90, "shld": 0, "atk": 130, "spd": 140, "color": "#9933ff",
+                "hp": 164000, "shld": 0, "atk": 130, "spd": 360, "color": "#9933ff",
                 "slots": {"lasers": 5, "shields": 3, "engines": 4, "utility": 3},
-                "cargo_capacity": 800
+                "cargo_capacity": 600
             },
             "heavy": {
-                "hp": 160, "shld": 0, "atk": 180, "spd": 50, "color": "#ff3333",
+                "hp": 356000, "shld": 0, "atk": 180, "spd": 300, "color": "#ff3333",
                 "slots": {"lasers": 8, "shields": 4, "engines": 2, "utility": 1},
-                "cargo_capacity": 1200
+                "cargo_capacity": 1500
             },
             "support": {
-                "hp": 110, "shld": 0, "atk": 60, "spd": 100, "color": "#33ff99",
+                "hp": 375000, "shld": 0, "atk": 60, "spd": 300, "color": "#33ff99",
                 "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6},
-                "cargo_capacity": 2500
+                "cargo_capacity": 2000
             },
             "sovereign": {
-                "hp": 220, "shld": 0, "atk": 250, "spd": 45, "color": "#e6b800",
+                "hp": 360000, "shld": 0, "atk": 250, "spd": 220, "color": "#e6b800",
                 "slots": {"lasers": 15, "shields": 10, "engines": 2, "utility": 3},
-                "cargo_capacity": 800
+                "cargo_capacity": 1500
             },
             "harvester": {
-                "hp": 140, "shld": 0, "atk": 80, "spd": 70, "color": "#00ff00",
-                "slots": {"lasers": 4, "shields": 5, "engines": 4, "utility": 8},
-                "cargo_capacity": 10000
+                "hp": 325000, "shld": 0, "atk": 80, "spd": 400, "color": "#00ff00",
+                "slots": {"lasers": 4, "shields": 6, "engines": 2, "utility": 8},
+                "cargo_capacity": 1500
             },
             "interceptor": {
-                "hp": 70, "shld": 0, "atk": 150, "spd": 210, "color": "#ffff00",
+                "hp": 200000, "shld": 0, "atk": 150, "spd": 370, "color": "#ffff00",
                 "slots": {"lasers": 6, "shields": 2, "engines": 12, "utility": 2},
-                "cargo_capacity": 300
+                "cargo_capacity": 500
             },
             "bastion": {
-                "hp": 400, "shld": 0, "atk": 100, "spd": 35, "color": "#333333",
-                "slots": {"lasers": 4, "shields": 15, "engines": 3, "utility": 5},
-                "cargo_capacity": 2000
+                "hp": 650000, "shld": 0, "atk": 100, "spd": 240, "color": "#333333",
+                "slots": {"lasers": 7, "shields": 15, "engines": 5, "utility": 5},
+                "cargo_capacity": 4000
             }
         }
         
@@ -373,7 +373,8 @@ class GameState:
             "owned_ships": ["starter"],
             "eco": initial_eco if (initial_eco and isinstance(initial_eco, dict)) else {
                 "active": False, "deployed": False, "mode": "passive", "level": 1, 
-                "integrity": 100, "shield": 500, "max_shield": 500, "fuel": 5000, "speed": 0,
+                "integrity": 50000, "max_integrity": 50000, "shield": 100000, "max_shield": 100000, 
+                "fuel": 100000, "max_fuel": 100000, "speed": 0,
                 "x": 1750, "y": 1150, "vx": 0, "vy": 0,
                 "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []},
                 "unlocked_slots": {"lasers": 1, "generators": 1, "protocols": 1, "utility": 1},
@@ -754,9 +755,9 @@ class GameState:
                 # Configuración de daño de misiles (Proporcional al Atk del jugador)
                 atk = player.get("atk", 100)
                 m_config = {
-                    "missile_1": {"dmg": atk * 5.0,  "spd": 800}, # Equiv a 500 si atk=100
-                    "missile_2": {"dmg": atk * 12.0, "spd": 700}, # Equiv a 1200 si atk=100
-                    "missile_3": {"dmg": atk * 35.0, "spd": 500}  # Equiv a 3500 si atk=100
+                    "missile_1": {"dmg": 1000, "spd": 800},
+                    "missile_2": {"dmg": 2000, "spd": 700},
+                    "missile_3": {"dmg": 4000, "spd": 500}
                 }
                 conf = m_config.get(m_type)
                 # Determinar dirección del misil: al objetivo o al frente (SOLO SI EL OBJETIVO ESTÁ EN EL MISMO MAPA)
@@ -841,9 +842,11 @@ class GameState:
                     eco = p.get("eco", {})
                     if eco.get("active"):
                         eco["integrity"] = max(0, eco.get("integrity", 100) - 10)
+                        
+                        # Trigger Kamikaze if it's about to be destroyed or inactive
+                        self.trigger_eco_kamikaze(pid)
+                        
                         if eco["integrity"] <= 0:
-                            # Si llega a 0 se rompe (se desactiva hasta ser reparado o comprado de nuevo)
-                            # Por ahora lo dejamos como inactivo
                             eco["active"] = False
                             eco["integrity"] = 0
                         p["eco"] = eco
@@ -1036,8 +1039,45 @@ class GameState:
             if not eco or not eco.get("active") or not eco.get("deployed"):
                 continue
             
-            # 1. Consumo de combustible (1 unidad por segundo)
-            eco["fuel"] = max(0, eco["fuel"] - dt)
+            # 1. Consumo de combustible
+            # Consumo base: 1 unidad por segundo
+            fuel_cons = 1.0
+            
+            # Consumo extra por reparación activa
+            is_repairing = False
+            now = time.time()
+            if p.get("eco_repair_end_time", 0) > now:
+                is_repairing = True
+                fuel_cons *= p.get("eco_repair_fuel_extra_factor", 1.35)
+                
+                # Efecto de reparación
+                heal = p.get("eco_repair_hp_sec", 0) * dt
+                if p["hp"] < p["max_hp"]:
+                    p["hp"] = min(p["max_hp"], p["hp"] + heal)
+                    # Opcional: registrar evento visual de reparación (verde)
+                    if random.random() < 0.1: # No saturar
+                        self.damage_events.append({
+                            "id": f"eco_heal_{pid}_{random.random()}",
+                            "x": p["x"], "y": p["y"],
+                            "amount": int(heal / dt), "time": now, "owner_id": pid, "color": "#00ffcc"
+                        })
+
+            # 2. Autorreparación del ECO
+            if p.get("eco_self_repair_end_time", 0) > now:
+                regen = p.get("eco_self_repair_hp_sec", 0) * dt
+                # Reparar integridad (PV del ECO)
+                max_int = eco.get("max_integrity", 50000)
+                if eco.get("integrity", 0) < max_int:
+                    eco["integrity"] = min(max_int, eco["integrity"] + regen)
+                    # Opcional: efecto visual en el ECO
+                    if random.random() < 0.1:
+                        self.damage_events.append({
+                            "id": f"eco_self_heal_{pid}_{random.random()}",
+                            "x": eco["x"], "y": eco["y"],
+                            "amount": int(regen / dt), "time": now, "owner_id": pid, "color": "#ccff00" # Lima/Amarillo para el ECO
+                        })
+
+            eco["fuel"] = max(0, eco["fuel"] - (fuel_cons * dt))
             if eco["fuel"] <= 0:
                 eco["deployed"] = False
                 
@@ -1090,6 +1130,34 @@ class GameState:
                                     target_x, target_y = attacker["x"], attacker["y"]
                                     attacking = True
                                     target_id = attacker_id
+            
+                                    target_id = attacker_id
+                    
+                    # 2.5 Lógica de Autorrecolección (Módulo ECO)
+                    collector_range = eco.get("collector_range", 0)
+                    if collector_range > 0 and not attacking:
+                        # Buscar cajas en el mapa actual dentro del rango del ECO
+                        nearby_boxes = [b for b in self.loot_boxes if b.get("map_id") == p["current_map"]]
+                        closest_box = None
+                        min_dist_to_ship = collector_range
+                        
+                        for box in nearby_boxes:
+                            d_ship_box = math.hypot(box["x"] - p["x"], box["y"] - p["y"])
+                            if d_ship_box < min_dist_to_ship:
+                                min_dist_to_ship = d_ship_box
+                                closest_box = box
+                        
+                        if closest_box:
+                            # El ECO va directo a la caja
+                            target_x, target_y = closest_box["x"], closest_box["y"]
+                            ideal_dist = 5 # Pegarse a la caja
+                            
+                            # Si el ECO ya está muy cerca de la caja, recogerla
+                            d_eco_box = math.hypot(closest_box["x"] - old_x, closest_box["y"] - old_y)
+                            if d_eco_box < 40:
+                                if self._try_collect_loot(p, closest_box):
+                                    if closest_box in self.loot_boxes:
+                                        self.loot_boxes.remove(closest_box)
             
             # 3. Movimiento del ECO (Sistema de Referencia Móvil)
             # Guardamos posición anterior para derivar vx/vy
@@ -1448,12 +1516,24 @@ class GameState:
                         damage = p["damage"]
                         target["last_dmg_time"] = now
                         target["last_attacker_id"] = p["owner_id"]
-                        if target["shld"] >= damage:
-                            target["shld"] -= damage
+                        # DAMAGE LOGIC WITH ABSORPTION (PvP)
+                        abs_rate = target.get("shield_absorption", 0.8)
+                        shld_dmg = damage * abs_rate
+                        hp_dmg = damage * (1 - abs_rate)
+
+                        if target["shld"] >= shld_dmg:
+                            target["shld"] -= shld_dmg
                         else:
-                            rem = damage - target["shld"]
+                            rem = shld_dmg - target["shld"]
                             target["shld"] = 0
-                            target["hp"] -= rem
+                            hp_dmg += rem
+
+                        target["hp"] -= hp_dmg
+                        
+                        # Trigger Kamikaze if HP < 20%
+                        if target["hp"] > 0 and target["hp"] < target["max_hp"] * 0.2:
+                            self.trigger_eco_kamikaze(pid)
+
                         hit = True
                         break
             else:
@@ -1467,12 +1547,23 @@ class GameState:
                         damage = p["damage"]
                         target["last_dmg_time"] = now
                         target["last_attacker_id"] = p["owner_id"]
-                        if target["shld"] >= damage:
-                            target["shld"] -= damage
+                        # DAMAGE LOGIC WITH ABSORPTION (PvE)
+                        abs_rate = target.get("shield_absorption", 0.8)
+                        shld_dmg = damage * abs_rate
+                        hp_dmg = damage * (1 - abs_rate)
+
+                        if target["shld"] >= shld_dmg:
+                            target["shld"] -= shld_dmg
                         else:
-                            rem = damage - target["shld"]
+                            rem = shld_dmg - target["shld"]
                             target["shld"] = 0
-                            target["hp"] -= rem
+                            hp_dmg += rem
+
+                        target["hp"] -= hp_dmg
+                        
+                        # Trigger Kamikaze if HP < 20%
+                        if target["hp"] > 0 and target["hp"] < target["max_hp"] * 0.2:
+                            self.trigger_eco_kamikaze(pid)
                         
                         # Registrar evento de daño recibido por el jugador
                         self.damage_events.append({
@@ -1498,159 +1589,23 @@ class GameState:
         # Jugadores vs Cajas (Looting)
         alive_boxes = []
         for box in self.loot_boxes:
-            taken = False
-            # Check lifetime (10 secs)
-            if now - box["spawn_time"] > 10:
+            if now - box["spawn_time"] > 20: 
                 continue # expiró
                 
+            taken = False
             for pid, player in self.players.items():
                 if player["hp"] <= 0: continue
-                if box.get("map_id") != player.get("current_map"): continue # FIX: Map check
+                if box.get("map_id") != player.get("current_map"): continue
+                
                 dist = math.hypot(box["x"] - player["x"], box["y"] - player["y"])
-                if dist < 30: # 15 box width + 15 player size
-                    taken = True
-                    if box["type"] == "heal":
-                        player["hp"] = min(player["max_hp"], player["hp"] + 50)
-                        self.loot_events.append({
-                            "id": str(random.random()),
-                            "x": box["x"], "y": box["y"],
-                            "type": "heal", "amount": 50,
-                            "time": now, "owner_id": pid
-                        })
-                    elif box["type"] == "mineral":
-                        # (Legacy) Caja de un solo mineral
-                        current_cargo = sum(player["minerals"].values())
-                        can_take = min(box["amount"], player["max_cargo"] - current_cargo)
-                        if can_take > 0:
-                            m_type = box["mineral_type"]
-                            player["minerals"][m_type] = player["minerals"].get(m_type, 0) + can_take
-                            self.loot_events.append({
-                                "id": str(random.random()),
-                                "x": box["x"], "y": box["y"],
-                                "type": "mineral", "mineral_type": m_type, "amount": can_take,
-                                "time": now, "owner_id": pid
-                            })
-                            # Si no se llevó todo, la caja se queda con el resto
-                            if can_take < box["amount"]:
-                                box["amount"] -= can_take
-                                taken = False
-                        else:
-                            # Notificar bodega llena para cajas legacy
-                            if not hasattr(self, "_last_full_warn"): self._last_full_warn = {}
-                            if now - self._last_full_warn.get(pid, 0) > 2:
-                                self.loot_events.append({
-                                    "id": str(random.random()), "x": box["x"], "y": box["y"],
-                                    "type": "cargo_full", "time": now, "owner_id": pid
-                                })
-                                self._last_full_warn[pid] = now
-                            taken = False 
-                    elif box["type"] == "cargo":
-                        # Recoger múltiples minerales
-                        minerals_dict = player.get("minerals", {})
-                        # Asegurar que sea un dict
-                        if not isinstance(minerals_dict, dict):
-                            minerals_dict = {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
-                            player["minerals"] = minerals_dict
-                        
-                        current_shared_cargo = sum(minerals_dict.values())
-                        box_minerals = box.get("minerals", {})
-                        
-                        collected_info = {}
-                        has_remaining = False
-                        for m_type, amount in box_minerals.items():
-                            if amount <= 0: continue
-                            if current_shared_cargo < player["max_cargo"]:
-                                can_take = min(amount, player["max_cargo"] - current_shared_cargo)
-                                if can_take > 0:
-                                    minerals_dict[m_type] = minerals_dict.get(m_type, 0) + can_take
-                                    current_shared_cargo += can_take
-                                    collected_info[m_type] = can_take
-                                    box_minerals[m_type] -= can_take # Restar de la caja
-                                    if box_minerals[m_type] > 0:
-                                        has_remaining = True
-                                else:
-                                    has_remaining = True
-                            else:
-                                has_remaining = True
-                        
-                        if collected_info:
-                            self.loot_events.append({
-                                "id": str(random.random()),
-                                "x": box["x"], "y": box["y"],
-                                "type": "cargo", "minerals": collected_info,
-                                "time": now, "owner_id": pid
-                            })
-                            # Si quedan minerales en la caja, no la eliminamos
-                            if has_remaining:
-                                taken = False
-                        else:
-                            # Notificar bodega llena (Cooldown de 2 seg para no spamear eventos)
-                            if not hasattr(self, "_last_full_warn"): self._last_full_warn = {}
-                            if now - self._last_full_warn.get(pid, 0) > 2:
-                                self.loot_events.append({
-                                    "id": str(random.random()), "x": box["x"], "y": box["y"],
-                                    "type": "cargo_full", "time": now, "owner_id": pid
-                                })
-                                self._last_full_warn[pid] = now
-                            taken = False # Bodega llena
-                    elif box["type"] == "special_coin":
-                        # --- RECOMPENSA ALEATORIA PALADIO/CRÉDITOS/MUNICIÓN ---
-                        rand = random.random()
-                        if rand < 0.40: # 40% Créditos
-                            amt = random.randint(1000, 5000)
-                            player["credits"] += amt
-                            self.loot_events.append({
-                                "id": str(random.random()),
-                                "x": box["x"], "y": box["y"],
-                                "type": "credits", "amount": amt,
-                                "time": now, "owner_id": pid
-                            })
-                        elif rand < 0.65: # 25% Munición Láser
-                            amt = random.randint(50, 150)
-                            ammo_id = random.choice(["thermal", "plasma", "siphon"])
-                            ammo_names = {"thermal": "Térmica", "plasma": "Plasma", "siphon": "Sifón"}
-                            player["ammo"][ammo_id] += amt
-                            self.loot_events.append({
-                                "id": str(random.random()),
-                                "x": box["x"], "y": box["y"],
-                                "type": "ammo", "ammo_type": ammo_id, "ammo_name": ammo_names.get(ammo_id, ""), "amount": amt,
-                                "time": now, "owner_id": pid
-                            })
-                        elif rand < 0.80: # 15% Munición Misiles
-                            amt = random.randint(5, 15)
-                            m_type = random.choice(["missile_1", "missile_2", "missile_3"])
-                            m_names = {"missile_1": 'M-1 "Seta"', "missile_2": 'M-2 "Ciclón"', "missile_3": 'M-3 "Giga-Nuke"'}
-                            if "missiles" not in player: player["missiles"] = {"missile_1": 0, "missile_2": 0, "missile_3": 0}
-                            player["missiles"][m_type] += amt
-                            self.loot_events.append({
-                                "id": str(random.random()),
-                                "x": box["x"], "y": box["y"],
-                                "type": "missile_loot", "missile_type": m_type, "missile_name": m_names.get(m_type, ""), "amount": amt,
-                                "time": now, "owner_id": pid
-                            })
-                        else: # 20% Paladio
-                            amt = random.randint(2, 10)
-                            player["paladio"] = player.get("paladio", 0) + amt
-                            self.loot_events.append({
-                                "id": str(random.random()),
-                                "x": box["x"], "y": box["y"],
-                                "type": "special_coin", "amount": amt,
-                                "time": now, "owner_id": pid
-                            })
-                    else:
-                        player["powerup"] = box["type"]
-                        player["powerup_time"] = now + 10.0 # dura 10 segundos
-                        self.loot_events.append({
-                            "id": str(random.random()),
-                            "x": box["x"], "y": box["y"],
-                            "type": box["type"], # rapid_fire, speed
-                            "time": now, "owner_id": pid
-                        })
-                    break
+                if dist < 30:
+                    if self._try_collect_loot(player, box):
+                        taken = True
+                        break
             
             if not taken:
                 alive_boxes.append(box)
-                
+        
         self.loot_boxes = alive_boxes
         
         # Aliens vs Jugadores (Daño por contacto)
@@ -1810,7 +1765,6 @@ class GameState:
         
         # Recalcular estadísticas por si subió de nivel
         self.recalculate_player_stats(player)
-
     def recalculate_player_stats(self, player):
         """Recalcula las estadísticas finales sumando base + módulos + mejoras temporales."""
         # Reiniciar a base
@@ -1819,6 +1773,7 @@ class GameState:
         player["spd"] = player.get("base_spd", 60)
         player["max_shld"] = player.get("base_max_shld", 150)
         player["max_hp"] = player.get("base_max_hp", 180)
+        player["shield_absorption"] = 0.8 # Default 80%
 
         # 1. Sumar Módulos Equipados
         player["lasers"] = 0
@@ -1826,6 +1781,10 @@ class GameState:
         player["shields"] = 0
         player["repair_rate"] = 0 # Reiniciar tasa de reparación
         player["has_auto_repair"] = False
+        
+        # Para el cálculo del promedio ponderado de absorción
+        total_shld_for_abs = 0
+        weighted_abs_sum = 0
         
         for mod in player.get("equipped", []):
             # SEGURIDAD: Los protocolos NUNCA afectan a la nave principal ni a los Wips
@@ -1836,7 +1795,14 @@ class GameState:
                 continue
 
             if "atk" in mod: player["atk"] += mod["atk"]
-            if "shld" in mod: player["max_shld"] += mod["shld"]
+            if "shld" in mod: 
+                s_val = mod["shld"]
+                player["max_shld"] += s_val
+                # Si el módulo tiene absorción específica, usarla para el promedio
+                if "absorption" in mod:
+                    weighted_abs_sum += (s_val * mod["absorption"])
+                    total_shld_for_abs += s_val
+
             if "spd" in mod: player["spd"] += mod["spd"]
             if "hp" in mod: player["max_hp"] += mod["hp"]
             if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
@@ -1845,7 +1811,8 @@ class GameState:
             # Recount for visuals
             m_type = mod.get("type", "")
             if m_type == "lasers": player["lasers"] += 1
-            if m_type == "shields": player["shields"] += 1
+            if m_type == "shields": 
+                player["shields"] += 1
 
         # 1.5. Sumar Módulos de Wips (Drones)
         for wip in player.get("wips", []):
@@ -1857,7 +1824,13 @@ class GameState:
                     continue
 
                 if "atk" in mod: player["atk"] += mod["atk"]
-                if "shld" in mod: player["max_shld"] += mod["shld"]
+                if "shld" in mod: 
+                    s_val = mod["shld"]
+                    player["max_shld"] += s_val
+                    if "absorption" in mod:
+                        weighted_abs_sum += (s_val * mod["absorption"])
+                        total_shld_for_abs += s_val
+
                 if "spd" in mod: player["spd"] += mod["spd"]
                 if "hp" in mod: player["max_hp"] += mod["hp"]
                 if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
@@ -1866,6 +1839,10 @@ class GameState:
                 m_type = mod.get("type", "")
                 if m_type == "lasers": player["lasers"] += 1
                 if m_type == "shields": player["shields"] += 1
+
+        # Finalizar cálculo de absorción (si hay escudos con absorción)
+        if total_shld_for_abs > 0:
+            player["shield_absorption"] = weighted_abs_sum / total_shld_for_abs
 
         # 1.6 Sumar Módulos de E.C.O. (Solo si está activo Y desplegado)
         eco = player.get("eco", {})
@@ -1878,9 +1855,11 @@ class GameState:
         if eco.get("active"):
             # Base stats del dron (escalan ligeramente con el nivel del dron)
             lvl_mult = 1 + (eco.get("level", 1) * 0.05)
-            eco["max_shield"] = 500 * lvl_mult
+            eco["max_shield"] = 100000 * lvl_mult
             eco["atk"] = 25 * lvl_mult
-            eco["max_hp"] = 500 * lvl_mult
+            eco["max_hp"] = 50000 * lvl_mult
+            eco["max_integrity"] = 50000 * lvl_mult
+            if "max_fuel" not in eco: eco["max_fuel"] = 100000
             # Sincronizar velocidad con la nave principal (multiplicador aumentado a 4.0 para ser siempre superior)
             eco["speed"] = player["spd"] * 4.0
             
@@ -1894,6 +1873,19 @@ class GameState:
                         if "spd" in mod: eco["speed"] += mod["spd"]
                         if "hp" in mod: eco["max_hp"] += mod["hp"]
                         
+                        # Autorrecolector
+                        if "range" in mod and "eco_coll" in mod.get("id", ""):
+                            eco["collector_range"] = max(eco.get("collector_range", 0), mod["range"])
+                        
+                        # Rastreador de Enemigos
+                        if "range" in mod and "eco_track" in mod.get("id", ""):
+                            eco["tracker_range"] = max(eco.get("tracker_range", 0), mod["range"])
+
+                        # Kamikaze
+                        if "damage" in mod and "eco_kami" in mod.get("id", ""):
+                            eco["kamikaze_damage"] = max(eco.get("kamikaze_damage", 0), mod["damage"])
+                            eco["kamikaze_radius"] = max(eco.get("kamikaze_radius", 0), mod["radius"])
+
                         # Protocolos del ECO (bonos directos a sus propias stats)
                         if mod.get("type") == "protocol" or mod.get("type") == "protocols":
                             if "atk_bonus" in mod: eco["atk"] *= (1 + mod["atk_bonus"])
@@ -1924,6 +1916,80 @@ class GameState:
         # Ajustar valores actuales si el máximo bajó
         player["shld"] = min(player["shld"], player["max_shld"])
         player["hp"] = min(player["hp"], player["max_hp"])
+
+    def trigger_eco_kamikaze(self, player_id):
+        if player_id not in self.players:
+            return
+            
+        player = self.players[player_id]
+        eco = player.get("eco", {})
+        
+        # Verificar si tiene el módulo y si está desplegado
+        if not eco.get("active") or not eco.get("deployed"):
+            return
+            
+        damage = eco.get("kamikaze_damage", 0)
+        radius = eco.get("kamikaze_radius", 0)
+        
+        if damage <= 0 or radius <= 0:
+            return
+            
+        # Cooldown o bandera para evitar triggers múltiples
+        if eco.get("kamikaze_triggered_time") and time.time() - eco["kamikaze_triggered_time"] < 10.0:
+            return
+            
+        eco["kamikaze_triggered_time"] = time.time()
+        now = time.time()
+        
+        # 1. Crear evento de explosión masiva
+        self.destruction_events.append({
+            "id": f"kamikaze_{player_id}_{now}",
+            "x": eco["x"],
+            "y": eco["y"],
+            "type": "kamikaze_explosion", 
+            "radius": radius,
+            "time": now,
+            "owner_id": player_id
+        })
+        
+        # 2. Aplicar daño expansivo a enemigos cercanos
+        for enemy in self.enemies:
+            if enemy.get("map_id") != player.get("current_map"): continue
+            
+            dist = math.hypot(enemy["x"] - eco["x"], enemy["y"] - eco["y"])
+            if dist <= radius:
+                enemy["hp"] -= damage
+                
+                # Registrar daño individual
+                self.damage_events.append({
+                    "id": f"kami_dmg_{enemy['id']}_{now}",
+                    "x": enemy["x"], "y": enemy["y"],
+                    "amount": int(damage), "time": now, "owner_id": player_id
+                })
+                
+                # Si el alien muere por la explosión, darle las recompensas al jugador
+                if enemy["hp"] <= 0:
+                    reward_mult = 5.0 if enemy.get("is_boss") else 1.0
+                    base_kill_credits = 250 * reward_mult
+                    base_kill_xp = 100 * reward_mult
+                    
+                    player["score"] += int(100 * reward_mult)
+                    player["credits"] += int(base_kill_credits)
+                    player["paladio"] = player.get("paladio", 0) + (enemy.get("level", 1) * (3 if enemy.get("is_hard") else 1))
+                    self.gain_xp(player, int(base_kill_xp))
+                    
+                    self.kill_events.append({
+                        "id": f"kami_kill_{enemy['id']}_{now}",
+                        "x": enemy["x"], "y": enemy["y"],
+                        "xp": int(base_kill_xp), "credits": int(base_kill_credits),
+                        "time": now, "owner_id": player_id
+                    })
+
+        # 3. El ECO se destruye/desactiva
+        eco["active"] = False
+        eco["integrity"] = 0
+        eco["deployed"] = False
+        player["eco"] = eco
 
     def buy_module(self, client_id, module_data, free=False):
         if client_id not in self.players:
@@ -2583,3 +2649,249 @@ class GameState:
                             pass
                     break
 
+    def _send_sys_msg(self, client_id, text):
+        ws = self.clients.get(client_id)
+        if ws:
+            try:
+                import asyncio
+                import json
+                loop = asyncio.get_event_loop()
+                msg = json.dumps({
+                    "type": "chat_update",
+                    "message": {
+                        "id": "sys_" + str(time.time()),
+                        "sender": "SISTEMA",
+                        "display_name": "SISTEMA",
+                        "text": text,
+                        "channel": "global",
+                        "faction": "SYSTEM",
+                        "time": time.time()
+                    }
+                })
+                if loop.is_running():
+                    loop.create_task(ws.send_text(msg))
+            except:
+                pass
+
+    def eco_repair(self, client_id):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        eco = player.get("eco")
+        
+        if not eco or not eco.get("active") or not eco.get("deployed"):
+            self._send_sys_msg(client_id, "⚠️ El E.C.O. debe estar desplegado para reparar.")
+            return
+            
+        # Buscar módulo de reparación equipado
+        repair_module = None
+        equipped_util = eco.get("equipped", {}).get("utility", [])
+        # equipped_util puede ser una lista de dicts o IDs
+        for item in equipped_util:
+            iid = item.get("id", "") if isinstance(item, dict) else str(item)
+            if iid.startswith("eco_rep_"):
+                repair_module = iid
+                break
+        
+        if not repair_module:
+            self._send_sys_msg(client_id, "⚠️ No tienes un Módulo de Reparación equipado en el E.C.O.")
+            return
+
+        now = time.time()
+        # Cooldown o verificación si ya está reparando
+        if player.get("eco_repair_end_time", 0) > now:
+            self._send_sys_msg(client_id, "⚠️ El protocolo de reparación ya está en curso.")
+            return
+
+        # Stats según el nivel
+        lvl = 1
+        if "rep_2" in repair_module: lvl = 2
+        elif "rep_3" in repair_module: lvl = 3
+        
+        stats = {
+            1: {"hp_sec": 10000, "fuel": 200, "fail": 65},
+            2: {"hp_sec": 15000, "fuel": 400, "fail": 75},
+            3: {"hp_sec": 25000, "fuel": 750, "fail": 85}
+        }
+        
+        s = stats[lvl]
+        
+        # Consumo de combustible base
+        if eco.get("fuel", 0) < s["fuel"]:
+             self._send_sys_msg(client_id, "⚠️ Combustible insuficiente para iniciar reparación.")
+             return
+
+        # Probabilidad de rechazo
+        if random.random() * 100 < s["fail"]:
+            # Falló pero igual consume el combustible base por el intento
+            eco["fuel"] -= s["fuel"]
+            self._send_sys_msg(client_id, f"❌ El sistema E.C.O. ha rechazado la orden ({s['fail']}% de probabilidad de fallo).")
+            return
+
+        eco["fuel"] -= s["fuel"]
+        
+        # Iniciar reparación
+        player["eco_repair_hp_sec"] = s["hp_sec"]
+        player["eco_repair_end_time"] = now + 5
+        player["eco_repair_fuel_extra_factor"] = 1.35 # 35% extra fuel consumption during repair
+        
+        self._send_sys_msg(client_id, f"🔧 Iniciando reparación remota Nivel {lvl} (5s)...")
+
+    def eco_self_repair(self, client_id):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        eco = player.get("eco")
+        
+        if not eco or not eco.get("active") or not eco.get("deployed"):
+            self._send_sys_msg(client_id, "⚠️ El E.C.O. debe estar desplegado para autorrepararse.")
+            return
+            
+        # Buscar módulo de autorreparación equipado
+        repair_module = None
+        equipped_util = eco.get("equipped", {}).get("utility", [])
+        for item in equipped_util:
+            iid = item.get("id", "") if isinstance(item, dict) else str(item)
+            if iid.startswith("eco_self_rep_"):
+                repair_module = iid
+                break
+        
+        if not repair_module:
+            self._send_sys_msg(client_id, "⚠️ No tienes un Módulo de Autorreparación equipado en el E.C.O.")
+            return
+
+        now = time.time()
+        # Verificar si ya está reparando
+        if player.get("eco_self_repair_end_time", 0) > now:
+            self._send_sys_msg(client_id, "⚠️ El sistema de autorreparación ya está activo.")
+            return
+
+        # Stats según el nivel
+        lvl = 1
+        if "rep_2" in repair_module: lvl = 2
+        elif "rep_3" in repair_module: lvl = 3
+        
+        # Nivel 1: 2000 HP/s, 89s, 2500 paladio
+        # Nivel 2: 6000 HP/s, 30s, 6000 paladio
+        # Nivel 3: 12000 HP/s, 15s, 12500 paladio
+        stats = {
+            1: {"hp_sec": 2000, "duration": 89},
+            2: {"hp_sec": 6000, "duration": 30},
+            3: {"hp_sec": 12000, "duration": 15}
+        }
+        
+        s = stats[lvl]
+        
+        # Iniciar autorreparación
+        player["eco_self_repair_hp_sec"] = s["hp_sec"]
+        player["eco_self_repair_end_time"] = now + s["duration"]
+        
+        self._send_sys_msg(client_id, f"🛠️ Autorreparación del E.C.O. Nivel {lvl} activada ({s['duration']}s).")
+
+    def _try_collect_loot(self, player, box):
+        """Intenta recoger una caja. Retorna True si la caja debe ser eliminada."""
+        now = time.time()
+        pid = player["id"]
+        
+        if box["type"] == "heal":
+            player["hp"] = min(player["max_hp"], player["hp"] + 50)
+            self.loot_events.append({
+                "id": str(random.random()),
+                "x": box["x"], "y": box["y"],
+                "type": "heal", "amount": 50,
+                "time": now, "owner_id": pid
+            })
+            return True
+            
+        elif box["type"] == "mineral":
+            current_cargo = sum(player["minerals"].values())
+            can_take = min(box["amount"], player["max_cargo"] - current_cargo)
+            if can_take > 0:
+                m_type = box["mineral_type"]
+                player["minerals"][m_type] = player["minerals"].get(m_type, 0) + can_take
+                self.loot_events.append({
+                    "id": str(random.random()),
+                    "x": box["x"], "y": box["y"],
+                    "type": "mineral", "mineral_type": m_type, "amount": can_take,
+                    "time": now, "owner_id": pid
+                })
+                if can_take < box["amount"]:
+                    box["amount"] -= can_take
+                    return False
+                return True
+            else:
+                self._warn_cargo_full(pid, box)
+                return False
+                
+        elif box["type"] == "cargo":
+            minerals_dict = player.get("minerals", {})
+            if not isinstance(minerals_dict, dict):
+                minerals_dict = {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
+                player["minerals"] = minerals_dict
+            
+            current_shared_cargo = sum(minerals_dict.values())
+            box_minerals = box.get("minerals", {})
+            
+            collected_info = {}
+            has_remaining = False
+            for m_type, amount in box_minerals.items():
+                if amount <= 0: continue
+                if current_shared_cargo < player["max_cargo"]:
+                    can_take = min(amount, player["max_cargo"] - current_shared_cargo)
+                    if can_take > 0:
+                        minerals_dict[m_type] = minerals_dict.get(m_type, 0) + can_take
+                        current_shared_cargo += can_take
+                        collected_info[m_type] = can_take
+                        box_minerals[m_type] -= can_take
+                        if box_minerals[m_type] > 0: has_remaining = True
+                    else: has_remaining = True
+                else: has_remaining = True
+            
+            if collected_info:
+                self.loot_events.append({
+                    "id": str(random.random()),
+                    "x": box["x"], "y": box["y"],
+                    "type": "cargo", "minerals": collected_info,
+                    "time": now, "owner_id": pid
+                })
+                return not has_remaining
+            else:
+                self._warn_cargo_full(pid, box)
+                return False
+                
+        elif box["type"] == "special_coin":
+            rand = random.random()
+            if rand < 0.40: # Credits
+                amt = random.randint(1000, 5000)
+                player["credits"] += amt
+                self.loot_events.append({
+                    "id": str(random.random()), "x": box["x"], "y": box["y"],
+                    "type": "credits", "amount": amt, "time": now, "owner_id": pid
+                })
+            elif rand < 0.65: # Ammo
+                amt = random.randint(50, 150)
+                ammo_id = random.choice(["thermal", "plasma", "siphon"])
+                player["ammo"][ammo_id] += amt
+                self.loot_events.append({
+                    "id": str(random.random()), "x": box["x"], "y": box["y"],
+                    "type": "credits", "amount": 0, "text": f"+{amt} {ammo_id.upper()}",
+                    "time": now, "owner_id": pid
+                })
+            else: # Paladio
+                amt = random.randint(10, 30)
+                player["paladio"] = player.get("paladio", 0) + amt
+                self.loot_events.append({
+                    "id": str(random.random()), "x": box["x"], "y": box["y"],
+                    "type": "paladio", "amount": amt, "time": now, "owner_id": pid
+                })
+            return True
+            
+        return False
+
+    def _warn_cargo_full(self, pid, box):
+        now = time.time()
+        if not hasattr(self, "_last_full_warn"): self._last_full_warn = {}
+        if now - self._last_full_warn.get(pid, 0) > 2:
+            self.loot_events.append({
+                "id": str(random.random()), "x": box["x"], "y": box["y"],
+                "type": "cargo_full", "time": now, "owner_id": pid
+            })
+            self._last_full_warn[pid] = now

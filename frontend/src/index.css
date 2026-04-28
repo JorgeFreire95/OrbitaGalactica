@@ -655,6 +655,7 @@ html, body, #root {
   border-left: 1px solid #1a2a4a;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .preview-top {
@@ -673,10 +674,12 @@ html, body, #root {
 
 .preview-info {
   flex: 1;
+  min-height: 0;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 15px;
+  overflow-y: auto;
 }
 
 .preview-title {
@@ -685,25 +688,40 @@ html, body, #root {
   font-weight: bold;
 }
 
-.preview-desc {
-  font-size: 0.85rem;
-  color: #aaa;
-  line-height: 1.5;
+.preview-desc, .item-description {
+  font-size: 0.9rem;
+  color: #ccd8ff;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  font-style: italic;
+  opacity: 0.9;
 }
 
 .preview-stats {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  padding: 5px;
 }
 
 .preview-stat-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.8rem;
   color: #88aaff;
-  border-bottom: 1px solid #1a2a4a33;
-  padding: 4px 0;
+  border-bottom: 1px solid rgba(26, 42, 74, 0.4);
+  padding: 8px 0;
+  transition: background 0.2s;
+}
+
+.preview-stat-row:hover {
+  background: rgba(0, 255, 204, 0.03);
+}
+
+.preview-stat-row span:last-child {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: bold;
 }
 
 /* Action Strip */
@@ -713,6 +731,7 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .buy-button {

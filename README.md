@@ -48,15 +48,19 @@
 
 ### 🤖 E.C.O. (Emergency Companion Observer)
 - **Unidad de Apoyo Avanzada**: El sistema E.C.O. es un dron de apoyo inteligente con IA dedicada que actúa de forma independiente para asistir al piloto en situaciones críticas.
-- **Sistema de Progresión y Veteranía**: El E.C.O. ahora posee su propio sistema de niveles (hasta **Nivel 15**). Recibe automáticamente el **15% de la experiencia** ganada por el piloto en combates y misiones, permitiendo una evolución paralela al rango del jugador.
+- **Sistema de Progresión y Veteranía**: El E.C.O. posee su propio sistema de niveles (hasta **Nivel 15**). Recibe automáticamente el **15% de la experiencia** ganada por el piloto en combates y misiones, permitiendo una evolución paralela al rango del jugador.
+- **Gestión de Combustible (Fuel System)**: El dron requiere combustible para operar. Posee un tanque de **100,000 unidades** que se consume durante el despliegue y de forma acelerada al activar protocolos de reparación. Si el combustible se agota, el dron se repliega automáticamente.
+- **Protocolos de Reparación Inteligente**:
+    - **Reparación Remota (Nivel 1-3)**: El E.C.O. puede proyectar un haz reparador sobre la nave del piloto para restaurar integridad estructural en pleno combate. El protocolo consume combustible extra y tiene una probabilidad de rechazo basada en el nivel del módulo.
+    - **Auto-Reparación (Nivel 1-3)**: Protocolo de mantenimiento interno que permite al E.C.O. recuperar sus propios puntos de integridad y escudo de forma gradual.
 - **Tecnología Escalonada (Tiers)**: El acceso a protocolos y módulos avanzados está estrictamente vinculado al nivel de veteranía del dron:
     - **Nivel 1-4**: Equipamiento Básico (Tier 1).
     - **Nivel 5-9**: Equipamiento Avanzado (Tier 2).
     - **Nivel 10-15**: Equipamiento de Élite (Tier 3).
-- **Expansión de Ranuras por Paladio**: El chasis del E.C.O. es altamente modular pero requiere inversión. Aunque comienza con una ranura básica por sección, el piloto puede desbloquear la capacidad total (hasta 5 láseres, 10 generadores, 10 protocolos y 5 módulos de utilidad) invirtiendo **500 de Paladio** por cada expansión de ranura.
-- **Tienda Inteligente y Dinámica**: Los suministros del E.C.O. en la tienda galáctica se han agrupado para evitar la saturación visual. Un nuevo selector de nivel dinámico permite elegir el grado tecnológico del protocolo, actualizando el precio y las especificaciones técnicas en tiempo real antes de la compra.
-- **IA de Seguimiento Dinámico**: A diferencia de los Wips, el E.C.O. posee su propio vector de velocidad y rotación. Utiliza un algoritmo de seguimiento que le permite orbitar la nave o posicionarse tácticamente durante el combate.
-- **HUD de Estado y XP**: El dron proyecta su propio HUD sobre su chasis, mostrando integridad, escudo y una **barra de experiencia (XP)** que refleja su progreso hacia el siguiente nivel.
+- **Expansión de Ranuras por Paladio**: El chasis del E.C.O. es altamente modular. El piloto puede desbloquear hasta **5 láseres, 10 generadores, 10 protocolos y 5 módulos de utilidad** invirtiendo **500 de Paladio** por cada expansión de ranura.
+- **Tienda Inteligente y Dinámica**: Interfaz optimizada con selector de nivel dinámico para protocolos, eliminando la saturación visual y mostrando especificaciones técnicas y costes en tiempo real.
+- **IA de Seguimiento Dinámico**: Algoritmo de navegación autónoma con vector de velocidad propio que permite al dron orbitar la nave o realizar maniobras de evasión.
+- **HUD de Estado y XP**: Proyección holográfica sobre el chasis que muestra integridad, escudo, nivel actual y una **barra de experiencia (XP)** detallada.
 
 ### 💬 Sistema Social y Chat Integrado
 - **Chat Multi-Canal**: Comunícate a través de canales dedicados: **Global** (todos los pilotos), **Empresa** (solo miembros de tu facción), **Clan** (mensajes internos de la alianza) y **Privado** (pestañas dedicadas para chats 1 a 1).
@@ -93,7 +97,9 @@
 ### 💰 Economía y Recursos
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda, mejoras de élite y la **expansión de ranuras del sistema E.C.O.** (500 de Paladio por ranura).
-- **Laboratorio de Minerales (Sincronización Total y Persistencia)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras **acumulables** en Ataque, Escudo, Velocidad e Integridad de Casco (HP). Ahora el sistema es 100% autorritativo: las mejoras se guardan en el servidor y persisten entre sesiones, aplicándose instantáneamente a tu nave activa mediante WebSockets y APIs de sincronización.
+- **Laboratorio de Minerales (Autorritatividad y Curación Proporcional)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras permanentes de sesión (2h) en Ataque, Escudo, Velocidad e Integridad de Casco (HP). 
+    - **Persistencia Total**: Las mejoras se guardan en el servidor y persisten tras desconexiones o cambios de nave.
+    - **Curación Instantánea**: Al aplicar una mejora de HP o Escudo Máximo, el sistema restaura automáticamente la misma cantidad a los puntos actuales de la nave, permitiendo un uso táctico del laboratorio como sistema de emergencia.
 - **Beneficios VIP**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
 
 ### 📦 Cofres Especiales (Botín de Exploración)
@@ -189,11 +195,15 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 
 ### ⚔️ Combate y HUD Cinematográfico
 - **Efectos de Destrucción Estelar**: Explosiones dinámicas con destello radial al destruir enemigos.
-- **Protocolo de Emergencia (Reparación)**: Restauración de sistemas por **500 Créditos** con salto a la Sede Central.
+- **Rediseño de Blindaje (Zero-Base Shields)**: Se ha eliminado el escudo base de todas las naves para profundizar en la personalización. La protección energética depende exclusivamente de los módulos equipados en el hangar.
+- **Protocolo de Emergencia y Reparación Manual**: 
+    - **Salto a Base**: Restauración por **500 Créditos** con teletransporte inmediato.
+    - **Robot de Reparación Táctico**: Herramienta de activación manual. Se desactiva automáticamente si la nave recibe daño o alcanza el 100% de integridad estructural.
+- **Módulo de Invisibilidad (Stealth Cloak)**: Tecnología de camuflaje que oculta la nave del radar y de la vista directa. El estado de invisibilidad se rompe instantáneamente al iniciar un ataque (láser o misiles).
 - **HUD Dinámico**: Barras de **Vida (❤️)** y **Escudo (🛡️)** animadas con cambios de color según el estado crítico.
 - **Sincronización Autorritativa**: Modificaciones en el Hangar se reflejan instantáneamente en las estadísticas de combate.
 - **Feedback de Daño Dual**: Los daños infligidos por el jugador son blancos/amarillos, mientras que el daño recibido de aliens es **rojo**, mejorando la conciencia táctica.
-- **Sistemas de Bio-Retroalimentación**: Las reparaciones en tiempo real muestran mensajes flotantes de curación (**+HP 💚**) en color turquesa neón, permitiendo monitorear la recuperación de integridad estructural sin apartar la vista del combate.
+- **Sistemas de Bio-Retroalimentación**: Las reparaciones en tiempo real muestran mensajes flotantes de curación (**+HP 💚**) en color turquesa neón.
 - **Sistema de Misiles Inteligentes**: Los misiles ahora son **teledirigidos**. Requieren que un alienígena esté marcado/fijado como blanco para ser disparados (Tecla 'E'), persiguiendo automáticamente al objetivo hasta el impacto.
 
 ### 💰 Economía y Suministros

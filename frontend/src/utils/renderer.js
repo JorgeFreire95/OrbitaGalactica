@@ -149,6 +149,12 @@ const drawEco = (ctx, eco, shipSize, heading, playerX, playerY) => {
         ctx.fillRect(-barW/2, -30, barW * (eco.shield / eco.max_shield), 2);
     }
 
+    // Dibujar Nombre
+    ctx.font = 'bold 10px Orbitron, sans-serif';
+    ctx.fillStyle = '#00ffcc';
+    ctx.textAlign = 'center';
+    ctx.fillText(eco.customName || 'E.C.O.', 0, -42);
+
     ctx.restore();
 };
 
@@ -1812,19 +1818,52 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.save();
       ctx.translate(evt.x, evt.y);
 
-      // Partículas de explosión
-      const numParticles = 20;
-      for (let i = 0; i < numParticles; i++) {
-        const angle = (i / numParticles) * Math.PI * 2;
-        const dist = elapsed * (100 + Math.random() * 150);
-        const pSize = (10 + Math.random() * 15) * (1 - elapsed / 2.0);
+      if (evt.type === 'kamikaze_explosion') {
+        // EFECTO KAMIKAZE: Explosión masiva cian/blanca con onda de choque
+        const radius = evt.radius || 300;
+        const numParticles = 50;
+        for (let i = 0; i < numParticles; i++) {
+          const angle = (i / numParticles) * Math.PI * 2 + (Math.random() * 0.5);
+          const dist = elapsed * (radius * 1.8);
+          const pSize = (20 + Math.random() * 30) * (1 - elapsed / 1.5);
+          
+          if (pSize <= 0) continue;
+          
+          ctx.fillStyle = i % 3 === 0 ? '#00ffff' : (i % 3 === 1 ? '#ffffff' : '#0099ff');
+          ctx.globalAlpha = 0.8 * (1 - elapsed / 1.5);
+          
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#00ffff';
+          
+          ctx.beginPath();
+          ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, pSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
         
-        ctx.fillStyle = i % 2 === 0 ? '#ff6600' : '#ff3300';
-        ctx.globalAlpha = 1 - elapsed / 2.0;
-        
+        // Onda de choque expansiva
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 8 * (1 - elapsed / 1.5);
+        ctx.globalAlpha = 0.6 * (1 - elapsed / 1.5);
         ctx.beginPath();
-        ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, pSize, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, 0, elapsed * radius * 2.5, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0;
+      } else {
+        // Partículas de explosión estándar
+        const numParticles = 20;
+        for (let i = 0; i < numParticles; i++) {
+          const angle = (i / numParticles) * Math.PI * 2;
+          const dist = elapsed * (100 + Math.random() * 150);
+          const pSize = (10 + Math.random() * 15) * (1 - elapsed / 2.0);
+          
+          ctx.fillStyle = i % 2 === 0 ? '#ff6600' : '#ff3300';
+          ctx.globalAlpha = 1 - elapsed / 2.0;
+          
+          ctx.beginPath();
+          ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, pSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // Destello central
@@ -1908,16 +1947,59 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       );
     }
 
-    // Dibujar Enemigos (Radar)
-    const radarRange = 3500;
+    // Dibujar Enemigos (Radar con Rastreador ECO)
+    const trackerRange = me?.eco?.tracker_range || 3500;
     gameState.enemies?.forEach(en => {
       if (me) {
         const dist = Math.hypot(me.x - en.x, me.y - en.y);
-        if (dist < radarRange) {
+        
+        // 1. Mostrar en Minimapa
+        if (dist < trackerRange) {
           ctx.fillStyle = '#ff3333';
           ctx.beginPath();
           ctx.arc(mmX + en.x * scaleX, mmY + en.y * scaleY, 2, 0, Math.PI * 2);
           ctx.fill();
+        }
+
+        // 2. NUEVO: Indicadores en los bordes de la pantalla (Rastreador Activo)
+        if (me.eco?.tracker_range > 0 && dist < me.eco.tracker_range && dist > 1000) {
+           // Calcular posición relativa a la cámara
+           const relX = en.x - camX;
+           const relY = en.y - camY;
+           
+           // Si está fuera de la pantalla, dibujar indicador
+           if (relX < 0 || relX > width || relY < 0 || relY > height) {
+              const centerX = width / 2;
+              const centerY = height / 2;
+              const dx = relX - centerX;
+              const dy = relY - centerY;
+              const angle = Math.atan2(dy, dx);
+              
+              const margin = 40;
+              const ix = Math.max(margin, Math.min(width - margin, centerX + Math.cos(angle) * (width / 2 - margin)));
+              const iy = Math.max(margin, Math.min(height - margin, centerY + Math.sin(angle) * (height / 2 - margin)));
+              
+              ctx.save();
+              ctx.translate(ix, iy);
+              ctx.rotate(angle);
+              
+              // Triángulo indicador
+              ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+              ctx.beginPath();
+              ctx.moveTo(10, 0);
+              ctx.lineTo(-5, -7);
+              ctx.lineTo(-5, 7);
+              ctx.closePath();
+              ctx.fill();
+              
+              // Texto de distancia
+              ctx.rotate(-angle);
+              ctx.fillStyle = '#ff3333';
+              ctx.font = 'bold 10px Orbitron';
+              ctx.textAlign = 'center';
+              ctx.fillText(`${Math.floor(dist)}m`, 0, 20);
+              ctx.restore();
+           }
         }
       }
     });

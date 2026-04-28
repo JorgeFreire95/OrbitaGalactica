@@ -1116,7 +1116,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                 <img src="/eco_drone.png" alt="ECO" style={{ width: '24px', height: '24px', objectFit: 'contain', opacity: eco.deployed ? 1 : 0.4, mixBlendMode: 'screen', filter: 'contrast(1.8) brightness(1.4)' }} />
                             </div>
                             <div>
-                                <div style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold' }}>SISTEMA E.C.O.</div>
+                                <div style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold' }}>{eco.customName || 'SISTEMA E.C.O.'}</div>
                                 <div style={{ fontSize: '0.5rem', color: eco.deployed ? '#00ffcc' : '#ff3366' }}>{eco.deployed ? 'MODO ACTIVO' : 'DESCONECTADO'}</div>
                             </div>
                         </div>
@@ -1251,11 +1251,67 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                 fontSize: '0.65rem',
                                 fontWeight: 'bold',
                                 cursor: 'pointer',
-                                transition: 'all 0.3s'
+                                transition: 'all 0.3s',
+                                marginBottom: '8px'
                             }}
                         >
                             {eco.deployed ? 'DESACTIVAR SISTEMA' : 'ACTIVAR SISTEMA'}
                         </button>
+
+                        {/* Botón de Reparación ECO */}
+                        {eco.deployed && eco.equipped?.utility?.some(u => u.id.startsWith('eco_rep')) && (
+                          <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                isNavigatingRef.current = false;
+                                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(JSON.stringify({ type: 'eco_repair' }));
+                                }
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '8px',
+                                background: 'rgba(0, 204, 255, 0.2)',
+                                border: '1px solid #00ccff',
+                                color: '#00ccff',
+                                borderRadius: '4px',
+                                fontSize: '0.65rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s'
+                            }}
+                          >
+                            REPARAR NAVE
+                          </button>
+                        )}
+
+                        {/* Botón de Autorreparación ECO */}
+                        {eco.deployed && eco.equipped?.utility?.some(u => u.id.startsWith('eco_self_rep')) && (
+                          <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                isNavigatingRef.current = false;
+                                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(JSON.stringify({ type: 'eco_self_repair' }));
+                                }
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '8px',
+                                background: 'rgba(204, 255, 0, 0.2)',
+                                border: '1px solid #ccff00',
+                                color: '#ccff00',
+                                borderRadius: '4px',
+                                fontSize: '0.65rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s',
+                                marginTop: '8px'
+                            }}
+                          >
+                            AUTORREPARAR ECO
+                          </button>
+                        )}
                     </>
                 )}
             </div>

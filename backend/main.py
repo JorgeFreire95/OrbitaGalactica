@@ -398,6 +398,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 mode = data.get("mode", "passive")
                 game_state.update_eco_mode(client_id, mode)
 
+            elif data.get("type") == "eco_repair" and player_added:
+                game_state.eco_repair(client_id)
+
+            elif data.get("type") == "eco_self_repair" and player_added:
+                game_state.eco_self_repair(client_id)
+
             elif data.get("type") == "friend_request" and player_added:
                 receiver = data.get("receiver")
                 if receiver:

@@ -32,7 +32,8 @@ export default function Hangar({
   eco,
   onEquipEco,
   onUnequipEco,
-  onUnlockEcoSlot
+  onUnlockEcoSlot,
+  onRenameEco
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
@@ -240,20 +241,38 @@ export default function Hangar({
                           <img src="/eco_drone.png" alt="E.C.O." style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                        </div>
                        <div style={{ flex: 1 }}>
-                          <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>Nivel {eco.level} / 15</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                             <input 
+                               type="text" 
+                               value={eco.customName || 'E.C.O.'} 
+                               onChange={(e) => onRenameEco(e.target.value)}
+                               style={{ 
+                                 background: 'transparent', 
+                                 border: 'none', 
+                                 borderBottom: '1px solid rgba(0,255,204,0.3)', 
+                                 color: '#00ffcc', 
+                                 fontWeight: 'bold',
+                                 fontSize: '0.9rem',
+                                 width: '100%',
+                                 outline: 'none'
+                               }}
+                               maxLength={20}
+                             />
+                          </div>
+                          <div style={{ color: '#aaa', fontSize: '0.7rem', fontWeight: 'bold' }}>Nivel {eco.level} / 15</div>
                           <div style={{ fontSize: '0.6rem', color: '#888', marginTop: '3px' }}>EXP: {eco.xp || 0} / {eco.xp_next || 1000}</div>
                           <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '2px' }}>
                              <div style={{ width: `${Math.min(100, ((eco.xp || 0) / (eco.xp_next || 1)) * 100)}%`, height: '100%', background: '#ffcc00' }}></div>
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: '#888' }}>INTEGRIDAD: {eco.integrity}%</div>
-                          <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '5px' }}>
+                          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '5px' }}>INTEGRIDAD: {eco.integrity}%</div>
+                          <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '2px' }}>
                              <div style={{ width: `${eco.integrity}%`, height: '100%', background: '#00ffcc' }}></div>
                           </div>
                        </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.7rem' }}>
-                       <div style={{ color: '#888' }}>Combustible: <span style={{ color: '#fff' }}>{eco.fuel} u</span></div>
-                       <div style={{ color: '#888' }}>Protocolos: <span style={{ color: '#fff' }}>{eco.equipped?.protocols?.length || 0}/10</span></div>
+                       <div style={{ color: '#888' }}>Vida: <span style={{ color: '#ff3366' }}>{(eco.hp || 50000).toLocaleString()} HP</span></div>
+                       <div style={{ color: '#888' }}>Combustible: <span style={{ color: '#ffcc00' }}>{(eco.fuel || 100000).toLocaleString()} u</span></div>
                        <div style={{ color: '#888' }}>Láseres: <span style={{ color: '#fff' }}>{eco.equipped?.lasers?.length || 0}/5</span></div>
                        <div style={{ color: '#888' }}>Generadores: <span style={{ color: '#fff' }}>{eco.equipped?.generators?.length || 0}/10</span></div>
                     </div>
@@ -314,7 +333,7 @@ export default function Hangar({
                 onClick={() => onNavigate('shop')}
                 style={{ width: '100%', background: 'linear-gradient(to bottom, #ffcc00, #ff8800)', color: 'black' }}
               >
-                ADQUIRIR EN TIENDA ({viewedShip.cost.toLocaleString()} Cr)
+                ADQUIRIR EN TIENDA ({viewedShip.cost.toLocaleString()} {viewedShip.currency === 'paladio' ? 'PAL' : 'Cr'})
               </button>
             )}
             <button 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, ECO_FUEL, getRank } from '../utils/gameData';
+import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, ECO_FUEL, ECO_REPAIR, ECO_COLLECTOR, ECO_TRACKER, ECO_KAMIKAZE, ECO_SELF_REPAIR, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
 
@@ -25,6 +25,7 @@ export default function Shop({
   eco,
   onBuyEco,
   onBuyProtocol,
+  setPaladio,
   onBuyEcoFuel
 }) {
   const [activeCategory, setActiveCategory] = useState('armas');
@@ -32,12 +33,21 @@ export default function Shop({
   const [selectedLvl, setSelectedLvl] = useState(1);
   const [successMessage, setSuccessMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
+  const [buyQty, setBuyQty] = useState(1);
+  const [tempEcoName, setTempEcoName] = useState('E.C.O.');
 
   const handleBuyModule = (module) => {
-    if (credits < module.cost) return alert('No tienes suficientes créditos');
-    setCredits(c => c - module.cost);
+    const currency = module.currency || 'credits';
+    if (currency === 'paladio') {
+      if (paladio < module.cost) return alert('No tienes suficiente paladio');
+      if (setPaladio) setPaladio(p => p - module.cost);
+    } else {
+      if (credits < module.cost) return alert('No tienes suficientes créditos');
+      setCredits(c => c - module.cost);
+    }
+    
     setInventory(prev => [...prev, { ...module, instanceId: Date.now() }]);
-    triggerSuccess('Módulo equipado con éxito');
+    triggerSuccess('Ítem adquirido con éxito');
   };
 
   const triggerSuccess = (msg) => {
@@ -65,7 +75,7 @@ export default function Shop({
       case 'naves': raw = SHIPS; break;
       case 'extras': raw = MODULES_CATALOG.filter(m => m.type === 'utility'); break;
       case 'wips': raw = WIPS_CATALOG; break;
-      case 'eco': raw = [ECO_CONFIG, ...ECO_FUEL, ...ECO_PROTOCOLS]; break;
+      case 'eco': raw = [ECO_CONFIG, ...ECO_REPAIR, ...ECO_COLLECTOR, ...ECO_TRACKER, ...ECO_KAMIKAZE, ...ECO_SELF_REPAIR, ...ECO_FUEL, ...ECO_PROTOCOLS]; break;
       case 'materiales': raw = MINERAL_TYPES; break;
     }
 
@@ -92,7 +102,7 @@ export default function Shop({
     if (!selectedItem) return null;
     if (!selectedItem.isLeveled) return selectedItem;
     
-    const allLeveled = [...MODULES_CATALOG, ...ECO_PROTOCOLS];
+    const allLeveled = [...MODULES_CATALOG, ...ECO_PROTOCOLS, ...ECO_REPAIR, ...ECO_COLLECTOR, ...ECO_TRACKER, ...ECO_KAMIKAZE, ...ECO_SELF_REPAIR];
     return allLeveled.find(i => i.id === `${selectedItem.baseId}_${selectedLvl}`) || selectedItem;
   };
 
@@ -101,6 +111,7 @@ export default function Shop({
   const handleItemClick = (item) => {
     setSelectedItem(item);
     setSelectedLvl(1); // Reset level when changing item
+    setBuyQty(1); // Reset quantity
   };
 
   const handleAction = () => {
@@ -123,20 +134,20 @@ export default function Shop({
 
     const targetItem = currentItem;
 
-    if (targetItem.count && activeCategory === 'municion') {
-       onBuyAmmo(targetItem.id, targetItem.count, targetItem.cost);
-       triggerSuccess(`Compra de ${targetItem.name} exitosa`);
+    if (targetItem.isStackable) {
+       const totalCost = targetItem.cost * buyQty;
+       if (targetItem.type === 'fuel') {
+         onBuyEcoFuel(buyQty, totalCost);
+       } else {
+         onBuyAmmo(targetItem.id, buyQty, totalCost, targetItem.currency);
+       }
+       triggerSuccess(`Compra de ${buyQty} ${targetItem.name} exitosa`);
+       setBuyQty(1);
        return;
     }
 
-    if (targetItem.type === 'fuel') {
-      onBuyEcoFuel(targetItem.count, targetItem.cost);
-      triggerSuccess('Combustible adquirido');
-      return;
-    }
-
     if (targetItem.id === 'eco') {
-      onBuyEco(targetItem.cost);
+      onBuyEco(targetItem.cost, tempEcoName);
       triggerSuccess('E.C.O. Adquirido');
       return;
     }
@@ -162,7 +173,12 @@ export default function Shop({
     handleBuyModule(targetItem);
   };
 
-  const isAffordable = currentItem ? credits >= (currentItem.cost || 0) : false;
+  const currentQty = currentItem?.isStackable ? buyQty : 1;
+  const currentTotalCost = currentItem ? (currentItem.cost * currentQty) : 0;
+
+  const isAffordable = currentItem 
+    ? (currentItem.currency === 'paladio' ? paladio >= currentTotalCost : credits >= currentTotalCost) 
+    : false;
   const isMineral = activeCategory === 'materiales';
   const amountOwned = isMineral ? (minerals[selectedItem?.id] || 0) : 0;
 
@@ -230,6 +246,9 @@ export default function Shop({
               {activeCategory === 'naves' && ownedShips.includes(item.id) && (
                 <div style={{ position: 'absolute', top: '5px', left: '5px', background: '#00ffcc', color: 'black', fontSize: '0.6rem', padding: '2px 5px', borderRadius: '3px', fontWeight: 'bold', zIndex: 10 }}>ADQUIRIDA</div>
               )}
+              {activeCategory === 'eco' && item.id === 'eco' && eco.active && (
+                <div style={{ position: 'absolute', top: '5px', left: '5px', background: '#00ffcc', color: 'black', fontSize: '0.6rem', padding: '2px 5px', borderRadius: '3px', fontWeight: 'bold', zIndex: 10 }}>ADQUIRIDO</div>
+              )}
               <div style={{ fontSize: '2.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50px' }}>
                 {activeCategory === 'naves' ? (
                   <ShipIcon type={item.id} image={item.image} color={item.color || (item.id === 'sovereign' ? '#e6b800' : '#00b3ff')} size={50} />
@@ -239,7 +258,7 @@ export default function Shop({
               </div>
               <div className="shop-item-name">{item.name}</div>
               <div className="shop-item-price">
-                {(item.cost !== undefined) ? `${item.cost.toLocaleString()} Cr` : `${item.sellPrice} Cr/u`}
+                {(item.cost !== undefined) ? `${item.cost.toLocaleString()} ${item.currency === 'paladio' ? 'PAL' : 'Cr'}` : `${item.sellPrice} Cr/u`}
               </div>
             </div>
           ))}
@@ -262,7 +281,7 @@ export default function Shop({
                   </div>
                 </div>
 
-                <div className="preview-content">
+                <div className="preview-content" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                   <p className="item-description">{currentItem.desc || 'Módulo de equipamiento avanzado para naves espaciales.'}</p>
                   
                   {selectedItem.isLeveled && (
@@ -293,26 +312,100 @@ export default function Shop({
                     </div>
                   )}
 
+                  {currentItem.id !== 'eco' && (
+                  <div style={{ margin: '20px 0 10px 0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '5px' }}>
+                    <span style={{ fontSize: '0.7rem', color: '#00ffcc', textTransform: 'uppercase', letterSpacing: '1px' }}>Especificaciones Técnicas</span>
+                  </div>
+                  )}
+
                   <div className="preview-stats">
-                    {currentItem.atk && (
-                      <div className="preview-stat-row">
-                        <span>Daño de ataque</span>
-                        <span style={{ color: '#ffcc00' }}>+{currentItem.atk}</span>
-                      </div>
+                    {currentItem.damage && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Daño de explosión</span>
+                         <span style={{ color: '#ff3333' }}>{currentItem.damage.toLocaleString()}</span>
+                       </div>
                     )}
-                    {currentItem.shld && (
-                      <div className="preview-stat-row">
-                        <span>Escudo adicional</span>
-                        <span style={{ color: '#00c8ff' }}>+{currentItem.shld}</span>
-                      </div>
+                    {currentItem.radius && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Radio de explosión</span>
+                         <span style={{ color: '#ffcc00' }}>{currentItem.radius} m</span>
+                       </div>
                     )}
-                    {currentItem.hp && activeCategory !== 'naves' && (
-                      <div className="preview-stat-row">
-                        <span>Casco estructural</span>
-                        <span style={{ color: '#ff3366' }}>+{currentItem.hp}</span>
-                      </div>
+                    {currentItem.range && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Alcance de radar</span>
+                         <span style={{ color: '#00ffcc' }}>{currentItem.range} m</span>
+                       </div>
                     )}
-                    {currentItem.spd && (
+                    {currentItem.hp_sec && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Reparación / seg</span>
+                         <span style={{ color: '#00ffcc' }}>{currentItem.hp_sec.toLocaleString()} PV</span>
+                       </div>
+                    )}
+                    {currentItem.regen && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Reparación / seg (ECO)</span>
+                         <span style={{ color: '#ccff00' }}>{currentItem.regen.toLocaleString()} PV</span>
+                       </div>
+                    )}
+                    {currentItem.duration && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Duración efecto</span>
+                         <span style={{ color: '#fff' }}>{currentItem.duration} s</span>
+                       </div>
+                    )}
+                    {currentItem.fail_prob !== undefined && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Prob. de rechazo</span>
+                         <span style={{ color: '#ff3366' }}>{currentItem.fail_prob}%</span>
+                       </div>
+                    )}
+                    {currentItem.fuel_cons && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Consumo base</span>
+                         <span style={{ color: '#ffcc00' }}>{currentItem.fuel_cons} ⛽</span>
+                       </div>
+                    )}
+                    {currentItem.extra_cons && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Consumo extra</span>
+                         <span style={{ color: '#ffcc00' }}>+{currentItem.extra_cons}% ⛽</span>
+                       </div>
+                    )}
+                    {currentItem.atk && activeCategory !== 'naves' && (
+                       <div className="preview-stat-row">
+                         <span>Bono de Ataque</span>
+                         <span style={{ color: '#ffcc00' }}>+{currentItem.atk}</span>
+                       </div>
+                    )}
+                    {currentItem.shld && activeCategory !== 'naves' && (
+                       <>
+                         <div className="preview-stat-row">
+                           <span>Bono de Escudo</span>
+                           <span style={{ color: '#00c8ff' }}>+{currentItem.shld}</span>
+                         </div>
+                         {currentItem.absorption && (
+                           <div className="preview-stat-row">
+                             <span>Absorción de daño</span>
+                             <span style={{ color: '#00c8ff' }}>{(currentItem.absorption * 100)}%</span>
+                           </div>
+                         )}
+                       </>
+                    )}
+                    {currentItem.cargo && activeCategory === 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Capacidad de Carga</span>
+                         <span style={{ color: '#ffaa00' }}>+{currentItem.cargo.toLocaleString()}</span>
+                       </div>
+                    )}
+                    {currentItem.hp && activeCategory !== 'naves' && currentItem.id !== 'eco' && (
+                       <div className="preview-stat-row">
+                         <span>Bono de Integridad</span>
+                         <span style={{ color: '#ff3366' }}>+{currentItem.hp.toLocaleString()}</span>
+                       </div>
+                    )}
+                    {currentItem.spd && activeCategory !== 'naves' && (
                       <div className="preview-stat-row">
                         <span>Velocidad motor</span>
                         <span style={{ color: '#00ffcc' }}>+{currentItem.spd} m/s</span>
@@ -330,13 +423,123 @@ export default function Shop({
                         <span style={{ color: '#00ffcc' }}>{currentItem.repair_rate} HP/s</span>
                       </div>
                     )}
-                    {activeCategory === 'naves' && currentItem.slots && (
-                      <div className="preview-stat-row">
-                        <span>Ranuras Láser</span>
-                        <span>{currentItem.slots.lasers}</span>
-                      </div>
+                    {activeCategory === 'naves' && (
+                      <>
+                        <div style={{ marginTop: '15px', marginBottom: '10px', color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid #333', paddingBottom: '5px' }}>ESPECIFICACIONES TÉCNICAS</div>
+                        <div className="preview-stat-row">
+                          <span>Vida Base</span>
+                          <span style={{ color: '#ff3366' }}>{currentItem.hp?.toLocaleString()} HP</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Velocidad Base</span>
+                          <span style={{ color: '#00ffcc' }}>{currentItem.spd}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Láser</span>
+                          <span style={{ color: '#ffcc00' }}>{currentItem.slots.lasers}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Escudos</span>
+                          <span style={{ color: '#00c8ff' }}>{currentItem.slots.shields}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Motores</span>
+                          <span style={{ color: '#ff3366' }}>{currentItem.slots.engines}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Bodega</span>
+                          <span style={{ color: '#88aaff' }}>{currentItem.cargo_capacity?.toLocaleString()} unidades</span>
+                        </div>
+                      </>
+                    )}
+                    {activeCategory === 'eco' && currentItem.id === 'eco' && (
+                      <>
+                        <div style={{ marginTop: '15px', marginBottom: '10px', color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid #333', paddingBottom: '5px' }}>ESPECIFICACIONES DEL SISTEMA</div>
+                        <div className="preview-stat-row">
+                          <span>Integridad Base</span>
+                          <span style={{ color: '#ff3366' }}>{currentItem.hp?.toLocaleString()} HP</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Capacidad Combustible</span>
+                          <span style={{ color: '#ffcc00' }}>{currentItem.fuel?.toLocaleString()} u</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Láser</span>
+                          <span style={{ color: '#ffcc00' }}>{currentItem.slots.lasers}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Generadores</span>
+                          <span style={{ color: '#00c8ff' }}>{currentItem.slots.generators}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Protocolos</span>
+                          <span style={{ color: '#9933ff' }}>{currentItem.slots.protocols}</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Ranuras Utilidad</span>
+                          <span style={{ color: '#00ffcc' }}>{currentItem.slots.utility}</span>
+                        </div>
+                      </>
                     )}
                   </div>
+
+                  {currentItem.isStackable && (
+                    <div className="quantity-selector-container" style={{ margin: '15px 0', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid #333' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#888' }}>CANTIDAD:</span>
+                        <span style={{ fontSize: '1rem', color: '#00ffcc', fontWeight: 'bold' }}>{buyQty.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+                        {[10, 100, 1000].map(q => (
+                          <button 
+                            key={q}
+                            onClick={() => setBuyQty(q)}
+                            style={{ 
+                              background: buyQty === q ? '#00ffcc' : '#111',
+                              color: buyQty === q ? 'black' : '#ccc',
+                              border: '1px solid #333',
+                              padding: '5px 0',
+                              fontSize: '0.7rem',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            +{q}
+                          </button>
+                        ))}
+                        <button 
+                          onClick={() => {
+                            const affordable = currentItem.currency === 'paladio' ? paladio : credits;
+                            let max = Math.floor(affordable / currentItem.cost);
+                            
+                            // Si es combustible, limitar por el espacio disponible en el ECO
+                            if (currentItem.type === 'fuel') {
+                               const spaceLeft = (eco.max_fuel || 100000) - (eco.fuel || 0);
+                               max = Math.min(max, Math.max(0, spaceLeft));
+                            }
+                            
+                            setBuyQty(Math.max(1, Math.floor(max)));
+                          }}
+                          style={{ 
+                            background: '#333',
+                            color: '#00ffcc',
+                            border: '1px solid #00ffcc44',
+                            padding: '5px 0',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                            borderRadius: '4px'
+                          }}
+                        >
+                          MAX
+                        </button>
+                      </div>
+                      <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
+                         <button onClick={() => setBuyQty(prev => Math.max(1, prev - 1))} style={{ flex: 1, background: '#222', border: '1px solid #333', color: '#ccc', borderRadius: '4px' }}>-</button>
+                         <button onClick={() => setBuyQty(prev => prev + 1)} style={{ flex: 1, background: '#222', border: '1px solid #333', color: '#ccc', borderRadius: '4px' }}>+</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="shop-action-strip">
@@ -346,7 +549,7 @@ export default function Shop({
                     </div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: (isAffordable || isMineral) ? '#00ffcc' : '#ff3366' }}>
                       {(activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) ? 'ADQUIRIDO' :
-                       isMineral ? (amountOwned * currentItem.sellPrice).toLocaleString() : (currentItem.cost || 0).toLocaleString()} Cr
+                       isMineral ? (amountOwned * currentItem.sellPrice).toLocaleString() : currentTotalCost.toLocaleString()} {currentItem.currency === 'paladio' ? 'PAL' : 'Cr'}
                     </div>
                   </div>
                   <button 
@@ -404,15 +607,40 @@ export default function Shop({
               )}
             </div>
             <p style={{ color: '#ccc', marginBottom: '30px', lineHeight: '1.6' }}>
-              ¿Estás seguro de que deseas proceder con la adquisición de 
-              <span style={{ color: '#fff', fontWeight: 'bold' }}> {selectedItem?.name}</span>?
+              ¿Estás seguro de que deseas proceder con la adquisición de <span style={{ color: '#fff', fontWeight: 'bold' }}> {buyQty.toLocaleString()} {selectedItem?.name}</span>?
               <br/>
               <span style={{ color: '#888', fontSize: '0.9rem' }}>
                 {isMineral ? 'Recibirás' : 'Se descontarán'} 
-                <b style={{ color: isMineral ? '#00ffcc' : '#ffcc00' }}> {isMineral ? (amountOwned * selectedItem.sellPrice).toLocaleString() : (selectedItem.cost || 0).toLocaleString()} </b> 
-                créditos de tu cuenta.
+                <b style={{ color: isMineral ? '#00ffcc' : '#ffcc00' }}> {isMineral ? (amountOwned * selectedItem.sellPrice).toLocaleString() : (currentTotalCost).toLocaleString()} </b> 
+                {selectedItem.currency === 'paladio' ? 'paladio' : 'créditos'} de tu cuenta.
               </span>
             </p>
+
+            {selectedItem?.id === 'eco' && (
+              <div style={{ marginBottom: '30px', textAlign: 'left' }}>
+                <label style={{ color: '#00ffcc', fontSize: '0.75rem', display: 'block', marginBottom: '10px', fontFamily: 'Orbitron' }}>ASIGNA UN NOMBRE A TU E.C.O.:</label>
+                <input 
+                  type="text" 
+                  value={tempEcoName} 
+                  onChange={(e) => setTempEcoName(e.target.value.toUpperCase())}
+                  maxLength={15}
+                  placeholder="NOMBRE DEL DRON"
+                  style={{
+                    width: '100%',
+                    padding: '15px',
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid #00ffcc44',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontFamily: 'Orbitron',
+                    fontSize: '1.1rem',
+                    textAlign: 'center',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
             
             <div style={{ display: 'flex', gap: '15px' }}>
               <button 

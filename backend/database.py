@@ -32,7 +32,7 @@ def init_db():
             equipped_json TEXT DEFAULT '{}',
             timed_upgrades_json TEXT DEFAULT '{"atk": [], "shld": [], "spd": [], "hp": []}',
             wips_json TEXT DEFAULT '[]',
-            eco_json TEXT DEFAULT '{"active": false, "level": 1, "integrity": 100, "fuel": 1000, "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []}}',
+            eco_json TEXT DEFAULT '{"active": false, "customName": "E.C.O.", "level": 1, "integrity": 100, "fuel": 1000, "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []}}',
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
@@ -46,7 +46,7 @@ def init_db():
         ("equipped_json", "TEXT DEFAULT '{}'"),
         ("timed_upgrades_json", "TEXT DEFAULT '{\"atk\": [], \"shld\": [], \"spd\": [], \"hp\": []}'"),
         ("wips_json", "TEXT DEFAULT '[]'"),
-        ("eco_json", "TEXT DEFAULT '{\"active\": false, \"level\": 1, \"integrity\": 100, \"fuel\": 1000, \"equipped\": {\"lasers\": [], \"generators\": [], \"protocols\": [], \"utility\": []}}'")
+        ("eco_json", "TEXT DEFAULT '{\"active\": false, \"customName\": \"E.C.O.\", \"level\": 1, \"integrity\": 100, \"fuel\": 1000, \"equipped\": {\"lasers\": [], \"generators\": [], \"protocols\": [], \"utility\": []}}'")
     ]
     for col_name, col_type in columns:
         try:

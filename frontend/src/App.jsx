@@ -134,10 +134,14 @@ function App() {
       level: 1,
       xp: 0,
       integrity: 100,
-      fuel: 5000,
-      shield: 100,
-      max_shield: 100,
+      fuel: 100000,
+      max_fuel: 100000,
+      hp: 50000,
+      max_hp: 50000,
+      shield: 0,
+      max_shield: 0,
       speed: 0,
+      customName: 'E.C.O.',
       equipped: {
         lasers: [],
         generators: [],
@@ -696,9 +700,14 @@ function App() {
     window.location.reload(); 
   };
 
-  const handleBuyAmmo = (ammoId, count, cost) => {
-    if (credits < cost) return alert('No tienes suficientes créditos');
-    setCredits(prev => prev - cost);
+  const handleBuyAmmo = (ammoId, count, cost, currency = 'credits') => {
+    if (currency === 'paladio') {
+      if (paladio < cost) return alert('No tienes suficiente paladio');
+      setPaladio(prev => prev - cost);
+    } else {
+      if (credits < cost) return alert('No tienes suficientes créditos');
+      setCredits(prev => prev - cost);
+    }
     setAmmo(prev => ({
       ...prev,
       [ammoId]: (prev[ammoId] || 0) + count
@@ -803,12 +812,16 @@ function App() {
     return true;
   };
 
-  const handleBuyEco = (cost) => {
-    if (credits < cost) return false;
+  const handleBuyEco = (cost, name) => {
+    if (paladio < cost) return false;
     if (eco.active) return false;
-    setCredits(prev => prev - cost);
-    setEco(prev => ({ ...prev, active: true }));
+    setPaladio(prev => prev - cost);
+    setEco(prev => ({ ...prev, active: true, customName: name || 'E.C.O.' }));
     return true;
+  };
+
+  const handleRenameEco = (newName) => {
+    setEco(prev => ({ ...prev, customName: newName }));
   };
 
   const handleBuyProtocol = (protocol, cost) => {
@@ -818,13 +831,17 @@ function App() {
     return true;
   };
 
-  const handleBuyEcoFuel = (amount, cost) => {
-    if (credits < cost) return false;
-    setCredits(prev => prev - cost);
-    setEco(prev => ({
-      ...prev,
-      fuel: (prev.fuel || 0) + amount
-    }));
+  const handleBuyEcoFuel = (amount, totalCost) => {
+    if (paladio < totalCost) return false;
+    setPaladio(prev => prev - totalCost);
+    setEco(prev => {
+      const newFuel = (prev.fuel || 0) + amount;
+      const maxFuel = prev.max_fuel || 100000;
+      return {
+        ...prev,
+        fuel: Math.min(newFuel, maxFuel)
+      };
+    });
     return true;
   };
 
@@ -988,10 +1005,25 @@ function App() {
   };
 
   const handleBuyShip = (shipId, shipCost) => {
-    if (credits < shipCost) return false;
-    if (ownedShips.includes(shipId)) return false;
+    const ship = SHIPS.find(s => s.id === shipId);
+    if (!ship) return false;
     
-    setCredits(prev => prev - shipCost);
+    const currency = ship.currency || 'credits';
+    if (currency === 'paladio') {
+      if (paladio < shipCost) {
+        alert('No tienes suficiente paladio');
+        return false;
+      }
+      setPaladio(prev => prev - shipCost);
+    } else {
+      if (credits < shipCost) {
+        alert('No tienes suficientes créditos');
+        return false;
+      }
+      setCredits(prev => prev - shipCost);
+    }
+
+    if (ownedShips.includes(shipId)) return false;
     setOwnedShips(prev => [...prev, shipId]);
     return true;
   };
@@ -1156,6 +1188,7 @@ function App() {
           onEquipEco={handleEquipEco}
           onUnequipEco={handleUnequipEco}
           onUnlockEcoSlot={handleUnlockEcoSlot}
+          onRenameEco={handleRenameEco}
         />
       )}
 
@@ -1164,6 +1197,8 @@ function App() {
           selectedShipId={selectedShipId}
           credits={credits}
           setCredits={setCredits}
+          paladio={paladio}
+          setPaladio={setPaladio}
           equippedByShip={equippedByShip}
           inventory={inventory}
           setInventory={setInventory}
@@ -1173,7 +1208,6 @@ function App() {
           onSellMinerals={handleSellMinerals}
           upgrades={upgrades}
           level={level}
-          paladio={paladio}
           onBack={() => setCurrentView('menu')}
           onNavigate={setCurrentView}
           ownedShips={ownedShips}
