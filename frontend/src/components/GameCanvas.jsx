@@ -1138,16 +1138,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             opacity: eco.deployed ? 1 : 0.5,
                             transition: 'opacity 0.3s ease'
                         }}>
-                            {/* Integrity (Vida) */}
+                            {/* Vida (HP) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
-                                <span>INTEGRIDAD</span>
-                                <span>{eco.deployed ? `${Math.floor((eco?.integrity / 100) * (eco?.max_hp || 500))} / ${Math.floor(eco?.max_hp || 500)}` : '0 / 0'}</span>
+                                <span>VIDA</span>
+                                <span>{eco.deployed ? `${Math.floor(eco?.integrity || 0).toLocaleString()} / ${Math.floor(eco?.max_integrity || 50000).toLocaleString()}` : '0 / 0'}</span>
                             </div>
                             <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
                                 <div style={{ 
-                                    width: `${eco.deployed ? (eco?.integrity ?? 100) : 0}%`, 
+                                    width: `${eco.deployed ? Math.min(100, ((eco?.integrity || 0) / (eco?.max_integrity || 50000)) * 100) : 0}%`, 
                                     height: '100%', 
-                                    background: (eco?.integrity ?? 100) > 30 ? '#00ffcc' : '#ff3366', 
+                                    background: ((eco?.integrity || 0) / (eco?.max_integrity || 50000)) > 0.3 ? '#00ffcc' : '#ff3366', 
                                     boxShadow: '0 0 5px rgba(0,255,204,0.3)',
                                     transition: 'width 0.5s ease-in-out'
                                 }} />
@@ -1156,11 +1156,11 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             {/* Shield (Escudo) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
                                 <span>ESCUDO</span>
-                                <span>{eco.deployed ? `${Math.floor(eco?.shield || 0)} / ${Math.floor(eco?.max_shield || 500)}` : '0 / 0'}</span>
+                                <span>{eco.deployed ? `${Math.floor(eco?.shield || 0).toLocaleString()} / ${Math.floor(eco?.max_shield || 0).toLocaleString()}` : '0 / 0'}</span>
                             </div>
                             <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
                                 <div style={{ 
-                                    width: `${eco.deployed ? ((eco?.shield ?? 0) / (eco?.max_shield || 500)) * 100 : 0}%`, 
+                                    width: `${eco.deployed ? Math.min(100, ((eco?.shield ?? 0) / (eco?.max_shield || 1)) * 100) : 0}%`, 
                                     height: '100%', 
                                     background: '#00ccff', 
                                     boxShadow: '0 0 5px rgba(0,204,255,0.3)',
@@ -1171,11 +1171,11 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                             {/* Fuel (Combustible) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>
                                 <span>COMBUSTIBLE</span>
-                                <span>{eco.deployed ? `${Math.floor(eco?.fuel ?? 5000)} / 5000` : '0 / 0'}</span>
+                                <span>{eco.deployed ? `${Math.floor(eco?.fuel || 0).toLocaleString()} / ${Math.floor(eco?.max_fuel || 100000).toLocaleString()}` : '0 / 0'}</span>
                             </div>
                             <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
                                 <div style={{ 
-                                    width: `${eco.deployed ? ((eco?.fuel ?? 5000) / 5000) * 100 : 0}%`, 
+                                    width: `${eco.deployed ? Math.min(100, ((eco?.fuel || 0) / (eco?.max_fuel || 100000)) * 100) : 0}%`, 
                                     height: '100%', 
                                     background: '#ffaa00', 
                                     boxShadow: '0 0 5px rgba(255,170,0,0.3)',

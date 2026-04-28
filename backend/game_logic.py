@@ -1853,12 +1853,12 @@ class GameState:
         # --- CALCULO DE STATS PROPIAS DEL E.C.O. ---
         eco = player.get("eco", {})
         if eco.get("active"):
-            # Base stats del dron (escalan ligeramente con el nivel del dron)
+            # Base stats del dron (Ahora dependen del equipo)
             lvl_mult = 1 + (eco.get("level", 1) * 0.05)
-            eco["max_shield"] = 100000 * lvl_mult
-            eco["atk"] = 25 * lvl_mult
-            eco["max_hp"] = 50000 * lvl_mult
-            eco["max_integrity"] = 50000 * lvl_mult
+            eco["max_shield"] = 0 
+            eco["atk"] = 0 
+            eco["max_hp"] = 50000
+            eco["max_integrity"] = 50000
             if "max_fuel" not in eco: eco["max_fuel"] = 100000
             # Sincronizar velocidad con la nave principal (multiplicador aumentado a 4.0 para ser siempre superior)
             eco["speed"] = player["spd"] * 4.0
@@ -1871,7 +1871,6 @@ class GameState:
                         if "atk" in mod: eco["atk"] += mod["atk"]
                         if "shld" in mod: eco["max_shield"] += mod["shld"]
                         if "spd" in mod: eco["speed"] += mod["spd"]
-                        if "hp" in mod: eco["max_hp"] += mod["hp"]
                         
                         # Autorrecolector
                         if "range" in mod and "eco_coll" in mod.get("id", ""):
@@ -1891,14 +1890,26 @@ class GameState:
                             if "atk_bonus" in mod: eco["atk"] *= (1 + mod["atk_bonus"])
                             if "shld_bonus" in mod: eco["max_shield"] *= (1 + mod["shld_bonus"])
                             if "spd_bonus" in mod: eco["speed"] *= (1 + mod["spd_bonus"])
-                            if "hp_bonus" in mod: eco["max_hp"] *= (1 + mod["hp_bonus"])
+
+                # El nivel del dron potencia el equipo instalado (total final)
+                eco["max_shield"] *= lvl_mult
+                eco["atk"] *= lvl_mult
             
             # Asegurar consistencia de escudo e integridad actual
             if "shield" not in eco: eco["shield"] = eco["max_shield"]
             eco["shield"] = min(eco["shield"], eco["max_shield"])
             
-            # La integridad es un porcentaje (0-100)
-            if "integrity" not in eco: eco["integrity"] = 100
+            # FORZAR ESTADÍSTICAS DEL E.C.O. (CERRADO POR PETICIÓN)
+            eco["max_hp"] = 50000
+            eco["max_integrity"] = 50000
+            eco["max_fuel"] = 100000
+            
+            # La integridad es el valor actual de vida
+            if "integrity" not in eco or eco["integrity"] <= 100: eco["integrity"] = 50000
+            eco["integrity"] = min(eco["integrity"], eco["max_integrity"])
+            
+            # Redondear combustible para evitar decimales en el cliente
+            eco["fuel"] = int(eco.get("fuel", 0))
             
             player["eco"] = eco
 
@@ -2307,11 +2318,17 @@ class GameState:
             for p in players_list:
                 if p["current_map"] == m_id:
                     # Si es invisible, solo enviar si es el propio jugador
-                    if p.get("is_invisible"):
-                        if p["id"] == client_id:
-                            players_to_send.append({**p, "is_self": True})
-                    else:
-                        players_to_send.append({**p, "is_self": p["id"] == client_id})
+                    is_visible = not p.get("is_invisible") or p["id"] == client_id
+                    
+                    if is_visible:
+                        p_data = {**p, "is_self": p["id"] == client_id}
+                        # Redondear combustible e integridad del ECO antes de enviar
+                        if "eco" in p_data and p_data["eco"]:
+                            p_data["eco"] = {**p_data["eco"]}
+                            p_data["eco"]["fuel"] = int(p_data["eco"].get("fuel", 0))
+                            p_data["eco"]["integrity"] = int(p_data["eco"].get("integrity", 0))
+                            p_data["eco"]["max_integrity"] = 50000 
+                        players_to_send.append(p_data)
 
             state = {
                 "players": players_to_send,

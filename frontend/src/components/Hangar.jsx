@@ -216,7 +216,7 @@ export default function Hangar({
                )}
 
                <div style={{ marginTop: '20px', color: '#888', fontSize: '0.7rem', lineHeight: '1.4' }}>
-                  <b style={{ color: '#ff3366' }}>⚠️ AVISO DE INTEGRIDAD:</b> Cada vez que tu nave sea destruida, tus Wips perderán un <b style={{ color: '#fff' }}>10%</b> de vida. Al llegar al 0%, el Wip se destruirá permanentemente.<br/><br/>
+                  <b style={{ color: '#ff3366' }}>⚠️ AVISO DE VIDA:</b> Cada vez que tu nave sea destruida, tus Wips perderán un <b style={{ color: '#fff' }}>10%</b> de vida. Al llegar al 0%, el Wip se destruirá permanentemente.<br/><br/>
                   <b style={{ color: '#00ffcc' }}>Dron:</b> 1 Ranura (Arma/Escudo)<br/>
                   <b style={{ color: '#00ffcc' }}>Sparks:</b> 2 Ranuras (Armas/Escudos)<br/>
                   Límite máximo: 8 unidades.
@@ -264,15 +264,15 @@ export default function Hangar({
                           <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '2px' }}>
                              <div style={{ width: `${Math.min(100, ((eco.xp || 0) / (eco.xp_next || 1)) * 100)}%`, height: '100%', background: '#ffcc00' }}></div>
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '5px' }}>INTEGRIDAD: {eco.integrity}%</div>
+                          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '5px' }}>VIDA: {eco.integrity?.toLocaleString()} / {(eco.max_integrity || 50000).toLocaleString()}</div>
                           <div style={{ width: '100%', height: '4px', background: '#111', borderRadius: '2px', marginTop: '2px' }}>
-                             <div style={{ width: `${eco.integrity}%`, height: '100%', background: '#00ffcc' }}></div>
+                             <div style={{ width: `${Math.min(100, (eco.integrity / (eco.max_integrity || 50000)) * 100)}%`, height: '100%', background: '#00ffcc' }}></div>
                           </div>
                        </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.7rem' }}>
                        <div style={{ color: '#888' }}>Vida: <span style={{ color: '#ff3366' }}>{(eco.hp || 50000).toLocaleString()} HP</span></div>
-                       <div style={{ color: '#888' }}>Combustible: <span style={{ color: '#ffcc00' }}>{(eco.fuel || 100000).toLocaleString()} u</span></div>
+                       <div style={{ color: '#888' }}>Combustible: <span style={{ color: '#ffcc00' }}>{Math.floor(eco.fuel || 0).toLocaleString()} u</span></div>
                        <div style={{ color: '#888' }}>Láseres: <span style={{ color: '#fff' }}>{eco.equipped?.lasers?.length || 0}/5</span></div>
                        <div style={{ color: '#888' }}>Generadores: <span style={{ color: '#fff' }}>{eco.equipped?.generators?.length || 0}/10</span></div>
                     </div>
@@ -424,9 +424,12 @@ export default function Hangar({
                            }
                            else if (activeTab === 'eco') {
                                 if (item.type === 'lasers') onEquipEco(index, 'lasers');
-                                else if (item.type === 'shields' || item.type === 'engines') onEquipEco(index, 'generators');
+                                else if (item.type === 'shields') onEquipEco(index, 'generators');
                                 else if (item.type === 'protocols') onEquipEco(index, 'protocols');
                                 else if (item.type === 'utility') onEquipEco(index, 'utility');
+                                else {
+                                    alert('Este módulo no es compatible con el sistema E.C.O.');
+                                }
                            }
                          }}
                          style={{ 
@@ -468,7 +471,7 @@ export default function Hangar({
                       <div style={{ marginBottom: '15px', color: '#00ffcc', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DEL E.C.O.</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
                          <SlotDisplay label="Sistemas Láser" count={5} icon="🎯" color="#ffcc00" equipped={eco.equipped?.lasers || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'lasers')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.lasers || 1} onUnlock={() => onUnlockEcoSlot('lasers')} />
-                         <SlotDisplay label="Generadores (Escudos/Motores)" count={10} icon="🛡️" color="#00c8ff" equipped={eco.equipped?.generators || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'generators')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.generators || 1} onUnlock={() => onUnlockEcoSlot('generators')} />
+                         <SlotDisplay label="Generadores de Escudo" count={10} icon="🛡️" color="#00c8ff" equipped={eco.equipped?.generators || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'generators')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.generators || 1} onUnlock={() => onUnlockEcoSlot('generators')} />
                          <SlotDisplay label="Protocolos de I.A." count={10} icon="🤖" color="#00ffcc" equipped={eco.equipped?.protocols || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'protocols')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.protocols || 1} onUnlock={() => onUnlockEcoSlot('protocols')} />
                          <SlotDisplay label="Módulos de Utilidad" count={5} icon="⚛️" color="#9933ff" equipped={eco.equipped?.utility || []} onUnequip={(id) => !isBlocked && onUnequipEco(id, 'utility')} isBlocked={isBlocked} unlockedCount={eco.unlocked_slots?.utility || 1} onUnlock={() => onUnlockEcoSlot('utility')} />
                       </div>

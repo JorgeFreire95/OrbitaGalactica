@@ -51,8 +51,8 @@
 - **Sistema de Progresión y Veteranía**: El E.C.O. posee su propio sistema de niveles (hasta **Nivel 15**). Recibe automáticamente el **15% de la experiencia** ganada por el piloto en combates y misiones, permitiendo una evolución paralela al rango del jugador.
 - **Gestión de Combustible (Fuel System)**: El dron requiere combustible para operar. Posee un tanque de **100,000 unidades** que se consume durante el despliegue y de forma acelerada al activar protocolos de reparación. Si el combustible se agota, el dron se repliega automáticamente.
 - **Protocolos de Reparación Inteligente**:
-    - **Reparación Remota (Nivel 1-3)**: El E.C.O. puede proyectar un haz reparador sobre la nave del piloto para restaurar integridad estructural en pleno combate. El protocolo consume combustible extra y tiene una probabilidad de rechazo basada en el nivel del módulo.
-    - **Auto-Reparación (Nivel 1-3)**: Protocolo de mantenimiento interno que permite al E.C.O. recuperar sus propios puntos de integridad y escudo de forma gradual.
+    - **Reparación Remota (Nivel 1-3)**: El E.C.O. puede proyectar un haz reparador sobre la nave del piloto para restaurar vida estructural en pleno combate. El protocolo consume combustible extra y tiene una probabilidad de rechazo basada en el nivel del módulo.
+    - **Auto-Reparación (Nivel 1-3)**: Protocolo de mantenimiento interno que permite al E.C.O. recuperar sus propios puntos de vida y escudo de forma gradual.
 - **Tecnología Escalonada (Tiers)**: El acceso a protocolos y módulos avanzados está estrictamente vinculado al nivel de veteranía del dron:
     - **Nivel 1-4**: Equipamiento Básico (Tier 1).
     - **Nivel 5-9**: Equipamiento Avanzado (Tier 2).
@@ -60,7 +60,7 @@
 - **Expansión de Ranuras por Paladio**: El chasis del E.C.O. es altamente modular. El piloto puede desbloquear hasta **5 láseres, 10 generadores, 10 protocolos y 5 módulos de utilidad** invirtiendo **500 de Paladio** por cada expansión de ranura.
 - **Tienda Inteligente y Dinámica**: Interfaz optimizada con selector de nivel dinámico para protocolos, eliminando la saturación visual y mostrando especificaciones técnicas y costes en tiempo real.
 - **IA de Seguimiento Dinámico**: Algoritmo de navegación autónoma con vector de velocidad propio que permite al dron orbitar la nave o realizar maniobras de evasión.
-- **HUD de Estado y XP**: Proyección holográfica sobre el chasis que muestra integridad, escudo, nivel actual y una **barra de experiencia (XP)** detallada.
+- **HUD de Estado y XP**: Proyección holográfica sobre el chasis que muestra vida, escudo, nivel actual y una **barra de experiencia (XP)** detallada.
 
 ### 💬 Sistema Social y Chat Integrado
 - **Chat Multi-Canal**: Comunícate a través de canales dedicados: **Global** (todos los pilotos), **Empresa** (solo miembros de tu facción), **Clan** (mensajes internos de la alianza) y **Privado** (pestañas dedicadas para chats 1 a 1).
@@ -97,7 +97,7 @@
 ### 💰 Economía y Recursos
 - **Créditos (🔋)**: Moneda básica ganada al destruir naves enemigas o batallando en tu Escuadrón.
 - **Paladio (🪐)**: Recurso valioso utilizado para compras avanzadas en la tienda, mejoras de élite y la **expansión de ranuras del sistema E.C.O.** (500 de Paladio por ranura).
-- **Laboratorio de Minerales (Autorritatividad y Curación Proporcional)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras permanentes de sesión (2h) en Ataque, Escudo, Velocidad e Integridad de Casco (HP). 
+- **Laboratorio de Minerales (Autorritatividad y Curación Proporcional)**: Refina recursos (**Titanio, Plutonio, Silicio e Iridio**) para obtener mejoras permanentes de sesión (2h) en Ataque, Escudo, Velocidad e Vida de Casco (HP). 
     - **Persistencia Total**: Las mejoras se guardan en el servidor y persisten tras desconexiones o cambios de nave.
     - **Curación Instantánea**: Al aplicar una mejora de HP o Escudo Máximo, el sistema restaura automáticamente la misma cantidad a los puntos actuales de la nave, permitiendo un uso táctico del laboratorio como sistema de emergencia.
 - **Beneficios VIP**: Los usuarios con estatus VIP disfrutan de **Reparación Gratuita** ilimitada y un **10% de descuento** en todas las compras de Paladio en la tienda.
@@ -114,7 +114,7 @@ Elige la nave que mejor se adapte a tu estilo de juego. Desde veloces intercepto
 
 #### 🔸 Naves Regulares (Créditos)
 - **Phoenix (Básica)**: La nave de inicio. Equilibrada y ligera, perfecta para aprender las mecánicas básicas del sector.
-- **Aegis Vanguard (Tanque)**: Diseñada para absorber daño. Cuenta con **6 ranuras de escudo** y una integridad estructural superior.
+- **Aegis Vanguard (Tanque)**: Diseñada para absorber daño. Cuenta con **6 ranuras de escudo** y una vida estructural superior.
 - **Nova Striker (Rápida)**: Especialista en velocidad. Con **7 ranuras de motor**, es la nave ideal para misiones de transporte rápido y evasión.
 - **Orion Phantom (Sigilo)**: Alta capacidad ofensiva. Sus **5 ranuras de láser** y bonos de sigilo la hacen perfecta para el combate táctico.
 - **Titan Hammer (Pesada)**: Fuerza bruta. Sacrifica velocidad por un arsenal devastador de **8 ranuras de láser**.
@@ -124,7 +124,7 @@ Elige la nave que mejor se adapte a tu estilo de juego. Desde veloces intercepto
 - **Sovereign Exterminator**: El pináculo de la guerra. Equipada con **15 ranuras de láser**, es capaz de borrar flotas enteras del radar.
 - **Cosmic Harvester**: La nave definitiva para mineros. Su bodega de **10,000 unidades** permite expediciones de recolección masivas.
 - **Solar Wind (Interceptor)**: La nave más rápida de la galaxia. Su diseño de propulsión iónica permite una **velocidad de 65 base**, siendo virtualmente imposible de fijar.
-- **Obsidian Bastion (Fortaleza)**: Una muralla impenetrable. Con **15 ranuras de escudo** e integridad reforzada, es la nave ideal para liderar asaltos a estaciones.
+- **Obsidian Bastion (Fortaleza)**: Una muralla impenetrable. Con **15 ranuras de escudo** e vida reforzada, es la nave ideal para liderar asaltos a estaciones.
 
 ---
 
@@ -198,7 +198,7 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 - **Rediseño de Blindaje (Zero-Base Shields)**: Se ha eliminado el escudo base de todas las naves para profundizar en la personalización. La protección energética depende exclusivamente de los módulos equipados en el hangar.
 - **Protocolo de Emergencia y Reparación Manual**: 
     - **Salto a Base**: Restauración por **500 Créditos** con teletransporte inmediato.
-    - **Robot de Reparación Táctico**: Herramienta de activación manual. Se desactiva automáticamente si la nave recibe daño o alcanza el 100% de integridad estructural.
+    - **Robot de Reparación Táctico**: Herramienta de activación manual. Se desactiva automáticamente si la nave recibe daño o alcanza el 100% de vida estructural.
 - **Módulo de Invisibilidad (Stealth Cloak)**: Tecnología de camuflaje que oculta la nave del radar y de la vista directa. El estado de invisibilidad se rompe instantáneamente al iniciar un ataque (láser o misiles).
 - **HUD Dinámico**: Barras de **Vida (❤️)** y **Escudo (🛡️)** animadas con cambios de color según el estado crítico.
 - **Sincronización Autorritativa**: Modificaciones en el Hangar se reflejan instantáneamente en las estadísticas de combate.

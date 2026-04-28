@@ -401,7 +401,7 @@ export default function Shop({
                     )}
                     {currentItem.hp && activeCategory !== 'naves' && currentItem.id !== 'eco' && (
                        <div className="preview-stat-row">
-                         <span>Bono de Integridad</span>
+                         <span>Bono de Vida</span>
                          <span style={{ color: '#ff3366' }}>+{currentItem.hp.toLocaleString()}</span>
                        </div>
                     )}
@@ -456,7 +456,7 @@ export default function Shop({
                       <>
                         <div style={{ marginTop: '15px', marginBottom: '10px', color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid #333', paddingBottom: '5px' }}>ESPECIFICACIONES DEL SISTEMA</div>
                         <div className="preview-stat-row">
-                          <span>Integridad Base</span>
+                          <span>Vida Base</span>
                           <span style={{ color: '#ff3366' }}>{currentItem.hp?.toLocaleString()} HP</span>
                         </div>
                         <div className="preview-stat-row">

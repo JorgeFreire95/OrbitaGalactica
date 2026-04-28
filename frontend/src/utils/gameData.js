@@ -184,19 +184,19 @@ export const ECO_PROTOCOLS = [
   { id: 'proto_laser_1', type: 'protocols', lvl: 1, name: 'Protocolo de Precisión I', cost: 1000, atk: 15, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 1).' },
   { id: 'proto_shield_1', type: 'protocols', lvl: 1, name: 'Protocolo de Escudo I', cost: 1000, shld: 200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 1).' },
   { id: 'proto_cargo_1', type: 'protocols', lvl: 1, name: 'Protocolo de Carga I', cost: 1000, cargo: 2000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 1).' },
-  { id: 'proto_hp_1', type: 'protocols', lvl: 1, name: 'Protocolo de Casco I', cost: 1000, hp: 500, icon: '❤️', desc: 'Aumenta la integridad estructural (Nivel 1).' },
+  { id: 'proto_hp_1', type: 'protocols', lvl: 1, name: 'Protocolo de Casco I', cost: 1000, hp: 500, icon: '❤️', desc: 'Aumenta la vida estructural (Nivel 1).' },
 
   // Nivel 2 (Habilitado para ECO Nivel 5-9)
   { id: 'proto_laser_2', type: 'protocols', lvl: 2, name: 'Protocolo de Precisión II', cost: 5000, atk: 35, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 2).' },
   { id: 'proto_shield_2', type: 'protocols', lvl: 2, name: 'Protocolo de Escudo II', cost: 5000, shld: 500, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 2).' },
   { id: 'proto_cargo_2', type: 'protocols', lvl: 2, name: 'Protocolo de Carga II', cost: 5000, cargo: 5000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 2).' },
-  { id: 'proto_hp_2', type: 'protocols', lvl: 2, name: 'Protocolo de Casco II', cost: 5000, hp: 1200, icon: '❤️', desc: 'Aumenta la integridad estructural (Nivel 2).' },
+  { id: 'proto_hp_2', type: 'protocols', lvl: 2, name: 'Protocolo de Casco II', cost: 5000, hp: 1200, icon: '❤️', desc: 'Aumenta la vida estructural (Nivel 2).' },
 
   // Nivel 3 (Habilitado para ECO Nivel 10-15)
   { id: 'proto_laser_3', type: 'protocols', lvl: 3, name: 'Protocolo de Precisión III', cost: 25000, atk: 75, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 3).' },
   { id: 'proto_shield_3', type: 'protocols', lvl: 3, name: 'Protocolo de Escudo III', cost: 25000, shld: 1200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 3).' },
   { id: 'proto_cargo_3', type: 'protocols', lvl: 3, name: 'Protocolo de Carga III', cost: 25000, cargo: 12000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 3).' },
-  { id: 'proto_hp_3', type: 'protocols', lvl: 3, name: 'Protocolo de Casco III', cost: 25000, hp: 3000, icon: '❤️', desc: 'Aumenta la integridad estructural (Nivel 3).' },
+  { id: 'proto_hp_3', type: 'protocols', lvl: 3, name: 'Protocolo de Casco III', cost: 25000, hp: 3000, icon: '❤️', desc: 'Aumenta la vida estructural (Nivel 3).' },
 ];
 
 export const ECO_REPAIR = [
@@ -371,7 +371,7 @@ export const ECO_SELF_REPAIR = [
     regen: 2000,
     duration: 89,
     icon: '🛠️',
-    desc: 'Repara automáticamente la integridad de tu ECO durante el vuelo.'
+    desc: 'Repara automáticamente la vida de tu ECO durante el vuelo.'
   },
   {
     id: 'eco_self_rep_2',
@@ -385,7 +385,7 @@ export const ECO_SELF_REPAIR = [
     regen: 6000,
     duration: 30,
     icon: '🛠️',
-    desc: 'Repara rápidamente la integridad de tu ECO durante el vuelo.'
+    desc: 'Repara rápidamente la vida de tu ECO durante el vuelo.'
   },
   {
     id: 'eco_self_rep_3',

@@ -85,7 +85,7 @@ const drawWips = (ctx, wips, shipSize, heading) => {
         ctx.beginPath();
         ctx.arc(0, 0, 3, 0, Math.PI * 2);
         ctx.fill();
-
+        ctx.beginPath(); // Limpiar path
         ctx.restore();
     });
 };
@@ -134,13 +134,14 @@ const drawEco = (ctx, eco, shipSize, heading, playerX, playerY) => {
     ctx.beginPath();
     ctx.arc(0, 0, 30, 0, Math.PI * 2);
     ctx.fill();
+    ctx.beginPath(); // Limpiar rastro del path
 
     // Status Bars (Pequeñas barras sobre el dron)
     const barW = 30;
     ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
     ctx.fillRect(-barW/2, -35, barW, 3);
     ctx.fillStyle = '#00ffcc';
-    ctx.fillRect(-barW/2, -35, barW * (eco.integrity / 100), 3);
+    ctx.fillRect(-barW/2, -35, barW * (eco.integrity / (eco.max_integrity || 50000)), 3);
 
     if (eco.max_shield > 0) {
         ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
@@ -518,6 +519,12 @@ const drawSpaceStation = (ctx, x, y, radius, style) => {
         // Borde metálico
         ctx.strokeStyle = mainColor;
         ctx.lineWidth = 2;
+        ctx.beginPath(); // Definir nuevo path para el borde
+        ctx.moveTo(0, -h/2);
+        ctx.lineTo(dir * w, -h/4);
+        ctx.lineTo(dir * w, h/4);
+        ctx.lineTo(0, h/2);
+        ctx.closePath();
         ctx.stroke();
         
         // Luces de pista
@@ -632,6 +639,8 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
   else if (isPluto) ctx.fillStyle = '#0b041a';
   else ctx.fillStyle = '#0d0d1a';
   ctx.fillRect(0, 0, width, height);
+  ctx.beginPath(); // Reset path buffer
+
   
   const me = gameState.players?.find(p => p.is_self);
 
@@ -1255,6 +1264,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.beginPath();
       ctx.roundRect(-18, -1, 36, 2, 1);
       ctx.fill();
+      ctx.beginPath(); // Limpiar rastro del path
     }
     
     ctx.restore();
@@ -1326,6 +1336,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         // Core central
         ctx.fillStyle = '#e6b800';
         ctx.beginPath(); ctx.arc(0, 0, s/8, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); // Limpiar path
       } 
       else if (type === 'harvester') {
         // Harvester: Industrial, ancha, verde
@@ -1368,8 +1379,11 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         // Brillo de energía interna
         ctx.strokeStyle = '#8a2be2';
         ctx.lineWidth = 2;
+        ctx.beginPath(); // Nuevo path para el brillo circular interno
+        ctx.arc(0, 0, s/4, 0, Math.PI*2);
         ctx.stroke();
       }
+      ctx.beginPath(); // Limpiar rastro
       ctx.restore();
     };
 
@@ -1847,6 +1861,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
         ctx.beginPath();
         ctx.arc(0, 0, elapsed * radius * 2.5, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.beginPath(); // Limpiar rastro de explosión
         
         ctx.shadowBlur = 0;
       } else {
@@ -1887,7 +1902,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   // 4. DIBUJAR MINIMAPA (Fijo en la UI)
   const drawMinimap = () => {
+    ctx.beginPath(); // Ensure minimap starts with clean path
     const mmW = 200;
+
     const mmH = 150;
     const margin = 20;
     const mmX = width - mmW - margin;
@@ -2079,4 +2096,5 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
 
   drawMinimap();
+  ctx.beginPath(); // Clear path buffer at the end of frame
 };

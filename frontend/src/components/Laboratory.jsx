@@ -9,7 +9,7 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
     { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', color: '#ff3333', amount: 50, bonus: 5, desc: 'Aumenta el daño base de todos tus láseres' },
     { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', color: '#00c8ff', amount: 50, bonus: 10, desc: 'Refuerza la capacidad máxima de tus escudos' },
     { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', color: '#00ffcc', amount: 50, bonus: 8, desc: 'Mejora la propulsión y velocidad de maniobra' },
-    { id: 'iridium',   name: 'Iridio',    stat: 'hp',   icon: '🧲', color: '#ff4466', amount: 50, bonus: 15, desc: 'Aumenta la integridad estructural de tu casco (Vida)' },
+    { id: 'iridium',   name: 'Iridio',    stat: 'hp',   icon: '🧲', color: '#ff4466', amount: 50, bonus: 15, desc: 'Aumenta la vida estructural de tu casco (Vida)' },
   ];
 
   return (

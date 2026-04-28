@@ -127,13 +127,14 @@ function App() {
 
   const [eco, setEco] = useState(() => {
     const saved = localStorage.getItem('game_eco');
-    return saved ? JSON.parse(saved) : {
+    const defaultEco = {
       active: false,
       deployed: false,
-      mode: 'passive', // 'passive' or 'aggressive'
+      mode: 'passive',
       level: 1,
       xp: 0,
-      integrity: 100,
+      integrity: 50000,
+      max_integrity: 50000,
       fuel: 100000,
       max_fuel: 100000,
       hp: 50000,
@@ -142,6 +143,7 @@ function App() {
       max_shield: 0,
       speed: 0,
       customName: 'E.C.O.',
+      unlocked_slots: { lasers: 1, generators: 1, protocols: 1, utility: 1 },
       equipped: {
         lasers: [],
         generators: [],
@@ -149,6 +151,20 @@ function App() {
         utility: []
       }
     };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { 
+          ...defaultEco, 
+          ...parsed, 
+          equipped: { ...defaultEco.equipped, ...(parsed.equipped || {}) },
+          unlocked_slots: { ...defaultEco.unlocked_slots, ...(parsed.unlocked_slots || {}) }
+        };
+      } catch (e) {
+        return defaultEco;
+      }
+    }
+    return defaultEco;
   });
 
   // Legacy fleet cleanup removed.
@@ -839,7 +855,7 @@ function App() {
       const maxFuel = prev.max_fuel || 100000;
       return {
         ...prev,
-        fuel: Math.min(newFuel, maxFuel)
+        fuel: Math.floor(Math.min(newFuel, maxFuel))
       };
     });
     return true;
@@ -885,20 +901,20 @@ function App() {
     setEco(prev => ({
       ...prev,
       equipped: {
-        ...prev.equipped,
-        [ecoSlotType]: [...(prev.equipped[ecoSlotType] || []), item]
+        ...(prev.equipped || { lasers: [], generators: [], protocols: [], utility: [] }),
+        [ecoSlotType]: [...((prev.equipped && prev.equipped[ecoSlotType]) || []), item]
       }
     }));
   };
 
   const handleUnlockEcoSlot = (category) => {
-    const UNLOCK_COST = 500;
+    const UNLOCK_COST = 5000;
     if (paladio < UNLOCK_COST) {
-      alert(`Necesitas ${UNLOCK_COST} de Paladio para desbloquear una ranura de ${category}.`);
+      alert(`Necesitas ${UNLOCK_COST.toLocaleString()} de Paladio para desbloquear una ranura de ${category}.`);
       return;
     }
 
-    if (!window.confirm(`¿Desbloquear ranura de ${category} por ${UNLOCK_COST} Paladio?`)) return;
+    if (!window.confirm(`¿Desbloquear ranura de ${category} por ${UNLOCK_COST.toLocaleString()} Paladio?`)) return;
 
     setPaladio(p => p - UNLOCK_COST);
     setEco(prev => {
