@@ -1270,7 +1270,14 @@ function App() {
       )}
       
       {currentView === 'admin' && (
-        <AdminPanel user={user} onBack={() => setCurrentView('menu')} />
+        <AdminPanel 
+          user={user} 
+          onBack={() => setCurrentView('menu')} 
+          onUpdateCredits={setCredits}
+          onUpdatePaladio={setPaladio}
+          onUpdateLevel={setLevel}
+          onUpdateXp={setXp}
+        />
       )}
 
         {currentView === 'ranking' && (

@@ -131,9 +131,9 @@ export const SHIPS = [
 ];
 
 export const MODULES_CATALOG = [
-  { id: 'laser_1', type: 'lasers',  lvl: 1, name: 'Láser Básico',     cost: 10000, atk: 64,   icon: '🎯', image: '/basic_laser.png' },
-  { id: 'laser_2', type: 'lasers',  lvl: 2, name: 'Láser Plus',       cost: 5000, currency: 'paladio', atk: 140,  icon: '🎯', image: '/plus_laser.png' },
-  { id: 'laser_3', type: 'lasers',  lvl: 3, name: 'Cañón Pesado',     cost: 10000, currency: 'paladio', atk: 175,  icon: '🎯', image: '/heavy_laser.jpg' },
+  { id: 'laser_1', type: 'lasers',  lvl: 1, name: 'Láser Básico',     cost: 10000, atk: 40,   icon: '🎯', image: '/basic_laser.png' },
+  { id: 'laser_2', type: 'lasers',  lvl: 2, name: 'Láser Plus',       cost: 5000, currency: 'paladio', atk: 100,  icon: '🎯', image: '/plus_laser.png' },
+  { id: 'laser_3', type: 'lasers',  lvl: 3, name: 'Cañón Pesado',     cost: 10000, currency: 'paladio', atk: 150,  icon: '🎯', image: '/heavy_laser.jpg' },
   
   { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5 },
   { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6 },
@@ -155,9 +155,9 @@ export const WIPS_CATALOG = [
 ];
 
 export const AMMO_CATALOG = [
-  { id: 'standard', name: 'Estándar',  damage: 1.0, cost: 10,      count: 1, icon: '⚪', color: '#ffffff', image: '/std_ammo.jpg', isStackable: true },
-  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 0.5,     currency: 'paladio', count: 1, icon: '🔥', color: '#ff6600', image: '/thermal_ammo.jpg', isStackable: true },
-  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 1,       currency: 'paladio', count: 1, icon: '🔷', color: '#ff33ff', image: '/plasma_ammo.jpg', isStackable: true },
+  { id: 'standard', name: 'Estándar',  damage: 1.0, cost: 10,      count: 1, icon: '⚪', color: '#ff0000', image: '/std_ammo.jpg', isStackable: true },
+  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 0.5,     currency: 'paladio', count: 1, icon: '🔥', color: '#ff0000', image: '/thermal_ammo.jpg', isStackable: true },
+  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 1,       currency: 'paladio', count: 1, icon: '🔷', color: '#ff0000', image: '/plasma_ammo.jpg', isStackable: true },
   { id: 'siphon',   name: 'Sifón',     damage: 1.0, cost: 1,       currency: 'paladio', count: 1, icon: '🔋', color: '#33ff33', effect: 'shield_steal', image: '/siphon_ammo.png', isStackable: true },
 ];
 

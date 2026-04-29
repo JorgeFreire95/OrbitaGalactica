@@ -971,6 +971,19 @@ async def api_admin_update_user(username: str, req: AdminUpdateRequest):
     )
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result.get("error", "Error actualizando el usuario"))
+    
+    # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == username:
+            if req.credits is not None: p["credits"] = req.credits
+            if req.paladio is not None: p["paladio"] = req.paladio
+            if req.level is not None: p["level"] = req.level
+            if req.xp is not None: p["xp"] = req.xp
+            if req.faction: p["faction"] = req.faction
+            # Si el username cambió, actualizarlo también en memoria
+            if req.username: p["user_id"] = req.username
+            break
+
     return {"message": "Usuario actualizado"}
 
 @app.delete("/api/admin/users/{username}")
@@ -986,6 +999,9 @@ async def api_admin_add_vip(username: str, req: AdminVipRequest):
     success = add_vip_days_db(username, req.days)
     if not success:
         raise HTTPException(status_code=500, detail="Error actualizando días VIP.")
+    
+    # Podríamos actualizar un flag visual en memoria si existiera, 
+    # pero por ahora esto asegura que el siguiente refresco del cliente vea el cambio.
     return {"message": f"Añadidos {req.days} días VIP exitosamente."}
     
 @app.delete("/api/admin/users/{username}/vip")

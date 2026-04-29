@@ -1667,23 +1667,27 @@ canvas {
 }
 
 .admin-toolbar {
-  padding: 20px 30px;
-  background: rgba(0,0,0,0.3);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 25px 40px;
+  background: rgba(0,0,0,0.4);
+  border-bottom: 1px solid rgba(255, 204, 0, 0.1);
   display: flex;
-  justify-content: space-between;
+  gap: 30px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .admin-search-input {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid #334466;
-  border-radius: 8px;
-  padding: 10px 20px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid #1a2a4a;
+  border-radius: 12px;
+  padding: 12px 25px;
   color: white;
-  width: 300px;
+  flex: 1;
+  min-width: 300px;
+  max-width: 500px;
   font-family: inherit;
   transition: all 0.3s;
+  font-size: 0.9rem;
 }
 
 .admin-search-input:focus {
@@ -1694,11 +1698,12 @@ canvas {
 
 .user-card-grid {
   flex: 1;
-  padding: 30px;
+  padding: 40px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 30px;
   overflow-y: auto;
+  background: radial-gradient(circle at top right, rgba(0, 255, 204, 0.02), transparent);
 }
 
 .admin-user-card {
@@ -1733,8 +1738,61 @@ canvas {
 
 .user-card-main {
   display: flex;
-  gap: 15px;
+  gap: 20px;
   align-items: center;
+}
+
+.admin-toolbar-stats {
+  display: flex;
+  gap: 30px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.admin-toolbar-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.admin-toolbar-stats .stat-label {
+  font-size: 0.6rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.admin-toolbar-stats .stat-value {
+  font-size: 1.1rem;
+  color: #ffcc00;
+  font-weight: 900;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+}
+
+.vip-actions-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.vip-btn-main {
+  flex: 1;
+  background: linear-gradient(45deg, #ffcc00, #ff8800) !important;
+  color: #000 !important;
+  font-weight: 900 !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+}
+
+.vip-btn-revoke {
+  width: 50px;
+  background: rgba(255, 51, 102, 0.1) !important;
+  color: #ff3366 !important;
+  border: 1px solid #ff3366 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
 }
 
 .user-avatar-circle {
@@ -1968,25 +2026,245 @@ canvas {
 }
 
 @media (max-width: 600px) {
+  html, body, #root, .app-container {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto !important;
+  }
+  
+  .dashboard-header {
+    flex-direction: column;
+    padding: 15px !important;
+    gap: 15px;
+  }
+  
+  .dashboard-header > div {
+    flex-wrap: wrap;
+    justify-content: center !important;
+    gap: 10px !important;
+  }
+  
+  .dashboard-header .status-item {
+    padding: 6px 12px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .dashboard-nav {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    justify-content: flex-start !important;
+    padding: 10px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .nav-tab {
+    flex: 0 0 auto !important;
+    min-width: 100px;
+    font-size: 0.7rem !important;
+  }
+
+  .dashboard-body {
+    padding: 10px !important;
+    gap: 15px !important;
+  }
+  
+  .dashboard-center img {
+    width: 80% !important;
+    max-width: 250px;
+  }
+  
+  .launch-action-button {
+    font-size: 1rem !important;
+    padding: 15px !important;
+  }
+
   .user-card-grid {
     grid-template-columns: 1fr;
     padding: 10px;
+    gap: 10px;
   }
+  
+  .admin-user-card {
+    padding: 15px !important;
+  }
+  
   .factions-container {
     flex-direction: column;
   }
+  
   .login-form-horizontal {
     flex-direction: column;
   }
+  
   .login-inputs {
     width: 100%;
     flex-direction: column;
   }
+  
   .modal-body {
     grid-template-columns: 1fr;
+    max-height: 70vh;
+    overflow-y: auto;
   }
+  
   .modal-body .input-field {
     grid-column: span 1 !important;
+  }
+  
+  .admin-modal-content {
+    width: 95% !important;
+    margin: 10px;
+    padding: 15px !important;
+  }
+  
+  .card-stats-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-view-container {
+    padding: 10px !important;
+  }
+
+  .admin-header-flex {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px !important;
+    text-align: center;
+  }
+
+  .admin-header-flex h1 {
+    font-size: 1.2rem !important;
+  }
+
+  .admin-header-buttons {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-header-buttons .nav-button, 
+  .admin-header-buttons .back-btn {
+    width: 100%;
+    margin: 0 !important;
+    font-size: 0.65rem !important;
+    padding: 10px !important;
+  }
+
+  .admin-toolbar {
+    flex-direction: column;
+    gap: 15px;
+    padding: 12px !important;
+  }
+
+  .admin-toolbar-stats {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+
+  .admin-toolbar-stats .stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .admin-search-input {
+    width: 100% !important;
+    margin: 0 !important;
+    font-size: 0.8rem !important;
+    padding: 10px !important;
+  }
+
+  .user-card-grid {
+    grid-template-columns: 1fr;
+    padding: 0 !important;
+    gap: 15px;
+  }
+  
+  .admin-user-card {
+    padding: 15px !important;
+    border-radius: 12px;
+  }
+
+  .user-card-main {
+    flex-direction: row !important; /* Keep avatar next to name if possible, but small */
+    gap: 10px !important;
+  }
+
+  .user-avatar-circle {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .user-info-text h3 {
+    font-size: 0.9rem !important;
+  }
+
+  .user-info-text p {
+    font-size: 0.65rem !important;
+  }
+
+  .card-stats-row {
+    grid-template-columns: 1fr 1fr !important; /* 2 columns on mobile is better than 1 if values are short */
+    gap: 8px !important;
+  }
+
+  .stat-pill {
+    padding: 6px !important;
+  }
+
+  .stat-pill-label {
+    font-size: 0.55rem !important;
+  }
+
+  .stat-pill-value {
+    font-size: 0.7rem !important;
+  }
+  
+  .xp-progress-container {
+    margin-top: 15px !important;
+  }
+
+  .admin-modal-content {
+    width: 98% !important;
+    margin: 5px;
+    padding: 15px !important;
+    max-height: 95vh;
+  }
+
+  .modal-header h2 {
+    font-size: 1rem !important;
+  }
+
+  .modal-body {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .input-field label {
+    font-size: 0.7rem !important;
+  }
+
+  .input-field input, .input-field select {
+    padding: 8px !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .modal-footer button {
+    width: 100%;
+    height: 45px !important;
+    font-size: 0.75rem !important;
   }
 }
 

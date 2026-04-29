@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const AdminPanel = ({ user: currentUser, onBack }) => {
+const AdminPanel = ({ user: currentUser, onBack, onUpdateCredits, onUpdatePaladio, onUpdateLevel, onUpdateXp }) => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -90,6 +90,13 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
         body: JSON.stringify(editForm)
       });
       if (resp.ok) {
+        // Si el admin se está editando a sí mismo, actualizar el estado global inmediatamente
+        if (editingUser === currentUser.username) {
+            if (onUpdateCredits) onUpdateCredits(editForm.credits);
+            if (onUpdatePaladio) onUpdatePaladio(editForm.paladio);
+            if (onUpdateLevel) onUpdateLevel(editForm.level);
+            if (onUpdateXp) onUpdateXp(editForm.xp);
+        }
         setEditingUser(null);
         fetchUsers();
       } else {
@@ -177,7 +184,7 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
   return (
     <div className="admin-view-container" style={{ fontFamily: 'Orbitron, sans-serif' }}>
       {/* HEADER SECTION */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="admin-header-flex">
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <div style={{ fontSize: '2.5rem' }}>⚙️</div>
           <div>
@@ -185,7 +192,7 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
             <p style={{ margin: 0, color: '#88aaff', fontSize: '0.8rem' }}>Terminal de Supervisión Táctica v3.0</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="admin-header-buttons">
           <button 
             onClick={() => setActiveAdminTab('users')} 
             className={`nav-button ${activeAdminTab === 'users' ? 'active' : ''}`}
@@ -199,6 +206,13 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
             style={{ fontSize: '0.7rem', opacity: activeAdminTab === 'announcements' ? 1 : 0.6 }}
           >
             SISTEMA DE ANUNCIOS
+          </button>
+          <button 
+            onClick={() => setActiveAdminTab('events')} 
+            className={`nav-button ${activeAdminTab === 'events' ? 'active' : ''}`}
+            style={{ fontSize: '0.7rem', opacity: activeAdminTab === 'events' ? 1 : 0.6 }}
+          >
+            SISTEMA DE EVENTOS
           </button>
           <button onClick={onBack} className="back-btn" style={{ marginLeft: '20px' }}>SALIR DE TERMINAL</button>
         </div>
@@ -215,7 +229,7 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div style={{ display: 'flex', gap: '30px' }}>
+          <div className="admin-toolbar-stats">
             <div className="stat-item">
               <span className="stat-label">Pilotos Totales</span>
               <span className="stat-value">{users.length}</span>
@@ -260,7 +274,7 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
                       </p>
                     </div>
                   </div>
-                  {!u.is_admin && (
+                  {(!u.is_admin || currentUser?.is_super_admin) && (
                     <button 
                       onClick={() => handleDelete(u.username)} 
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff3333', fontSize: '1.1rem', opacity: 0.4 }}
@@ -304,37 +318,17 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
                   </div>
                 </div>
 
-                {!u.is_admin && (
-                  <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
+                {(!u.is_admin || currentUser?.is_super_admin) && (
+                  <div className="vip-actions-container">
                     <button 
-                      className="gestionar-button" 
-                      style={{ 
-                        flex: 2,
-                        margin: 0, 
-                        fontSize: '0.7rem', 
-                        padding: '10px', 
-                        background: 'linear-gradient(45deg, #ffcc00, #ff8800)',
-                        color: '#000',
-                        fontWeight: 'bold',
-                        borderColor: '#ffcc00'
-                      }}
+                      className="gestionar-button vip-btn-main" 
                       onClick={() => handleAddVip(u.username)}
                     >
                       🌟 OTORGAR +30 DÍAS VIP
                     </button>
                     {u.vip_until && new Date(u.vip_until) > new Date() && (
                       <button 
-                        className="gestionar-button" 
-                        style={{ 
-                          flex: 1,
-                          margin: 0, 
-                          fontSize: '0.7rem', 
-                          padding: '10px', 
-                          background: 'rgba(255, 51, 102, 0.1)',
-                          color: '#ff3366',
-                          borderColor: '#ff3366',
-                          border: '1px solid'
-                        }}
+                        className="gestionar-button vip-btn-revoke" 
                         onClick={() => handleRevokeVip(u.username)}
                         title="Revocar estatus VIP"
                       >
@@ -364,7 +358,7 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
           )}
         </div>
       </div>
-      ) : (
+      ) : activeAdminTab === 'announcements' ? (
         <div className="admin-glass-panel" style={{ padding: '30px' }}>
           <h2 style={{ color: '#00ffcc', marginBottom: '20px', fontSize: '1.2rem' }}>📢 PUBLICAR COMUNICADO ESTELAR</h2>
           <form onSubmit={handleCreateAnnouncement} style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '600px', marginBottom: '40px' }}>
@@ -441,7 +435,19 @@ const AdminPanel = ({ user: currentUser, onBack }) => {
             )}
           </div>
         </div>
-      )}
+      ) : activeAdminTab === 'events' ? (
+        <div className="admin-glass-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '5rem', marginBottom: '20px', filter: 'drop-shadow(0 0 20px #ff3333)', animation: 'pulse 2s infinite' }}>🔒</div>
+          <h2 style={{ color: '#ff3333', textTransform: 'uppercase', letterSpacing: '4px', margin: '0 0 10px 0' }}>SISTEMA ENCRIPTADO</h2>
+          <p style={{ color: '#88aaff', maxWidth: '500px', lineHeight: '1.6', fontSize: '0.9rem' }}>
+            El módulo de **Gestión de Eventos Globales** se encuentra actualmente bajo protocolos de seguridad de alto nivel. 
+            Esta sección será desbloqueada en futuras actualizaciones de la comandancia.
+          </p>
+          <div style={{ marginTop: '30px', padding: '10px 25px', background: 'rgba(255, 51, 51, 0.1)', border: '1px solid #ff3333', borderRadius: '4px', color: '#ff3333', fontWeight: 'bold', fontSize: '0.7rem', letterSpacing: '2px' }}>
+            ACCESO DENEGADO - NIVEL DE AUTORIZACIÓN INSUFICIENTE
+          </div>
+        </div>
+      ) : null}
 
       {/* EDIT MODAL */}
       {editingUser && (

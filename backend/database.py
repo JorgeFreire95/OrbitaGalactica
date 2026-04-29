@@ -24,7 +24,7 @@ def init_db():
             is_admin BOOLEAN DEFAULT 0,
             level INTEGER DEFAULT 1,
             xp INTEGER DEFAULT 0,
-            credits INTEGER DEFAULT 2000,
+            credits INTEGER DEFAULT 50000,
             paladio INTEGER DEFAULT 0,
             minerals_json TEXT DEFAULT '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}',
             owned_ships_json TEXT DEFAULT '["starter"]',
@@ -299,11 +299,11 @@ def init_db():
     c.execute("SELECT id FROM users WHERE username = 'admin'")
     if not c.fetchone():
         from database import hash_password
-        hashed, salt = hash_password("admin")
+        hashed, salt = hash_password("1234")
         c.execute('''
-            INSERT INTO users (username, email, password_hash, salt, faction, is_admin)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', ("admin", "admin@orbitagalactica.com", hashed, salt, "MARS", 1))
+            INSERT INTO users (username, email, password_hash, salt, faction, is_admin, is_super_admin)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', ("admin", "admin@orbitagalactica.com", hashed, salt, "MARS", 1, 1))
 
     # Limpiar diplomacia huérfana al inicio para mantener integridad
     try:
@@ -354,7 +354,7 @@ def register_user(username, email, password):
         c.execute('''
             INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json, owned_ships_json, inventory_json, equipped_json, vip_until, wips_json) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (username, email, hashed, salt, 1, 0, 2000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}', '["starter"]', '[]', '{}', vip_until, '[]'))
+        ''', (username, email, hashed, salt, 1, 0, 50000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}', '["starter"]', '[]', '{}', vip_until, '[]'))
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError as e:

@@ -298,6 +298,18 @@ class GameState:
         self.parties = {} # { party_id: { leader: id, members: [ids] } }
         self.party_invites = {} # { invited_id: { leader_id: time } }
         
+        # --- ESTADÍSTICAS DE ALIENS (BASE) ---
+        self.ALIEN_STATS = {
+            "Gryllos": {"hp": 800, "shld": 400, "atk": [50, 100], "xp": 400, "credits": 400, "paladio": 1, "speed": 160},
+            "Xylos": {"hp": 2000, "shld": 2000, "atk": [100, 200], "xp": 800, "credits": 800, "paladio": 2, "speed": 140},
+            "Nykor": {"hp": 6000, "shld": 3000, "atk": [200, 400], "xp": 1600, "credits": 1600, "paladio": 4, "speed": 100},
+            "Syrith": {"hp": 20000, "shld": 10000, "atk": [400, 800], "xp": 3200, "credits": 6400, "paladio": 8, "speed": 70},
+            "Vexis": {"hp": 35000, "shld": 15000, "atk": 1000, "xp": 12800, "credits": 65000, "paladio": 25, "speed": 45},
+            "Kragos": {"hp": 120000, "shld": 80000, "atk": 1500, "xp": 6400, "credits": 12800, "paladio": 16, "speed": 90},
+            "Zoltan": {"hp": 400000, "shld": 300000, "atk": [2000, 4000], "xp": 51000, "credits": 350000, "paladio": 115, "speed": 60},
+            "Drakon": {"hp": 700000, "shld": 500000, "atk": 5000, "xp": 200000, "credits": 1000000, "paladio": 1000, "speed": 35}
+        }
+        
         # --- INICIALIZAR CAJAS ESPECIALES (5 por mapa) ---
         for map_id in self.MAPS:
             for _ in range(5):
@@ -728,6 +740,14 @@ class GameState:
                 angle = player.get("heading", -1.57)
                 target_id_for_proj = None
             
+            # --- DETERMINAR COLOR DEL LÁSER ---
+            proj_color = None
+            if ammo_type in ["standard", "thermal", "plasma"]:
+                if player.get("all_heavy_cannons"):
+                    proj_color = "#00ff00" # Verde (Todas las ranuras con Cañón Pesado)
+                else:
+                    proj_color = "#ff0000" # Rojo (Default para estas municiones)
+
             self.projectiles.append({
                 "id": str(random.random()),
                 "owner_id": client_id,
@@ -739,6 +759,7 @@ class GameState:
                 "speed": projectile_speed,
                 "damage": actual_damage,
                 "ammo_type": ammo_type,
+                "color": proj_color,
                 "life": 1.2, # segundos de vida del rayo
                 "map_id": player["current_map"],
                 "is_homing": True if target_id_for_proj else False,
@@ -1301,16 +1322,16 @@ class GameState:
                 dy = target_player["y"] - enemy["y"]
                 dist = math.hypot(dx, dy)
                 # Lógica de Movimiento (Mantener distancia de ~300m)
-                # Si el usuario se aleja de los 300m, el alien lo persigue.
+                # Si el usuario se aleja de los 300m, el alien lo persigue usando su velocidad base.
+                base_speed = enemy.get("base_speed", 80)
                 if dist > 310:
-                    # Velocidad de persecución incrementada y escalada por nivel
-                    # 180 es una base más agresiva para seguir al jugador
-                    chase_speed = 180 * enemy.get("speed_mult", 1.0)
+                    # Velocidad de persecución escalada por su base_speed
+                    chase_speed = base_speed * 1.3 * enemy.get("speed_mult", 1.0)
                     enemy["vx"] = (dx / dist) * chase_speed
                     enemy["vy"] = (dy / dist) * chase_speed
                 elif dist < 290 and dist > 0:
                     # Si el usuario se acerca, el alien mantiene la distancia retrocediendo
-                    retreat_speed = 150 * enemy.get("speed_mult", 1.0)
+                    retreat_speed = base_speed * 0.9 * enemy.get("speed_mult", 1.0)
                     enemy["vx"] = -(dx / dist) * retreat_speed
                     enemy["vy"] = -(dy / dist) * retreat_speed
                 else:
@@ -1424,18 +1445,18 @@ class GameState:
                             if p["owner_id"] in self.players:
                                 player = self.players[p["owner_id"]]
                                 
-                                # Boss multipliers
-                                reward_mult = 5.0 if e.get("is_boss") else 1.0
+                                # Boss multipliers (x4 as requested)
+                                reward_mult = 4.0 if e.get("is_boss") else 1.0
+                                # Hard multiplier (x2 for XP and Credits, x3 for Paladio as per original logic)
+                                hard_mult = 2.0 if e.get("is_hard") else 1.0
+                                pal_hard_mult = 3.0 if e.get("is_hard") else 1.0
                                 
-                                base_kill_credits = 250 * reward_mult
-                                base_kill_xp = 100 * reward_mult
+                                base_kill_credits = e.get("reward_credits", 250) * reward_mult * hard_mult
+                                base_kill_xp = e.get("reward_xp", 100) * reward_mult * hard_mult
+                                paladio_reward = e.get("reward_paladio", 1) * reward_mult * pal_hard_mult
                                 
-                                player["score"] += int(100 * reward_mult)
+                                player["score"] += int(base_kill_xp)
                                 player["credits"] += int(base_kill_credits)
-                                
-                                paladio_reward = e.get("level", 1) * (3 if e.get("is_hard") else 1)
-                                if e.get("is_boss"): paladio_reward *= 3 # Triple paladio for boss
-                                
                                 player["paladio"] = player.get("paladio", 0) + paladio_reward
                                 self.gain_xp(player, int(base_kill_xp)) 
                                 
@@ -1446,7 +1467,7 @@ class GameState:
                                     "y": e["y"],
                                     "xp": int(base_kill_xp),
                                     "credits": int(base_kill_credits),
-                                    "paladio": paladio_reward,
+                                    "paladio": int(paladio_reward),
                                     "time": now,
                                     "owner_id": p["owner_id"]
                                 })
@@ -1484,16 +1505,17 @@ class GameState:
                                     if member_id in self.players:
                                         m = self.players[member_id]
                                         if m["current_map"] == e["map_id"]:
-                                            # Boss multipliers
-                                            reward_mult = 5.0 if e.get("is_boss") else 1.0
-                                            base_shared_credits = 250 * reward_mult
-                                            base_shared_xp = 100 * reward_mult
-                                            
-                                            paladio_shared = e.get("level", 1) * (3 if e.get("is_hard") else 1)
-                                            if e.get("is_boss"): paladio_shared *= 3
+                                            # Boss multipliers (x4 as requested)
+                                            reward_mult = 4.0 if e.get("is_boss") else 1.0
+                                            hard_mult = 2.0 if e.get("is_hard") else 1.0
+                                            pal_hard_mult = 3.0 if e.get("is_hard") else 1.0
+
+                                            base_shared_credits = e.get("reward_credits", 250) * reward_mult * hard_mult
+                                            base_shared_xp = e.get("reward_xp", 100) * reward_mult * hard_mult
+                                            paladio_shared = e.get("reward_paladio", 1) * reward_mult * pal_hard_mult
                                             
                                             m["credits"] += int(base_shared_credits)
-                                            m["paladio"] = m.get("paladio", 0) + paladio_shared
+                                            m["paladio"] = m.get("paladio", 0) + int(paladio_shared)
                                             self.gain_xp(m, int(base_shared_xp))
                                             # Actualizar progreso de misión para el compañero de grupo
                                             self._update_mission_progress(m, e["name"])
@@ -1501,7 +1523,7 @@ class GameState:
                                             self.kill_events.append({
                                                 "id": str(random.random()),
                                                 "x": e["x"], "y": e["y"],
-                                                "xp": int(base_shared_xp), "credits": int(base_shared_credits), "paladio": paladio_shared,
+                                                "xp": int(base_shared_xp), "credits": int(base_shared_credits), "paladio": int(paladio_shared),
                                                 "time": now, "owner_id": member_id, "is_party_share": True
                                             })
                         break
@@ -1699,16 +1721,38 @@ class GameState:
         is_hard = map_id not in ["mars_1", "moon_1", "pluto_1"] and random.random() < (0.20 + (lvl * 0.08))
         
         # --- LÓGICA DE BOSS ---
-        is_boss = random.random() < 0.15 # 15% de probabilidad de ser un Boss (Aumentado por petición)
+        # Drakon no tendrá versión boss por petición del usuario
+        is_boss = (random.random() < 0.15) if alien_name != "Drakon" else False
         
         # Base stats
-        base_hp = 120 * level_mult
-        base_shld = 60 * level_mult
-        base_atk = 18 * level_mult
+        if alien_name in self.ALIEN_STATS:
+            base_hp = self.ALIEN_STATS[alien_name]["hp"]
+            base_shld = self.ALIEN_STATS[alien_name]["shld"]
+            atk_val = self.ALIEN_STATS[alien_name]["atk"]
+            base_speed_val = self.ALIEN_STATS[alien_name].get("speed", 80)
+            if isinstance(atk_val, list):
+                base_atk = random.randint(atk_val[0], atk_val[1])
+            else:
+                base_atk = atk_val
+        else:
+            base_hp = 120 * level_mult
+            base_shld = 60 * level_mult
+            base_atk = 18 * level_mult
+            base_speed_val = 60
         
         final_name = f"Boss {alien_name}" if is_boss else alien_name
-        stat_boss_mult = 1.20 if is_boss else 1.0
+        stat_boss_mult = 4.0 if is_boss else 1.0
         size_mult = 1.6 if is_boss else 1.0
+
+        # Base rewards
+        if alien_name in self.ALIEN_STATS:
+            base_reward_xp = self.ALIEN_STATS[alien_name]["xp"]
+            base_reward_credits = self.ALIEN_STATS[alien_name]["credits"]
+            base_reward_paladio = self.ALIEN_STATS[alien_name]["paladio"]
+        else:
+            base_reward_xp = 100
+            base_reward_credits = 250
+            base_reward_paladio = lvl
 
         self.enemies.append({
             "id": alien_id,
@@ -1720,9 +1764,10 @@ class GameState:
             "shield": int(base_shld * (3.5 if is_hard else 1.0) * stat_boss_mult),
             "max_shield": int(base_shld * (3.5 if is_hard else 1.0) * stat_boss_mult),
             "atk": int(base_atk * (2.2 if is_hard else 1.0) * stat_boss_mult),
-            "vx": random.uniform(-60, 60) * speed_mult,
-            "vy": random.uniform(-60, 60) * speed_mult,
+            "vx": random.uniform(-base_speed_val, base_speed_val) * speed_mult,
+            "vy": random.uniform(-base_speed_val, base_speed_val) * speed_mult,
             "speed_mult": speed_mult, # Guardar para la lógica de persecución
+            "base_speed": base_speed_val, # Guardar base para IA
             "map_id": map_id,
             "level": lvl, # Guardar nivel para recompensas
             "defense": defense, # Resistencia porcentual
@@ -1731,6 +1776,9 @@ class GameState:
             "size_mult": size_mult,
             "ai_type": "hunter", # Todos los aliens son agresivos ahora (cazan al usuario enemigo)
             "aggro_target": None,
+            "reward_xp": base_reward_xp,
+            "reward_credits": base_reward_credits,
+            "reward_paladio": base_reward_paladio,
             "last_shot": 0
         })
 
@@ -1782,6 +1830,9 @@ class GameState:
         player["repair_rate"] = 0 # Reiniciar tasa de reparación
         player["has_auto_repair"] = False
         
+        # Para el cálculo del color del láser
+        heavy_cannon_count = 0
+        
         # Para el cálculo del promedio ponderado de absorción
         total_shld_for_abs = 0
         weighted_abs_sum = 0
@@ -1810,7 +1861,10 @@ class GameState:
 
             # Recount for visuals
             m_type = mod.get("type", "")
-            if m_type == "lasers": player["lasers"] += 1
+            if m_type == "lasers": 
+                player["lasers"] += 1
+                if mod.get("id") == "laser_3":
+                    heavy_cannon_count += 1
             if m_type == "shields": 
                 player["shields"] += 1
 
@@ -1837,12 +1891,27 @@ class GameState:
                 
                 # Recount for visuals (las drones incrementan el poder de fuego visual)
                 m_type = mod.get("type", "")
-                if m_type == "lasers": player["lasers"] += 1
+                if m_type == "lasers": 
+                    player["lasers"] += 1
+                    if mod.get("id") == "laser_3":
+                        heavy_cannon_count += 1
                 if m_type == "shields": player["shields"] += 1
 
         # Finalizar cálculo de absorción (si hay escudos con absorción)
         if total_shld_for_abs > 0:
             player["shield_absorption"] = weighted_abs_sum / total_shld_for_abs
+
+        # --- DETERMINAR COLOR DEL LÁSER ---
+        # El usuario quiere que si TODAS las ranuras de armas tienen Cañón Pesado (laser_3), el color sea verde.
+        # De lo contrario (para muni estándar/térmica/plasma), será rojo.
+        ship_type = player.get("ship_type", "starter")
+        ship_laser_slots = self.SHIP_PROFILES.get(ship_type, {}).get("slots", {}).get("lasers", 0)
+        total_available_slots = ship_laser_slots
+        for wip in player.get("wips", []):
+            total_available_slots += wip.get("slots", 0)
+        
+        # Si tiene equipados tantos Cañones Pesados como ranuras totales disponibles, activamos el flag
+        player["all_heavy_cannons"] = (heavy_cannon_count >= total_available_slots) and (total_available_slots > 0)
 
         # 1.6 Sumar Módulos de E.C.O. (Solo si está activo Y desplegado)
         eco = player.get("eco", {})
@@ -1980,19 +2049,24 @@ class GameState:
                 
                 # Si el alien muere por la explosión, darle las recompensas al jugador
                 if enemy["hp"] <= 0:
-                    reward_mult = 5.0 if enemy.get("is_boss") else 1.0
-                    base_kill_credits = 250 * reward_mult
-                    base_kill_xp = 100 * reward_mult
+                    # Boss multipliers (x4 as requested)
+                    reward_mult = 4.0 if enemy.get("is_boss") else 1.0
+                    hard_mult = 2.0 if enemy.get("is_hard") else 1.0
+                    pal_hard_mult = 3.0 if enemy.get("is_hard") else 1.0
+
+                    base_kill_credits = enemy.get("reward_credits", 250) * reward_mult * hard_mult
+                    base_kill_xp = enemy.get("reward_xp", 100) * reward_mult * hard_mult
+                    paladio_reward = enemy.get("reward_paladio", 1) * reward_mult * pal_hard_mult
                     
-                    player["score"] += int(100 * reward_mult)
+                    player["score"] += int(base_kill_xp)
                     player["credits"] += int(base_kill_credits)
-                    player["paladio"] = player.get("paladio", 0) + (enemy.get("level", 1) * (3 if enemy.get("is_hard") else 1))
+                    player["paladio"] = player.get("paladio", 0) + int(paladio_reward)
                     self.gain_xp(player, int(base_kill_xp))
                     
                     self.kill_events.append({
                         "id": f"kami_kill_{enemy['id']}_{now}",
                         "x": enemy["x"], "y": enemy["y"],
-                        "xp": int(base_kill_xp), "credits": int(base_kill_credits),
+                        "xp": int(base_kill_xp), "credits": int(base_kill_credits), "paladio": int(paladio_reward),
                         "time": now, "owner_id": player_id
                     })
 

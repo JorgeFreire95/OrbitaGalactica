@@ -28,7 +28,7 @@
 - **Minimapa Táctico**: Radar en tiempo real que incluye un **Radar de Proximidad** para detectar cofres especiales en un rango de 2500m y detección temprana de naves alienígenas.
 - **Persistencia de Sesión y Sincronización Multi-Ventana**: Tu progreso (Nivel, XP, Créditos, Paladio, Naves y Equipo) se guarda automáticamente tanto en base de datos como en tiempo real. Se ha implementado un sistema de **Sincronización Multi-Pestaña** que asegura que, si realizas compras o cambios en una ventana, todas las demás se actualicen inmediatamente.
 - **Sistema de Experiencia Total Acumulada**: Se ha refactorizado el sistema de progresión para que los puntos de experiencia (XP) sean un **total acumulado** de por vida. Al subir de nivel, los puntos no se consumen ni se reinician a cero, permitiendo una visualización continua del esfuerzo del piloto. Se ha implementado una fórmula de escalado cuadrático para los umbrales de nivel, asegurando un reto constante mientras se mantiene la integridad de los puntos ganados.
-- **Inicio de Carrera Autorritativo**: Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Al unirse por primera vez o elegir empresa, los pilotos aparecen en su **Mapa de Inicio** dedicado (**Sector de Hierro** para MARS, **Bahía de Selene** para MOON, **Abismo de Caronte** para PLUTO) exactamente en las coordenadas de la base (1750, 1150).
+- **Inicio de Carrera Autorritativo**: Los nuevos pilotos comienzan su carrera en **Nivel 1** con equipamiento básico. Al unirse por primera vez o elegir empresa, los pilotos aparecen en su **Mapa de Inicio** dedicado (**Sector de Hierro** para MARS, **Bahía de Selene** para MOON, **Abismo de Caronte** para PLUTO) exactamente en las coordenadas de la base (1750, 1150). Por defecto, los nuevos registros otorgan **50,000 Créditos** y **0 Paladio**, con la nave **Phoenix** como única opción en el hangar inicial.
 
 ### 👥 Sistema de Grupo Táctico (Party System)
 - **Reclutamiento Rápido**: Fija el blanco en las naves de tus aliados haciendo clic en ellas e invítalos de forma remota a tu Grupo Táctico sin salir de la vista de combate.
@@ -135,17 +135,17 @@ El universo de Órbita Galáctica es ahora más peligroso. Todos los alienígena
 - **Visualización de Daño Hostil**: Los impactos recibidos de naves alienígenas se muestran en **rojo brillante** en el HUD, permitiendo identificar rápidamente la gravedad del combate.
 
 Razas detectadas:
-- **Gryllos**: Depredadores básicos rápidos que atacan en enjambre (S1).
-- **Xylos**: Blindaje ligero (Nvl 2).
-- **Nykor**: Entidades acorazadas (Nvl 3).
-- **Syrith**: Defensores pesados (Nvl 4).
-- **Vexis**: Gran capacidad regenerativa (Nvl 5).
-- **Kragos**: Guerreros de élite (Nvl 6).
-- **Zoltan**: Comandantes fenomenales (Nvl 7).
-- **Drakon**: Amenaza suprema de nivel 8. Solo para expertos.
+- **Gryllos**: Depredadores básicos rápidos que atacan en enjambre (S1). **Velocidad: Alta**.
+- **Xylos**: Blindaje ligero (Nvl 2). **Velocidad: Alta**.
+- **Nykor**: Entidades acorazadas (Nvl 3). **Velocidad: Media**.
+- **Syrith**: Defensores pesados (Nvl 4). **Velocidad: Media**.
+- **Vexis**: Gran capacidad regenerativa (Nvl 5). **Velocidad: Baja**.
+- **Kragos**: Guerreros de élite (Nvl 6). **Velocidad: Media**.
+- **Zoltan**: Comandantes fenomenales (Nvl 7). **Velocidad: Media**.
+- **Drakon**: Amenaza suprema de nivel 8. Solo para expertos. **Velocidad: Muy Baja / Tanque**.
 
 #### 👑 Variantes "Boss" (Jefes de Élite)
-Cualquier especie alienígena tiene un **5% de probabilidad** de aparecer como una versión **Boss**. Estas naves son el terror de los pilotos solitarios:
+Cualquier especie alienígena (a excepción del **Drakon**, por su naturaleza única) tiene un **5% de probabilidad** de aparecer como una versión **Boss**. Estas naves son el terror de los pilotos solitarios:
 - **Estadísticas Superiores**: Poseen un **20% más de vida, escudo y daño** sobre su versión base.
 - **Identificación Visual**: Son un **60% más grandes** que los aliens normales y emiten una distintiva **Aura Púrpura** de energía inestable.
 - **Recompensas Legendarias**: Destruir un Boss otorga **5 veces más XP y Créditos**, además de **3 veces más Paladio**.
@@ -204,7 +204,7 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 - **Sincronización Autorritativa**: Modificaciones en el Hangar se reflejan instantáneamente en las estadísticas de combate.
 - **Feedback de Daño Dual**: Los daños infligidos por el jugador son blancos/amarillos, mientras que el daño recibido de aliens es **rojo**, mejorando la conciencia táctica.
 - **Sistemas de Bio-Retroalimentación**: Las reparaciones en tiempo real muestran mensajes flotantes de curación (**+HP 💚**) en color turquesa neón.
-- **Sistema de Misiles Inteligentes**: Los misiles ahora son **teledirigidos**. Requieren que un alienígena esté marcado/fijado como blanco para ser disparados (Tecla 'E'), persiguiendo automáticamente al objetivo hasta el impacto.
+- **Sistema de Misiles Inteligentes**: Los misiles ahora son **teledirigidos**. Requieren que un alienígena esté marcado/fijado como blanco para ser disparados (Tecla 'E'), persiguiendo automáticamente al objetivo hasta el impacto. El arsenal ha sido recalibrado: los misiles Giga-Nuke infligen **4000 de daño**, mientras que cañones como el Heavy Cannon alcanzan los **150 por impacto**.
 
 ### 💰 Economía y Suministros
 - **Packs de Munición Masivos**: Toda la munición (Láser y Misiles) se vende ahora en **Packs de 1000 unidades**, permitiendo misiones de larga duración sin reabastecimientos constantes.
@@ -219,7 +219,10 @@ Explora la vasta extensión del espacio a través de los diversos sectores contr
 
 ### ⚙️ Administración y Seguridad
 - **Bases de Facción Autorritativas**: Puntos de reaparición estratégicos para **MARS**, **MOON** y **PLUTO**, cada uno con su propia Zona Segura dedicada.
-- **Panel de Control de Servidor**: Herramientas para moderadores que permiten gestionar el estado de los sectores, expulsar usuarios conflictivos, revocar beneficios VIP y monitorear la integridad de la base de datos en tiempo real.
+- **Panel de Control "Fleet Commander" (v3.0)**: Herramientas avanzadas para administradores que permiten gestionar pilotos, revocar beneficios VIP y monitorear la galaxia en tiempo real.
+    - **Jerarquía de Mando**: Sistema dual de **Superadmin** (control total sobre otros administradores y permisos globales) y **Admin** (gestión operativa de usuarios).
+    - **Diseño Adaptativo (Mobile-Ready)**: Interfaz de administración completamente responsiva, permitiendo el control táctico de la galaxia desde cualquier smartphone o tablet.
+    - **Sistema de Eventos Globales**: Módulo integrado para la gestión de eventos especiales (actualmente encriptado para futuras actualizaciones).
 - **Privacidad de Hangar**: Sistema de inventario robusto que asegura que las naves y equipamiento comprados sean exclusivos de cada cuenta, evitando fugas de datos entre perfiles de usuario.
 
 ---
@@ -251,6 +254,6 @@ El juego estará disponible en `http://localhost:5173`.
 ## 🌌 Próximos Pasos
 - Implementar Módulos de Estación y bases de clan conquistables.
 - Implementar Chat de Voz o Chat Global de Combate para mayor coordinación.
-- Eventos dinámicos en el servidor con recompensas exclusivas.
+- Desbloqueo y programación del Sistema de Eventos Globales.
 
 
