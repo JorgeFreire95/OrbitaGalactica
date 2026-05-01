@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, WIPS_CATALOG, getRank } from '../utils/gameData';
+import { SHIPS, WIPS_CATALOG, DESIGNS_CATALOG, getRank } from '../utils/gameData';
 import { SlotDisplay, StatRow } from './ShipComponents';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
@@ -33,7 +33,9 @@ export default function Hangar({
   onEquipEco,
   onUnequipEco,
   onUnlockEcoSlot,
-  onRenameEco
+  onRenameEco,
+  equippedDesigns = {},
+  onEquipDesign
 }) {
   const [viewedShipId, setViewedShipId] = useState(selectedShipId);
   const [editMode, setEditMode] = useState(false);
@@ -47,15 +49,27 @@ export default function Hangar({
   const isActive = selectedShipId === viewedShipId;
   const isOwned = ownedShips.includes(viewedShipId);
 
-  // Calculate stats for the viewed ship
+  const currentDesignId = equippedDesigns[viewedShipId];
+  const currentDesign = DESIGNS_CATALOG.find(d => d.id === currentDesignId);
+  const shipImage = currentDesign ? currentDesign.image : viewedShip.image;
+  const shipColor = currentDesign ? '#ff4500' : (viewedShip.color || (viewedShip.id === 'sovereign' ? '#e6b800' : (isOwned ? '#00ffcc' : '#555')));
+
+  // Calculate stats for the viewed ship (Base + Modules + Lab Upgrades)
+  const baseHp = viewedShip.hp + currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0) + (upgrades.hp || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+  const baseShld = viewedShip.shld + currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0) + (upgrades.shld || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+  const baseAtk = viewedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + (upgrades.atk || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+  const baseSpd = viewedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + (upgrades.spd || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+
   const stats = {
-    hp: viewedShip.hp + currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0),
-    shld: viewedShip.shld + currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0) + (upgrades.shld || []).reduce((acc, u) => acc + (u.amount || 0), 0),
-    atk: viewedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + (upgrades.atk || []).reduce((acc, u) => acc + (u.amount || 0), 0),
-    spd: viewedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + (upgrades.spd || []).reduce((acc, u) => acc + (u.amount || 0), 0),
-    lasersSlots: viewedShip.slots.lasers,
-    genSlots: viewedShip.slots.shields + viewedShip.slots.engines,
-    utilitySlots: (viewedShip.slots.utility || 0) + currentEquipped.reduce((acc, m) => acc + (m.extraSlots || 0), 0)
+    hp: currentDesign?.bonus?.hp ? Math.floor(baseHp * (1 + currentDesign.bonus.hp)) : baseHp,
+    shld: currentDesign?.bonus?.shld ? Math.floor(baseShld * (1 + currentDesign.bonus.shld)) : baseShld,
+    atk: currentDesign?.bonus?.dmg ? Math.floor(baseAtk * (1 + currentDesign.bonus.dmg)) : (currentDesign?.bonus?.atk ? Math.floor(baseAtk * (1 + currentDesign.bonus.atk)) : baseAtk),
+    spd: currentDesign?.bonus?.spd ? Math.floor(baseSpd * (1 + currentDesign.bonus.spd)) : baseSpd,
+    lasersSlots: viewedShip.slots.lasers + currentEquipped.reduce((acc, m) => acc + (m.extraLaserSlots || 0), 0),
+    shieldSlots: viewedShip.slots.shields + currentEquipped.reduce((acc, m) => acc + (m.extraShieldSlots || 0), 0),
+    engineSlots: viewedShip.slots.engines + currentEquipped.reduce((acc, m) => acc + (m.extraEngineSlots || 0), 0),
+    utilitySlots: (viewedShip.slots.utility || 0) + currentEquipped.reduce((acc, m) => acc + (m.extraSlots || 0), 0),
+    xpBonus: currentDesign ? (currentDesign.bonus?.xp || 0) * 100 : 0
   };
 
   return (
@@ -77,8 +91,8 @@ export default function Hangar({
                 <div style={{ height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <ShipIcon 
                     type={ship.id} 
-                    image={ship.image}
-                    color={ship.color || (ship.id === 'sovereign' ? '#e6b800' : (shipOwned ? '#00ffcc' : '#555'))} 
+                    image={equippedDesigns[ship.id] ? DESIGNS_CATALOG.find(d => d.id === equippedDesigns[ship.id])?.image : ship.image}
+                    color={equippedDesigns[ship.id] ? '#ff4500' : (ship.color || (ship.id === 'sovereign' ? '#e6b800' : (shipOwned ? '#00ffcc' : '#555')))} 
                     size={60} 
                   />
                 </div>
@@ -93,6 +107,7 @@ export default function Hangar({
         <aside className="fleet-info-panel">
           <div className="fleet-info-header">
             <div className={`fleet-info-tab ${activeTab === 'ship' ? 'active' : ''}`} onClick={() => setActiveTab('ship')}>NAVE</div>
+            <div className={`fleet-info-tab ${activeTab === 'disenos' ? 'active' : ''}`} onClick={() => setActiveTab('disenos')}>DISEÑOS</div>
             <div className={`fleet-info-tab ${activeTab === 'wips' ? 'active' : ''}`} onClick={() => setActiveTab('wips')}>WIPS</div>
             <div className={`fleet-info-tab ${activeTab === 'eco' ? 'active' : ''}`} onClick={() => setActiveTab('eco')}>E.C.O.</div>
           </div>
@@ -100,8 +115,8 @@ export default function Hangar({
           <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0', background: 'radial-gradient(circle, rgba(0,255,204,0.05) 0%, transparent 70%)' }}>
              <ShipIcon 
                 type={viewedShip.id} 
-                image={viewedShip.image} 
-                color={viewedShip.color || (viewedShip.id === 'sovereign' ? '#e6b800' : '#00ffcc')} 
+                image={shipImage} 
+                color={shipColor} 
                 size={180} 
              />
           </div>
@@ -110,11 +125,17 @@ export default function Hangar({
             <div className="fleet-stats-list">
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Puntos de Vida</span>
-                  <span className="fleet-stat-value">{stats.hp.toLocaleString()}</span>
+                  <span className="fleet-stat-value">
+                    {stats.hp.toLocaleString()}
+                    {currentDesign?.bonus?.hp && <span style={{ color: '#00ffcc', fontSize: '0.7rem', marginLeft: '5px' }}>(+{currentDesign.bonus.hp * 100}%)</span>}
+                  </span>
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Escudo Total</span>
-                  <span className="fleet-stat-value">{stats.shld.toLocaleString()}</span>
+                  <span className="fleet-stat-value">
+                    {stats.shld.toLocaleString()}
+                    {currentDesign?.bonus?.shld && <span style={{ color: '#00ffcc', fontSize: '0.7rem', marginLeft: '5px' }}>(+{currentDesign.bonus.shld * 100}%)</span>}
+                  </span>
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Velocidad Máxima</span>
@@ -126,7 +147,7 @@ export default function Hangar({
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Ranuras Generadores</span>
-                  <span className="fleet-stat-value">{stats.genSlots}</span>
+                  <span className="fleet-stat-value">{stats.shieldSlots + stats.engineSlots}</span>
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Ranuras Extras</span>
@@ -134,7 +155,7 @@ export default function Hangar({
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Experiencia Nave</span>
-                  <span className="fleet-stat-value">{xp} XP</span>
+                  <span className="fleet-stat-value">{xp} XP {stats.xpBonus > 0 && <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}>(+{stats.xpBonus}%)</span>}</span>
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Nivel de Piloto</span>
@@ -293,6 +314,88 @@ export default function Hangar({
                   Utiliza protocolos para mejorar tus estadísticas globales.
                </div>
             </div>
+          ) : activeTab === 'disenos' ? (
+            <div className="fleet-stats-list" style={{ padding: '10px' }}>
+               <div style={{ color: '#00ffcc', fontFamily: 'Orbitron', fontSize: '0.8rem', marginBottom: '15px', textAlign: 'center' }}>
+                  DISEÑOS DE NAVE DISPONIBLES
+               </div>
+               
+               {(() => {
+                 const availableDesigns = DESIGNS_CATALOG.filter(d => d.ship_id === viewedShipId);
+                 const ownedDesigns = inventory.filter(i => i.type === 'design' && i.ship_id === viewedShipId);
+                 
+                 if (availableDesigns.length === 0) {
+                   return (
+                     <div style={{ textAlign: 'center', padding: '40px 10px', color: '#555', border: '1px dashed #333', borderRadius: '8px' }}>
+                        <p style={{ fontSize: '0.8rem' }}>ESTA NAVE NO TIENE DISEÑOS DISPONIBLES ACTUALMENTE</p>
+                     </div>
+                   );
+                 }
+
+                 return (
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px' }}>
+                      <div className={`design-card ${!currentDesignId ? 'selected' : ''}`} 
+                        onClick={() => !isBlocked && onEquipDesign(viewedShipId, null)}
+                        style={{
+                          background: 'rgba(255,255,255,0.02)',
+                          border: !currentDesignId ? '1px solid #00ffcc' : '1px solid #333',
+                          padding: '10px',
+                          borderRadius: '6px',
+                          cursor: isBlocked ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px'
+                        }}
+                      >
+                         <div style={{ width: '40px', height: '40px', background: '#070b16', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ShipIcon type={viewedShipId} image={viewedShip.image} color="#555" size={30} />
+                         </div>
+                         <div style={{ flex: 1 }}>
+                            <div style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 'bold' }}>Diseño Estándar</div>
+                            <div style={{ color: '#888', fontSize: '0.65rem' }}>Aspecto original de la nave. Sin bonos.</div>
+                         </div>
+                         {!currentDesignId && <div style={{ color: '#00ffcc' }}>✓</div>}
+                      </div>
+
+                      {availableDesigns.map(design => {
+                        const isOwned = inventory.find(i => i.id === design.id);
+                        const isEquipped = currentDesignId === design.id;
+                        
+                        return (
+                          <div key={design.id} className={`design-card ${isEquipped ? 'selected' : ''} ${!isOwned ? 'locked' : ''}`}
+                            onClick={() => {
+                              if (isBlocked) return;
+                              if (!isOwned) return onNavigate('shop');
+                              onEquipDesign(viewedShipId, design.id);
+                            }}
+                            style={{
+                              background: isEquipped ? 'rgba(0,255,204,0.05)' : 'rgba(0,0,0,0.3)',
+                              border: isEquipped ? '1px solid #00ffcc' : '1px solid #333',
+                              padding: '10px',
+                              borderRadius: '6px',
+                              cursor: isBlocked ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              opacity: isOwned ? 1 : 0.6
+                            }}
+                          >
+                             <div style={{ width: '40px', height: '40px', background: '#070b16', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                <ShipIcon type={viewedShipId} image={design.image} color="#ff4500" size={30} />
+                                {!isOwned && <div style={{ position: 'absolute', top: -5, right: -5, fontSize: '0.7rem' }}>🔒</div>}
+                             </div>
+                             <div style={{ flex: 1 }}>
+                                <div style={{ color: isEquipped ? '#00ffcc' : '#fff', fontSize: '0.8rem', fontWeight: 'bold' }}>{design.name}</div>
+                                <div style={{ color: '#ffcc00', fontSize: '0.65rem' }}>{design.desc}</div>
+                             </div>
+                             {isEquipped ? <div style={{ color: '#00ffcc' }}>✓</div> : (isOwned ? null : <div style={{ color: '#888', fontSize: '0.6rem' }}>🛒</div>)}
+                          </div>
+                        );
+                      })}
+                   </div>
+                 );
+               })()}
+            </div>
           ) : null}
 
           {/* ACCIONES DEL PANEL (COMÚN) */}
@@ -417,21 +520,22 @@ export default function Hangar({
               <div style={{ flex: 1, background: '#0a0f1a', border: '1px solid #1a2a4a', padding: '20px', display: 'flex', flexDirection: 'column' }}>
                  <div style={{ marginBottom: '15px', color: '#88aaff', fontSize: '1.1rem', fontWeight: 'bold' }}>📦 ALMACÉN DE MÓDULOS</div>
                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', overflowY: 'auto' }}>
-                    {inventory.map((item, index) => {
+                    {inventory.map((item, originalIndex) => {
+                       if (item.type === 'design') return null;
                       return (
                        <div 
                          key={item.instanceId} 
                          onClick={() => {
                            if (isBlocked) return;
-                           if (activeTab === 'ship') onEquip(index, viewedShipId);
+                           if (activeTab === 'ship') onEquip(originalIndex, viewedShipId);
                            else if (activeTab === 'wips' && selectedWipId) {
-                                if (item.type === 'lasers' || item.type === 'shields') onEquipWip(index, selectedWipId);
+                                if (item.type === 'lasers' || item.type === 'shields') onEquipWip(originalIndex, selectedWipId);
                            }
                            else if (activeTab === 'eco') {
-                                if (item.type === 'lasers') onEquipEco(index, 'lasers');
-                                else if (item.type === 'shields') onEquipEco(index, 'generators');
-                                else if (item.type === 'protocols') onEquipEco(index, 'protocols');
-                                else if (item.type === 'utility') onEquipEco(index, 'utility');
+                                if (item.type === 'lasers') onEquipEco(originalIndex, 'lasers');
+                                else if (item.type === 'shields') onEquipEco(originalIndex, 'generators');
+                                else if (item.type === 'protocols') onEquipEco(originalIndex, 'protocols');
+                                else if (item.type === 'utility') onEquipEco(originalIndex, 'utility');
                                 else {
                                     alert('Este módulo no es compatible con el sistema E.C.O.');
                                 }
@@ -465,10 +569,10 @@ export default function Hangar({
                     <>
                       <div style={{ marginBottom: '15px', color: '#ffcc00', fontSize: '1.1rem', fontWeight: 'bold' }}>🛠️ CONFIGURACIÓN DE RANURAS</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', opacity: isBlocked ? 0.7 : 1 }}>
-                        <SlotDisplay label="Sistemas Láser" count={viewedShip.slots.lasers} icon="🎯" color="#ffcc00" equipped={currentEquipped.filter(m => m.type === 'lasers')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                        <SlotDisplay label="Escudos de Energía" count={viewedShip.slots.shields} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                        <SlotDisplay label="Motores de Impulso" count={viewedShip.slots.engines} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
-                        <SlotDisplay label="Módulos de Utilidad" count={viewedShip.slots.utility} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Sistemas Láser" count={stats.lasersSlots} icon="🎯" color="#ffcc00" equipped={currentEquipped.filter(m => m.type === 'lasers')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Escudos de Energía" count={stats.shieldSlots} icon="🛡️" color="#00c8ff" equipped={currentEquipped.filter(m => m.type === 'shields')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Motores de Impulso" count={stats.engineSlots} icon="🚀" color="#ff3366" equipped={currentEquipped.filter(m => m.type === 'engines')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
+                        <SlotDisplay label="Módulos de Utilidad" count={stats.utilitySlots} icon="⚛️" color="#9933ff" equipped={currentEquipped.filter(m => m.type === 'utility')} onUnequip={(id) => !isBlocked && onUnequip(id, viewedShipId)} isBlocked={isBlocked} />
                       </div>
                     </>
                   ) : activeTab === 'eco' ? (

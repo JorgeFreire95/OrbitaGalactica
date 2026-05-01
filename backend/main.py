@@ -16,7 +16,7 @@ from typing import Optional, List, Dict
 import mercadopago
 
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users_db, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db, send_friend_request, accept_friend_request, get_friends, get_friend_requests
+from database import init_db, register_user, login_user, set_user_faction, get_all_users_db, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, get_unread_messages_count_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_clan_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db, send_friend_request, accept_friend_request, get_friends, get_friend_requests
 
 class RegisterRequest(BaseModel):
     username: str
@@ -56,12 +56,14 @@ class SyncRequest(BaseModel):
     is_invisible: Optional[bool] = None
     wips: Optional[list] = None
     eco: Optional[dict] = None
+    ammo: Optional[dict] = None
 
 
 class ClanCreateRequest(BaseModel):
     tag: str
     name: str
     leader: str
+    faction: str = "MARS"
 
 class ClanJoinRequest(BaseModel):
     username: str
@@ -88,6 +90,7 @@ class ClanUpdateInfoRequest(BaseModel):
     news: str = "[]"
     logo: str = ""
     join_type: str = "Abierto"
+    faction: str = "MARS"
 
 class ClanDonateRequest(BaseModel):
     username: str # El que realiza la donación (admin/líder)
@@ -316,8 +319,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 clan_tag = data.get("clanTag", None) 
                 wips = data.get("wips", [])
                 eco = data.get("eco", {"active": False})
+                equipped_design = data.get("equippedDesign", None)
                 
-                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag, initial_wips=wips, initial_eco=eco)
+                game_state.add_player(client_id, websocket, ship_type, initial_level, initial_xp, initial_credits, initial_paladio, initial_minerals, initial_upgrades, modules, initial_ammo, user_id=user_id, faction=clan, clan_tag=clan_tag, initial_wips=wips, initial_eco=eco, equipped_design=equipped_design)
                 player_added = True
                 logger.info(f"DEBUG: Player joined: {client_id} (user: {user_id})")
                 await broadcast_online_count()
@@ -345,6 +349,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 
             elif data.get("type") == "jump_portal" and player_added:
                 game_state.jump_portal(client_id)
+                
+            elif data.get("type") == "update_design" and player_added:
+                design_id = data.get("equippedDesign")
+                game_state.update_design(client_id, design_id)
 
             elif data.get("type") == "use_cloak" and player_added:
                 game_state.use_cloak(client_id)
@@ -494,7 +502,7 @@ async def api_get_clans(search: str = None):
 
 @app.post("/api/clans")
 async def api_create_clan(req: ClanCreateRequest):
-    result = create_clan_db(req.tag, req.name, req.leader)
+    result = create_clan_db(req.tag, req.name, req.leader, req.faction)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return {"message": "Clan fundado exitosamente."}
@@ -548,7 +556,7 @@ async def api_update_clan_tax(req: ClanTaxRequest):
 @app.post("/api/clans/update")
 async def api_update_clan_info(req: ClanUpdateInfoRequest):
     result = update_clan_metadata_db(
-        req.old_tag, req.new_tag, req.name, req.description, req.status, req.news, req.logo, req.join_type
+        req.old_tag, req.new_tag, req.name, req.description, req.status, req.news, req.logo, req.join_type, req.faction
     )
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -594,6 +602,11 @@ async def api_get_clan_details(tag: str):
 async def api_get_all_clans():
     clans = get_all_clans_detailed()
     return {"clans": clans}
+
+@app.get("/api/clans/ranking")
+async def api_get_clan_ranking():
+    ranking = get_clan_leaderboard_db()
+    return {"ranking": ranking}
 
 @app.post("/api/clans/diplomacy/request")
 async def api_diplomacy_request(req: DiplomacyRequest):
@@ -753,8 +766,11 @@ async def api_send_mail(data: dict = Body(...)):
 
 @app.get("/api/mail/list/{username}")
 async def api_get_mail(username: str):
-    from database import get_user_messages_db
     return {"messages": get_user_messages_db(username)}
+
+@app.get("/api/mail/unread_count/{username}")
+async def api_get_unread_count(username: str):
+    return {"count": get_unread_messages_count_db(username)}
 
 @app.get("/api/mail/sent/{username}")
 async def api_get_sent_mail(username: str):
@@ -792,27 +808,32 @@ class AuctionBidRequest(BaseModel):
 
 @app.post("/api/auctions/bid")
 async def api_auction_bid(req: AuctionBidRequest):
-    # Primero buscamos si el jugador está en el juego
-    client_id = None
-    for cid, p in game_state.players.items():
-        if p.get("user_id") == req.username:
-            client_id = cid
-            break
-    
-    if client_id:
-        success, msg = game_state.place_auction_bid(client_id, req.auction_id, req.amount)
-        if not success:
-            raise HTTPException(status_code=400, detail=msg)
-        return {"success": True, "message": msg}
-    else:
-        success, msg = game_state.place_auction_bid_offline(req.username, req.auction_id, req.amount)
-        if not success:
-            raise HTTPException(status_code=400, detail=msg)
-        return {"success": True, "message": msg}
+    try:
+        # Primero buscamos si el jugador está en el juego
+        client_id = None
+        for cid, p in game_state.players.items():
+            if p.get("user_id") == req.username:
+                client_id = cid
+                break
+        
+        if client_id:
+            success, msg = game_state.place_auction_bid(client_id, req.auction_id, req.amount)
+            if not success:
+                raise HTTPException(status_code=400, detail=msg)
+            return {"success": True, "message": msg}
+        else:
+            success, msg = game_state.place_auction_bid_offline(req.username, req.auction_id, req.amount)
+            if not success:
+                raise HTTPException(status_code=400, detail=msg)
+            return {"success": True, "message": msg}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible, wips=req.wips, eco=req.eco)
+    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible, wips=req.wips, eco=req.eco, ammo=req.ammo)
     if not success:
         raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
     # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
@@ -824,6 +845,11 @@ async def api_sync_stats(req: SyncRequest):
             p["paladio"] = req.paladio
             p["level"] = req.level
             p["xp"] = req.xp
+            
+            if req.ammo is not None:
+                # Split combined ammo into ammo and missiles for the GameState format
+                p["ammo"] = {k: v for k, v in req.ammo.items() if not k.startswith("missile")}
+                p["missiles"] = {k: v for k, v in req.ammo.items() if k.startswith("missile")}
             
             if req.owned_ships is not None:
                 # Combinar naves para evitar pérdidas (solo añadir las nuevas)
@@ -989,8 +1015,8 @@ async def api_reset_password(req: ResetPasswordRequest):
     return {"message": "Tu contraseña ha sido actualizada correctamente."}
 
 @app.get("/api/leaderboard")
-async def api_get_leaderboard():
-    leaderboard = get_leaderboard_db()
+async def api_get_leaderboard(faction: Optional[str] = None):
+    leaderboard = get_leaderboard_db(faction)
     return {"leaderboard": leaderboard}
 
 async def api_mark_message_read(msg_id: int):

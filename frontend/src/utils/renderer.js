@@ -13,11 +13,26 @@ heavyImg.src = '/titan_hammer_v2.png?v=2';
 const supportImg = new Image();
 supportImg.src = '/helix_support_v2.png?v=2';
 
+const helixEmeraldImg = new Image();
+helixEmeraldImg.src = '/helix_emerald.png';
+
+const harvesterIndustrialImg = new Image();
+harvesterIndustrialImg.src = '/harvester_industrial.png';
+
+const solarWindEclipseImg = new Image();
+solarWindEclipseImg.src = '/solar_wind_eclipse.png';
+
+const bastionCelestialImg = new Image();
+bastionCelestialImg.src = '/bastion_celestial.png';
+
 const starterImg = new Image();
 starterImg.src = '/phoenix_v3.png?v=5';
 
 const sovereignImg = new Image();
 sovereignImg.src = '/sovereign_v3.png?v=3';
+
+const emberFangImg = new Image();
+emberFangImg.src = '/ember_fang.png';
 
 const harvesterImg = new Image();
 harvesterImg.src = '/harvester_v2.png?v=2';
@@ -44,9 +59,9 @@ const drawWips = (ctx, wips, shipSize, heading) => {
     // Posiciones relativas (2 izq, 2 der, 4 atrás)
     // Coordenadas [x, y] asumiendo nave mirando arriba
     const positions = [
-        [-55, 0], [-85, 25],   // Izquierda
-        [55, 0], [85, 25],     // Derecha
-        [-40, 60], [-15, 75], [15, 75], [40, 60] // Atrás
+        [-75, 0], [-110, 30],   // Izquierda (Más alejados)
+        [75, 0], [110, 30],     // Derecha (Más alejados)
+        [-50, 85], [-20, 105], [20, 105], [50, 85] // Atrás (Más alejados)
     ];
 
     const time = Date.now() / 1000;
@@ -1298,11 +1313,10 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     // Fake 3D Banking & Depth
     ctx.save();
     
-    // Deep 3D Shadow - Optimización (Reducido de 25 a 0 para rendimiento)
+    // Reset shadows to avoid ghosting/double ship effects
     ctx.shadowBlur = 0;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.shadowOffsetX = 15 - (player.vx * 0.02);
-    ctx.shadowOffsetY = 20 - (player.vy * 0.02);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
     
     // Calculate banking rotation based on vx
     const maxSpeed = player.spd * 3.5 || 350;
@@ -1422,30 +1436,91 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
       ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
       
       // 1. Efecto de Propulsores Dinámicos
-      const engineColor = shipType === 'sovereign' ? '#e6b800' : 
+      const isEmberFang = img === emberFangImg;
+      const isEmerald = img === helixEmeraldImg;
+      const isIndustrial = img === harvesterIndustrialImg;
+      const isEclipse = img === solarWindEclipseImg;
+      const isCelestial = img === bastionCelestialImg;
+      
+      const engineColor = (isEmberFang || isEclipse) ? '#ff2200' : 
+                          (isEmerald || isIndustrial || isCelestial) ? '#00ffcc' :
+                          (shipType === 'sovereign' ? '#e6b800' : 
                           (shipType === 'bastion' ? '#ff3333' : 
-                          (shipType === 'harvester' ? '#ff8800' : '#00ffff'));
+                          (shipType === 'harvester' ? '#ff8800' : '#00ffff')));
       
       if (shipType === 'sovereign') {
-        // Quadruple engines for the dreadnought
-        drawEngineFlame(ctx, -s/3, s/3, s/6, s/1.5, engineColor, speedRatio);
-        drawEngineFlame(ctx, -s/7, s/3, s/7, s/1.8, engineColor, speedRatio);
-        drawEngineFlame(ctx, s/7, s/3, s/7, s/1.8, engineColor, speedRatio);
-        drawEngineFlame(ctx, s/3, s/3, s/6, s/1.5, engineColor, speedRatio);
+        const isDesign = img === emberFangImg;
+        if (isDesign) {
+          // El diseño Ember Fang tiene una disposición de 3 motores traseros masivos
+          drawEngineFlame(ctx, -s/3.8, s/3.8, s/5, s/1.3, engineColor, speedRatio);
+          drawEngineFlame(ctx, 0, s/3.5, s/4, s/1.1, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/3.8, s/3.8, s/5, s/1.3, engineColor, speedRatio);
+        } else {
+          // Sovereign estándar: 4 motores potentes
+          drawEngineFlame(ctx, -s/3, s/3, s/6, s/1.5, engineColor, speedRatio);
+          drawEngineFlame(ctx, -s/7, s/3, s/7, s/1.8, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/7, s/3, s/7, s/1.8, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/3, s/3, s/6, s/1.5, engineColor, speedRatio);
+        }
+      } else if (shipType === 'harvester') {
+        const isDesign = img === harvesterIndustrialImg;
+        if (isDesign) {
+          // Dynimeric Industrial: 5 motores potentes en fila
+          drawEngineFlame(ctx, -s/3.5, s/2.8, s/7, s/1.5, engineColor, speedRatio);
+          drawEngineFlame(ctx, -s/7, s/2.6, s/7, s/1.3, engineColor, speedRatio);
+          drawEngineFlame(ctx, 0, s/2.5, s/7, s/1.1, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/7, s/2.6, s/7, s/1.3, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/3.5, s/2.8, s/7, s/1.5, engineColor, speedRatio);
+        } else {
+          drawEngineFlame(ctx, 0, s/3.2, s/4, s/1.1, engineColor, speedRatio);
+        }
       } else if (shipType === 'bastion') {
-        drawEngineFlame(ctx, -s/3, s/3, s/5, s/2, engineColor, speedRatio);
-        drawEngineFlame(ctx, 0, s/3, s/5, s/2, engineColor, speedRatio);
-        drawEngineFlame(ctx, s/3, s/3, s/5, s/2, engineColor, speedRatio);
+        const isDesign = img === bastionCelestialImg;
+        if (isDesign) {
+          // Celestial Fortress: Propulsión omnidireccional (muchos motores pequeños en círculo)
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            drawEngineFlame(ctx, Math.cos(angle) * s/3, Math.sin(angle) * s/3, s/15, s/5, engineColor, speedRatio);
+          }
+        } else {
+          drawEngineFlame(ctx, -s/3, s/3, s/5, s/2, engineColor, speedRatio);
+          drawEngineFlame(ctx, 0, s/3, s/5, s/2, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/3, s/3, s/5, s/2, engineColor, speedRatio);
+        }
+      } else if (shipType === 'support') {
+        const isDesign = img === helixEmeraldImg;
+        if (isDesign) {
+          // Emerald Guardian: 1 central grande + 4 laterales
+          drawEngineFlame(ctx, 0, s/3.2, s/3.5, s/1.1, engineColor, speedRatio);
+          drawEngineFlame(ctx, -s/3.5, s/4, s/8, s/1.8, engineColor, speedRatio);
+          drawEngineFlame(ctx, -s/4.5, s/4, s/9, s/2, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/4.5, s/4, s/9, s/2, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/3.5, s/4, s/8, s/1.8, engineColor, speedRatio);
+        } else {
+          drawEngineFlame(ctx, 0, s/3.2, s/4, s/1.1, engineColor, speedRatio);
+        }
+      } else if (shipType === 'interceptor') {
+        const isDesign = img === solarWindEclipseImg;
+        if (isDesign) {
+          // Crimson Eclipse: 3 motores rojos potentes
+          drawEngineFlame(ctx, -s/4.5, s/3.2, s/6, s/1.2, engineColor, speedRatio);
+          drawEngineFlame(ctx, 0, s/3, s/5, s/1.0, engineColor, speedRatio);
+          drawEngineFlame(ctx, s/4.5, s/3.2, s/6, s/1.2, engineColor, speedRatio);
+        } else {
+          drawEngineFlame(ctx, 0, s/3.5, s/4, s/1.2, engineColor, speedRatio);
+        }
       } else {
         drawEngineFlame(ctx, 0, s/3.5, s/4, s/1.2, engineColor, speedRatio);
       }
 
       // 2. Dibujo de la Imagen con Mezcla 'Screen' (Elimina el fondo negro/cuadrado)
       ctx.save();
-      ctx.globalCompositeOperation = 'screen';
+      ctx.globalCompositeOperation = 'screen'; // Forzamos screen para eliminar el fondo negro de la imagen
       
-      // Filtros según tipo de nave (La Bastion necesita mucho más brillo por ser muy oscura)
-      if (shipType === 'bastion') {
+      // Filtros según tipo de nave
+      if (isEmberFang) {
+        ctx.filter = 'contrast(1.5) brightness(1.3) saturate(1.2)';
+      } else if (shipType === 'bastion') {
         ctx.filter = 'contrast(1.4) brightness(2.0) saturate(1.5)'; 
       } else {
         ctx.filter = 'contrast(1.6) brightness(1.2)'; 
@@ -1523,24 +1598,26 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     } else if (player.ship_type === 'support') {
       // Helix Support v2: Estilo médico modular con motores turquesa
       const s = size;
-      ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-
-      // Motor central turquesa/cian
-      drawEngineFlame(ctx, 0, s/3.2, s/4, s/1.1, '#00ffff', speedRatio);
-
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      ctx.filter = 'contrast(1.6) brightness(1.2)'; 
-      ctx.drawImage(supportImg, -s/2, -s/2, s, s);
-      ctx.restore();
+      const designId = player.equipped_design || player.equippedDesign;
+      const img = (designId === 'design_support_emerald') ? helixEmeraldImg : supportImg;
+      
+      drawPremiumShip(img, 'support', size, speedRatio);
     } else if (player.ship_type === 'sovereign') {
-      drawPremiumShip(sovereignImg, 'sovereign', size, speedRatio);
+      const designId = player.equipped_design || player.equippedDesign;
+      const img = (designId === 'design_sovereign_ember_fang') ? emberFangImg : sovereignImg;
+      drawPremiumShip(img, 'sovereign', size, speedRatio);
     } else if (player.ship_type === 'harvester') {
-      drawPremiumShip(harvesterImg, 'harvester', size, speedRatio);
+      const designId = player.equipped_design || player.equippedDesign;
+      const img = (designId === 'design_harvester_industrial') ? harvesterIndustrialImg : harvesterImg;
+      drawPremiumShip(img, 'harvester', size, speedRatio);
     } else if (player.ship_type === 'interceptor') {
-      drawPremiumShip(interceptorImg, 'interceptor', size, speedRatio);
+      const designId = player.equipped_design || player.equippedDesign;
+      const img = (designId === 'design_solar_wind_eclipse') ? solarWindEclipseImg : interceptorImg;
+      drawPremiumShip(img, 'interceptor', size, speedRatio);
     } else if (player.ship_type === 'bastion') {
-      drawPremiumShip(bastionImg, 'bastion', size, speedRatio);
+      const designId = player.equipped_design || player.equippedDesign;
+      const img = (designId === 'design_bastion_celestial') ? bastionCelestialImg : bastionImg;
+      drawPremiumShip(img, 'bastion', size, speedRatio);
     } else if (player.ship_type === 'starter') {
       // Nueva Phoenix v3: Renderizado limpio sin sombras ni duplicados
       const s = size;

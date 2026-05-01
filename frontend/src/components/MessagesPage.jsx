@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './MessagesPage.css';
 
-const MessagesPage = ({ user, onBack }) => {
+const MessagesPage = ({ user, onBack, onRefreshUnread }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedMessage, setSelectedMessage] = useState(null);
@@ -89,6 +89,7 @@ const MessagesPage = ({ user, onBack }) => {
                 });
                 // Update local state
                 setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_read: true } : m));
+                if (onRefreshUnread) onRefreshUnread();
             } catch (err) {
                 console.error("Error marking as read:", err);
             }

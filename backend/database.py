@@ -33,6 +33,7 @@ def init_db():
             timed_upgrades_json TEXT DEFAULT '{"atk": [], "shld": [], "spd": [], "hp": []}',
             wips_json TEXT DEFAULT '[]',
             eco_json TEXT DEFAULT '{"active": false, "customName": "E.C.O.", "level": 1, "integrity": 100, "fuel": 1000, "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []}}',
+            ammo_json TEXT DEFAULT '{"standard": 1000, "thermal": 0, "plasma": 0, "siphon": 0, "missile_1": 0, "missile_2": 0, "missile_3": 0}',
             clan_tag TEXT,
             clan_role TEXT,
             clan_joined_at TIMESTAMP
@@ -46,7 +47,8 @@ def init_db():
         ("equipped_json", "TEXT DEFAULT '{}'"),
         ("timed_upgrades_json", "TEXT DEFAULT '{\"atk\": [], \"shld\": [], \"spd\": [], \"hp\": []}'"),
         ("wips_json", "TEXT DEFAULT '[]'"),
-        ("eco_json", "TEXT DEFAULT '{\"active\": false, \"customName\": \"E.C.O.\", \"level\": 1, \"integrity\": 100, \"fuel\": 1000, \"equipped\": {\"lasers\": [], \"generators\": [], \"protocols\": [], \"utility\": []}}'")
+        ("eco_json", "TEXT DEFAULT '{\"active\": false, \"customName\": \"E.C.O.\", \"level\": 1, \"integrity\": 100, \"fuel\": 1000, \"equipped\": {\"lasers\": [], \"generators\": [], \"protocols\": [], \"utility\": []}}'"),
+        ("ammo_json", "TEXT DEFAULT '{\"standard\": 1000, \"thermal\": 0, \"plasma\": 0, \"siphon\": 0, \"missile_1\": 0, \"missile_2\": 0, \"missile_3\": 0}'")
     ]
     for col_name, col_type in columns:
         try:
@@ -69,9 +71,16 @@ def init_db():
             status TEXT DEFAULT 'Reclutando',
             news TEXT DEFAULT '[]',
             faction TEXT,
+            xp INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # Migración para clanes
+    try:
+        c.execute('ALTER TABLE clans ADD COLUMN xp INTEGER DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
     
     c.execute('''
         CREATE TABLE IF NOT EXISTS clan_logs (
@@ -352,9 +361,9 @@ def register_user(username, email, password):
     try:
         vip_until = (datetime.now() + timedelta(days=30)).isoformat()
         c.execute('''
-            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json, owned_ships_json, inventory_json, equipped_json, vip_until, wips_json) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (username, email, hashed, salt, 1, 0, 50000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}', '["starter"]', '[]', '{}', vip_until, '[]'))
+            INSERT INTO users (username, email, password_hash, salt, level, xp, credits, paladio, minerals_json, owned_ships_json, inventory_json, equipped_json, vip_until, wips_json, ammo_json) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (username, email, hashed, salt, 1, 0, 50000, 0, '{"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}', '["starter"]', '[]', '{}', vip_until, '[]', '{"standard": 1000, "thermal": 0, "plasma": 0, "siphon": 0, "missile_1": 0, "missile_2": 0, "missile_3": 0}'))
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError as e:
@@ -373,9 +382,9 @@ def get_user_stats_db(username):
     c = conn.cursor()
     try:
         try:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json, ammo_json FROM users WHERE username = ?', (username,))
         except sqlite3.OperationalError:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json, \'{}\' as ammo_json FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -389,6 +398,7 @@ def get_user_stats_db(username):
             timed_upgrades = json.loads(row[9]) if (len(row) > 9 and row[9]) else {"atk":[], "shld":[], "spd":[], "hp":[]}
             wips = json.loads(row[11]) if (len(row) > 11 and row[11]) else []
             eco = json.loads(row[12]) if (len(row) > 12 and row[12]) else {"active": False}
+            ammo = json.loads(row[13]) if (len(row) > 13 and row[13]) else {"standard": 1000}
         except:
             minerals = {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
             owned_ships = ["starter"]
@@ -397,6 +407,7 @@ def get_user_stats_db(username):
             timed_upgrades = {"atk":[], "shld":[], "spd":[], "hp":[]}
             wips = []
             eco = {"active": False}
+            ammo = {"standard": 1000}
 
         return {
             "level": row[0],
@@ -411,7 +422,8 @@ def get_user_stats_db(username):
             "timed_upgrades": timed_upgrades,
             "is_invisible": bool(row[10]) if len(row) > 10 else False,
             "wips": wips,
-            "eco": eco
+            "eco": eco,
+            "ammo": ammo
         }
     finally:
         conn.close()
@@ -430,7 +442,7 @@ def login_user(username, password):
         return {"success": False, "error": "Credenciales incorrectas"}
     
     # row unpack
-    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json, is_invisible, wips_json, eco_json = row
+    db_username, faction, is_admin, is_super_admin, level, xp, credits, paladio, db_hash, salt, selected_ship, vip_until, owned_ships_json, inventory_json, equipped_json, is_invisible, wips_json, eco_json, ammo_json = row + (None,) * (19 - len(row))
     test_hash, _ = hash_password(password, salt)
     
     if test_hash == db_hash:
@@ -456,7 +468,8 @@ def login_user(username, password):
             "timed_upgrades": stats["timed_upgrades"] if (stats and "timed_upgrades" in stats) else {"atk":[], "shld":[], "spd":[], "hp":[]},
             "is_invisible": bool(row[15]) if len(row) > 15 else False,
             "wips": json.loads(row[16]) if (len(row) > 16 and row[16]) else [],
-            "eco": json.loads(row[17]) if (len(row) > 17 and row[17]) else {"active": False}
+            "eco": json.loads(row[17]) if (len(row) > 17 and row[17]) else {"active": False},
+            "ammo": json.loads(row[18]) if (len(row) > 18 and row[18]) else {"standard": 1000}
         }
     else:
         return {"success": False, "error": "Credenciales incorrectas"}
@@ -649,10 +662,11 @@ def update_stats_offline(username, updates):
         equipped=stats.get("equipped"),
         timed_upgrades=stats.get("timed_upgrades"),
         wips=stats.get("wips"),
-        eco=stats.get("eco")
+        eco=stats.get("eco"),
+        ammo=stats.get("ammo")
     )
 
-def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None, is_invisible=None, wips=None, eco=None, **kwargs):
+def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None, is_invisible=None, wips=None, eco=None, ammo=None, **kwargs):
     conn = get_connection()
     c = conn.cursor()
     import json
@@ -727,6 +741,9 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
             
             fields.append("eco_json = ?")
             params.append(json.dumps(eco))
+        if ammo is not None:
+            fields.append("ammo_json = ?")
+            params.append(json.dumps(ammo))
             
         params.append(username)
         query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"
@@ -814,16 +831,17 @@ def collect_all_taxes():
         conn.close()
 
 # --- CLAN FUNCTIONS ---
-def create_clan_db(tag, name, leader):
+def create_clan_db(tag, name, leader, faction=None):
     conn = get_connection()
     c = conn.cursor()
     try:
-        # 0. Obtener la facción del líder
-        c.execute('SELECT faction FROM users WHERE username = ?', (leader,))
-        user_row = c.fetchone()
-        faction = user_row[0] if user_row else "MARS"
+        # 0. Obtener la facción del líder si no se especifica
+        if not faction:
+            c.execute('SELECT faction FROM users WHERE username = ?', (leader,))
+            user_row = c.fetchone()
+            faction = user_row[0] if user_row else "MARS"
 
-        # 1. Crear el clan con la facción del líder
+        # 1. Crear el clan con la facción especificada
         c.execute('''
             INSERT INTO clans (tag, name, leader, faction) 
             VALUES (?, ?, ?, ?)
@@ -978,20 +996,20 @@ def get_available_clans(search=None):
         c.execute('''
             SELECT c.tag, c.name, c.leader, 
                    (SELECT COUNT(*) FROM users u WHERE u.clan_tag = c.tag) as real_count, 
-                   c.tax_rate, c.credits, c.join_type, c.faction 
+                   c.tax_rate, c.credits, c.join_type, c.faction, c.xp
             FROM clans c WHERE c.tag LIKE ? OR c.name LIKE ?
         ''', (query, query))
     else:
         c.execute('''
             SELECT c.tag, c.name, c.leader, 
                    (SELECT COUNT(*) FROM users u WHERE u.clan_tag = c.tag) as real_count, 
-                   c.tax_rate, c.credits, c.join_type, c.faction 
+                   c.tax_rate, c.credits, c.join_type, c.faction, c.xp
             FROM clans c LIMIT 50
         ''')
     
     rows = c.fetchall()
     conn.close()
-    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5], "join_type": r[6] if len(r) > 6 else "Abierto", "faction": r[7] if len(r) > 7 else "MARS"} for r in rows]
+    return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5], "join_type": r[6] if len(r) > 6 else "Abierto", "faction": r[7] if len(r) > 7 else "MARS", "xp": r[8] if len(r) > 8 else 0} for r in rows]
 
 def join_clan_db(username, clan_tag):
     conn = get_connection()
@@ -1047,7 +1065,7 @@ def get_user_clan_data(username):
     clan_tag = res[0]
     
     # Obtener metadata del clan
-    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type, faction FROM clans WHERE tag = ?', (clan_tag,))
+    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type, faction, xp FROM clans WHERE tag = ?', (clan_tag,))
     clan = c.fetchone()
     if not clan:
         conn.close()
@@ -1060,6 +1078,11 @@ def get_user_clan_data(username):
         WHERE clan_tag = ?
     ''', (clan_tag,))
     members_rows = c.fetchall()
+
+    # Obtener el ranking del clan
+    c.execute('SELECT COUNT(*) FROM clans WHERE xp > ?', (clan[10] or 0,))
+    clan_rank = c.fetchone()[0] + 1
+
     conn.close()
     
     members_list = []
@@ -1097,13 +1120,15 @@ def get_user_clan_data(username):
         "credits": clan[7],
         "join_type": clan[8] or "Abierto",
         "faction": clan[9] or "MARS",
+        "xp": clan[10] if len(clan) > 10 else 0,
+        "rank": clan_rank,
         "status": status,
         "news": news_data,
         "logo": logo_url,
         "members": members_list
     }
 
-def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, logo, join_type="Abierto"):
+def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, logo, join_type="Abierto", faction="MARS"):
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -1117,9 +1142,9 @@ def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, l
             # Actualizar clanes
             c.execute('''
                 UPDATE clans 
-                SET tag = ?, name = ?, description = ?, status = ?, news = ?, logo_url = ?, join_type = ?
+                SET tag = ?, name = ?, description = ?, status = ?, news = ?, logo_url = ?, join_type = ?, faction = ?
                 WHERE tag = ?
-            ''', (new_tag, name, description, status, news, logo, join_type, old_tag))
+            ''', (new_tag, name, description, status, news, logo, join_type, faction, old_tag))
             
             # Actualizar usuarios
             c.execute('UPDATE users SET clan_tag = ? WHERE clan_tag = ?', (new_tag, old_tag))
@@ -1130,9 +1155,9 @@ def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, l
             # Solo actualizar metadata normal
             c.execute('''
                 UPDATE clans 
-                SET name = ?, description = ?, status = ?, news = ?, logo_url = ?, join_type = ?
+                SET name = ?, description = ?, status = ?, news = ?, logo_url = ?, join_type = ?, faction = ?
                 WHERE tag = ?
-            ''', (name, description, status, news, logo, join_type, old_tag))
+            ''', (name, description, status, news, logo, join_type, faction, old_tag))
             
         conn.commit()
         return {"success": True}
@@ -1290,6 +1315,15 @@ def send_system_message_db(receiver, subject, body):
         return False
     finally:
         conn.close()
+def get_unread_messages_count_db(username):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute('SELECT COUNT(*) FROM messages WHERE receiver = ? AND is_read = 0', (username,))
+        return c.fetchone()[0]
+    finally:
+        conn.close()
+
 def get_user_messages_db(username):
     conn = get_connection()
     c = conn.cursor()
@@ -1390,11 +1424,15 @@ def update_password_by_token_db(token, hashed, salt):
     conn.commit()
     conn.close()
 
-def get_leaderboard_db():
+def get_leaderboard_db(faction=None):
     conn = get_connection()
     c = conn.cursor()
-    # Obtenemos usuarios ordenados por XP de forma descendente
-    c.execute('SELECT username, level, xp FROM users ORDER BY xp DESC')
+    # Obtenemos usuarios ordenados por XP de forma descendente, opcionalmente filtrados por facción
+    if faction:
+        c.execute('SELECT username, level, xp, faction FROM users WHERE faction = ? ORDER BY xp DESC', (faction,))
+    else:
+        c.execute('SELECT username, level, xp, faction FROM users ORDER BY xp DESC')
+        
     rows = c.fetchall()
     conn.close()
     
@@ -1404,7 +1442,26 @@ def get_leaderboard_db():
             "rank": i + 1,
             "username": row[0],
             "level": row[1],
-            "xp": row[2]
+            "xp": row[2],
+            "faction": row[3]
+        })
+    return leaderboard
+
+def get_clan_leaderboard_db():
+    conn = get_connection()
+    c = conn.cursor()
+    # Obtenemos clanes ordenados por XP de forma descendente
+    c.execute('SELECT tag, name, xp FROM clans ORDER BY xp DESC')
+    rows = c.fetchall()
+    conn.close()
+    
+    leaderboard = []
+    for i, row in enumerate(rows):
+        leaderboard.append({
+            "rank": i + 1,
+            "tag": row[0],
+            "name": row[1],
+            "xp": row[2] or 0
         })
     return leaderboard
 # --- ANUNCIOS ---
@@ -1526,14 +1583,15 @@ def get_all_clans_detailed():
     conn = get_connection()
     c = conn.cursor()
     try:
-        c.execute('SELECT tag, name, leader, members_count, logo_url FROM clans ORDER BY members_count DESC')
+        c.execute('SELECT tag, name, leader, members_count, logo_url, xp FROM clans ORDER BY xp DESC')
         rows = c.fetchall()
         return [{
             "tag": r[0],
             "name": r[1],
             "leader": r[2],
             "members": r[3],
-            "logo": r[4]
+            "logo": r[4],
+            "xp": r[5] or 0
         } for r in rows]
     finally:
         conn.close()
@@ -1544,7 +1602,7 @@ def get_clan_details_db(clan_tag):
     try:
         # 1. Metadatos del clan
         c.execute('''
-            SELECT tag, name, leader, description, created_at, faction, logo_url, join_type, status
+            SELECT tag, name, leader, description, created_at, faction, logo_url, join_type, status, xp
             FROM clans 
             WHERE tag = ?
         ''', (clan_tag.upper(),))
@@ -1582,6 +1640,7 @@ def get_clan_details_db(clan_tag):
             "logo": clan[6] or "",
             "join_type": clan[7] or "Abierto",
             "status": clan[8] or "Reclutando",
+            "xp": clan[9] or 0,
             "members_count": len(members_list),
             "members": members_list
         }
@@ -1716,9 +1775,9 @@ def claim_mission_reward_db(username, mission_id):
         
         # 3. Apply rewards to user
         # We need current stats
-        c.execute('SELECT level, xp, credits, paladio, inventory_json FROM users WHERE username = ?', (username,))
+        c.execute('SELECT level, xp, credits, paladio, inventory_json, clan_tag FROM users WHERE username = ?', (username,))
         u = c.fetchone()
-        ulvl, uxp, ucre, upal, uinv_json = u
+        ulvl, uxp, ucre, upal, uinv_json, clan_tag = u
         
         # Update user stats
         new_cre = ucre + rcre
@@ -1742,6 +1801,17 @@ def claim_mission_reward_db(username, mission_id):
             SET credits = ?, paladio = ?, xp = ?, level = ?
             WHERE username = ?
         ''', (new_cre, new_pal, new_xp, new_lvl, username))
+
+        # 3.5. Si el usuario está en un clan, darle XP al clan (ej: 5%)
+        if clan_tag:
+            clan_xp_reward = int(rxp * 0.05) # 5% de la XP de la misión
+            if clan_xp_reward > 0:
+                c.execute('UPDATE clans SET xp = xp + ? WHERE tag = ?', (clan_xp_reward, clan_tag))
+                # Registrar en logs del clan
+                c.execute('''
+                    INSERT INTO clan_logs (clan_tag, type, description, amount, username)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (clan_tag, 'MISION_XP', f"Aportación de XP por misión completada por {username}", clan_xp_reward, username))
         
         # 4. Mark as claimed
         c.execute('UPDATE user_missions SET status = "claimed" WHERE username = ? AND mission_id = ?', (username, mission_id))

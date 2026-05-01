@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { SHIPS, getRank } from '../utils/gameData';
+import { SHIPS, getRank, DESIGNS_CATALOG } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 
-const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, minerals, selectedShipId, equippedByShip, upgrades, isGameActive, leaderboard = [] }) => {
+const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, minerals, selectedShipId, equippedByShip, upgrades, isGameActive, leaderboard = [], equippedDesign }) => {
   const selectedShip = SHIPS.find(s => s.id === selectedShipId) || SHIPS[0];
   const currentEquipped = equippedByShip[selectedShipId] || [];
   
   // Get top 10 for the quick view
   const TOP_PILOTS = leaderboard.slice(0, 10);
 
-  // Calculate Ship Stats including Bonuses
+  // Get active design info
+  const activeDesign = DESIGNS_CATALOG.find(d => d.id === equippedDesign);
+  const shipImage = activeDesign ? activeDesign.image : (selectedShip.ui_image || selectedShip.image);
+  const shipDisplayName = activeDesign ? activeDesign.name : selectedShip.name;
+
+  // Calculate Ship Stats including Bonuses (Base + Modules + Lab Upgrades)
+  const baseHp = selectedShip.hp + currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0) + (upgrades.hp || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+  const baseShld = selectedShip.shld + currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0) + (upgrades.shld || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+  const baseAtk = selectedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + (upgrades.atk || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+  const baseSpd = selectedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + (upgrades.spd || []).reduce((acc, u) => acc + (u.amount || 0), 0);
+
   const shipStats = {
-    hp: selectedShip.hp + currentEquipped.reduce((acc, m) => acc + (m.hp || 0), 0),
-    shld: selectedShip.shld + currentEquipped.reduce((acc, m) => acc + (m.shld || 0), 0) + (upgrades.shld || []).reduce((acc, u) => acc + (u.amount || 0), 0),
-    atk: selectedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + (upgrades.atk || []).reduce((acc, u) => acc + (u.amount || 0), 0),
-    spd: selectedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + (upgrades.spd || []).reduce((acc, u) => acc + (u.amount || 0), 0),
+    hp: activeDesign?.bonus?.hp ? Math.floor(baseHp * (1 + activeDesign.bonus.hp)) : baseHp,
+    shld: activeDesign?.bonus?.shld ? Math.floor(baseShld * (1 + activeDesign.bonus.shld)) : baseShld,
+    atk: activeDesign?.bonus?.dmg ? Math.floor(baseAtk * (1 + activeDesign.bonus.dmg)) : (activeDesign?.bonus?.atk ? Math.floor(baseAtk * (1 + activeDesign.bonus.atk)) : baseAtk),
+    spd: activeDesign?.bonus?.spd ? Math.floor(baseSpd * (1 + activeDesign.bonus.spd)) : baseSpd,
     cargo: Object.values(minerals).reduce((a,b)=>a+b,0),
     maxCargo: selectedShip.cargo_capacity
   };
@@ -145,15 +155,17 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, min
               background: `radial-gradient(circle at ${mousePos.x}% ${mousePos.y}%, rgba(0, 255, 204, 0.15), transparent 60%), #050810`
             }}
           >
-             <div style={{ position: 'absolute', top: '20px', fontSize: '1.5rem', fontWeight: 'bold', color: '#fff', textTransform: 'uppercase', letterSpacing: '3px', opacity: isGameActive ? 0.3 : 1, zIndex: 10 }}>
-               {selectedShip.name}
+             <div style={{ position: 'absolute', top: '20px', fontSize: '1.2rem', fontWeight: 'bold', color: '#fff', textTransform: 'uppercase', letterSpacing: '3px', opacity: isGameActive ? 0.3 : 1, zIndex: 10, textAlign: 'center', width: '100%', padding: '0 20px' }}>
+               {shipDisplayName}
              </div>
              
              <img 
-               src={selectedShip.ui_image || selectedShip.image} 
-               alt={selectedShip.name} 
+               src={shipImage} 
+               alt={shipDisplayName} 
                style={{ 
                  opacity: isGameActive ? 0.4 : 1,
+                 maxWidth: '90%',
+                 maxHeight: '70%',
                  filter: `drop-shadow(0 0 30px rgba(0, 255, 204, 0.2)) brightness(${1 + (100 - mousePos.y)/200})`,
                  transform: `perspective(1000px) rotateY(${(mousePos.x - 50) / 4}deg) rotateX(${(50 - mousePos.y) / 4}deg)`
                }} 
@@ -161,6 +173,49 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, min
              
              {/* Scanning Line Overlay for flavor */}
              <div className="scanline-overlay"></div>
+
+             {/* Stats Overlay */}
+             {!isGameActive && (
+               <div style={{ 
+                 position: 'absolute', 
+                 right: '20px', 
+                 top: '50%', 
+                 transform: 'translateY(-50%)',
+                 background: 'rgba(10, 15, 26, 0.7)',
+                 padding: '15px',
+                 borderRadius: '8px',
+                 border: '1px solid rgba(0, 255, 204, 0.2)',
+                 backdropFilter: 'blur(5px)',
+                 display: 'flex',
+                 flexDirection: 'column',
+                 gap: '10px',
+                 zIndex: 10,
+                 minWidth: '150px'
+               }}>
+                 <div style={{ color: '#88aaff', fontSize: '0.65rem', fontWeight: 'bold', borderBottom: '1px solid #334466', paddingBottom: '5px', marginBottom: '5px' }}>ESPECIFICACIONES NAVE</div>
+                 <div style={{ display: 'flex', flexDirection: 'column' }}>
+                   <span style={{ fontSize: '0.6rem', color: '#888' }}>CASCO</span>
+                   <span style={{ color: '#ff4466', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                     {shipStats.hp.toLocaleString()}
+                     {activeDesign?.bonus?.hp && <span style={{ color: '#00ffcc', fontSize: '0.6rem', marginLeft: '4px' }}>(+{activeDesign.bonus.hp * 100}%)</span>}
+                   </span>
+                 </div>
+                 <div style={{ display: 'flex', flexDirection: 'column' }}>
+                   <span style={{ fontSize: '0.6rem', color: '#888' }}>ESCUDO</span>
+                   <span style={{ color: '#00aaff', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                     {shipStats.shld.toLocaleString()}
+                     {activeDesign?.bonus?.shld && <span style={{ color: '#00ffcc', fontSize: '0.6rem', marginLeft: '4px' }}>(+{activeDesign.bonus.shld * 100}%)</span>}
+                   </span>
+                 </div>
+                 <div style={{ display: 'flex', flexDirection: 'column' }}>
+                   <span style={{ fontSize: '0.6rem', color: '#888' }}>ATAQUE</span>
+                   <span style={{ color: '#ffcc00', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                     {shipStats.atk.toLocaleString()}
+                     {(activeDesign?.bonus?.dmg || activeDesign?.bonus?.atk) && <span style={{ color: '#00ffcc', fontSize: '0.6rem', marginLeft: '4px' }}>(+{(activeDesign.bonus.dmg || activeDesign.bonus.atk) * 100}%)</span>}
+                   </span>
+                 </div>
+               </div>
+             )}
              
              <div style={{ position: 'absolute', bottom: '20px', color: isGameActive ? '#555' : '#00ffcc', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '2px', zIndex: 10 }}>
                {isGameActive ? 'TRANSFIRIENDO CONTROL A CABINA...' : 'Estado: Sistemas al 100% | Combustible: Full'}

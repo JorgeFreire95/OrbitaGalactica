@@ -133,20 +133,20 @@ export const SHIPS = [
 ];
 
 export const MODULES_CATALOG = [
-  { id: 'laser_1', type: 'lasers',  lvl: 1, name: 'Láser Básico',     cost: 10000, atk: 40,   icon: '🎯', image: '/basic_laser.png' },
-  { id: 'laser_2', type: 'lasers',  lvl: 2, name: 'Láser Plus',       cost: 5000, currency: 'paladio', atk: 100,  icon: '🎯', image: '/plus_laser.png' },
-  { id: 'laser_3', type: 'lasers',  lvl: 3, name: 'Cañón Pesado',     cost: 10000, currency: 'paladio', atk: 150,  icon: '🎯', image: '/heavy_laser.jpg' },
+  { id: 'laser_1', type: 'lasers', lvl: 1, name: 'Láser LF-1',      cost: 10000, atk: 40,   icon: '🔫', desc: 'Emisor de partículas básico para combate de corto alcance.', image: '/basic_laser.png' },
+  { id: 'laser_2', type: 'lasers', lvl: 2, name: 'Láser Plus',      cost: 5000,  currency: 'paladio', atk: 100,  icon: '🔫', desc: 'Versión mejorada con mayor estabilidad de haz y daño concentrado.', image: '/plus_laser.png' },
+  { id: 'laser_3', type: 'lasers', lvl: 3, name: 'Cañón Pesado',    cost: 10000, currency: 'paladio', atk: 180,  icon: '🔫', desc: 'Tecnología de última generación que dispara ráfagas de plasma altamente destructivas.', image: '/heavy_laser.jpg' },
   
-  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5 },
-  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6 },
-  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper',    cost: 50000, currency: 'paladio', shld: 10000, icon: '🛡️', absorption: 0.8 },
+  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5, desc: 'Generador de campo defensivo básico con absorción del 50%.' },
+  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6, desc: 'Estructura molecular optimizada para una mayor capacidad de energía y absorción del 60%.' },
+  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper',    cost: 50000, currency: 'paladio', shld: 10000, icon: '🛡️', absorption: 0.8, desc: 'Defensa de grado militar. Absorción masiva del 80% y altísima capacidad de carga.' },
   
-  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor',     cost: 16000, spd: 5,  icon: '🚀' },
-  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 1000, currency: 'paladio', spd: 7,  icon: '🚀' },
-  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 2000, currency: 'paladio', spd: 10,  icon: '🚀' },
+  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor',     cost: 16000, spd: 5,  icon: '🚀', desc: 'Propulsor estándar de bajo consumo para naves ligeras.' },
+  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 1000, currency: 'paladio', spd: 7,  icon: '🚀', desc: 'Inyectores de paladio que permiten una aceleración significativamente mayor.' },
+  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 2000, currency: 'paladio', spd: 10,  icon: '🚀', desc: 'Núcleo de energía inestable que impulsa la nave a velocidades extremas.' },
   
-  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 630, icon: '🔧' },
-  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️' },
+  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 630, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.' },
+  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️', desc: 'Robot de nanotecnología avanzada capaz de reparar daños estructurales a gran velocidad.' },
   { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 500, currency: 'paladio', desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
   { id: 'util_auto_repair_cpu', type: 'utility', lvl: 2, name: 'AUTO-CPU de roboreparación', cost: 10000, currency: 'paladio', desc: 'Inicia automáticamente a un robot de reparación disponible cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
   { id: 'util_turbo_missile', type: 'utility', lvl: 2, name: 'Misil Turbo', cost: 10000, currency: 'paladio', desc: 'Duplica la velocidad de lanzamiento de los misiles.', icon: '☄️', is_turbo_missile: true },
@@ -204,6 +204,69 @@ export const ECO_PROTOCOLS = [
   { id: 'proto_alien_1', type: 'protocols', lvl: 1, name: 'Protocolo Antialienígenas I', cost: 3000, currency: 'paladio', anti_alien_bonus: 0.01, icon: '👽', desc: 'Aumenta los daños de tu ECO contra alienígenas en un 1%.' },
   { id: 'proto_alien_2', type: 'protocols', lvl: 2, name: 'Protocolo Antialienígenas II', cost: 7500, currency: 'paladio', anti_alien_bonus: 0.03, icon: '👽', desc: 'Aumenta los daños de tu ECO contra alienígenas en un 3%.' },
   { id: 'proto_alien_3', type: 'protocols', lvl: 3, name: 'Protocolo Antialienígenas III', cost: 25000, currency: 'paladio', anti_alien_bonus: 0.06, icon: '👽', desc: 'Aumenta los daños de tu ECO contra alienígenas en un 6%.' },
+];
+
+export const DESIGNS_CATALOG = [
+  {
+    id: 'design_sovereign_ember_fang',
+    type: 'design',
+    name: 'Sovereign Exterminator Ember Fang',
+    ship_id: 'sovereign',
+    bonus: { xp: 0.15 },
+    cost: 50000,
+    currency: 'paladio',
+    desc: 'Un diseño legendario que imbuye al Sovereign Exterminator con la furia del Colmillo de Brasa. Otorga un 15% de experiencia adicional al estar equipado.',
+    image: '/ember_fang.png',
+    icon: '🔥'
+  },
+  {
+    id: 'design_support_emerald',
+    type: 'design',
+    name: 'Helix Support Emerald Guardian',
+    ship_id: 'support',
+    bonus: { hp: 0.10, shld: 0.10 },
+    cost: 60000,
+    currency: 'paladio',
+    desc: 'Un diseño de vanguardia médica que refuerza la integridad estructural y los escudos del Helix Support. Otorga un 10% de vida y 10% de escudo adicionales.',
+    image: '/helix_emerald.png',
+    icon: '💚'
+  },
+  {
+    id: 'design_harvester_industrial',
+    type: 'design',
+    name: 'Harvester Dynimeric Industrial',
+    ship_id: 'harvester',
+    bonus: { dmg: 0.20 },
+    cost: 75000,
+    currency: 'paladio',
+    desc: 'Un diseño industrial reforzado por Dynimeric. Incrementa la potencia de fuego un 20% para una extracción y defensa agresiva.',
+    image: '/harvester_industrial.png',
+    icon: '🚜'
+  },
+  {
+    id: 'design_solar_wind_eclipse',
+    type: 'design',
+    name: 'Solar Wind Crimson Eclipse',
+    ship_id: 'interceptor',
+    bonus: { shld: 0.10, absorption: 0.05 },
+    cost: 80000,
+    currency: 'paladio',
+    desc: 'Un diseño elegante de oro y obsidiana con núcleos de energía roja. Otorga un 10% de escudo adicional y absorbe un 5% de los daños enemigos.',
+    image: '/solar_wind_eclipse.png',
+    icon: '🌘'
+  },
+  {
+    id: 'design_bastion_celestial',
+    type: 'design',
+    name: 'Obsidian Bastion Celestial Fortress',
+    ship_id: 'bastion',
+    bonus: { hp: 0.15, shld: 0.15, absorption: 0.15 },
+    cost: 120000,
+    currency: 'paladio',
+    desc: 'Una megaestructura circular convertida en nave de asalto. Otorga un 15% de vida, 15% de escudo y 15% de absorción de daño adicionales.',
+    image: '/bastion_celestial.png',
+    icon: '🪐'
+  }
 ];
 
 
@@ -441,3 +504,22 @@ export const MINERAL_TYPES = [
   { id: 'silicon',   name: 'Silicio',  color: '#00ffcc', icon: '💾', stat: 'spd',  desc: 'Mejora velocidad base', sellPrice: 18 },
   { id: 'iridium',   name: 'Iridio',   color: '#cc00ff', icon: '🔮', stat: 'hp',   desc: 'Mejora casco base', sellPrice: 50 },
 ];
+
+export const getItemById = (id) => {
+  const all = [
+    ...MODULES_CATALOG,
+    ...AMMO_CATALOG,
+    ...MISSILE_CATALOG,
+    ...WIPS_CATALOG,
+    ...SHIPS,
+    ...ECO_PROTOCOLS,
+    ...ECO_REPAIR,
+    ...ECO_COLLECTOR,
+    ...ECO_TRACKER,
+    ...ECO_KAMIKAZE,
+    ...ECO_SELF_REPAIR,
+    ...ECO_FUEL,
+    ...DESIGNS_CATALOG
+  ];
+  return all.find(item => item.id === id);
+};

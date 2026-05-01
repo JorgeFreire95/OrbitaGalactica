@@ -4,6 +4,7 @@ import NavigationBar from './NavigationBar';
 const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, onBack, onNavigate }) => {
   const [tag, setTag] = useState('');
   const [name, setName] = useState('');
+  const [selectedFaction, setSelectedFaction] = useState(user?.faction || 'MARS');
   const [activeTab, setActiveTab] = useState('summary');
   const [editMode, setEditMode] = useState(null);
   const [editValues, setEditValues] = useState({});
@@ -153,7 +154,8 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
         body: JSON.stringify({
           tag: tag.toUpperCase(),
           name,
-          leader: user ? user.username : 'PILOTO_ESTELAR'
+          leader: user ? user.username : 'PILOTO_ESTELAR',
+          faction: selectedFaction
         })
       });
 
@@ -367,9 +369,10 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
         name: updates.name || clan.name,
         description: updates.description !== undefined ? updates.description : clan.description,
         status: updates.status || clan.status || 'Reclutando',
-        join_type: updates.join_type || clan.join_type || 'Abierto',
         news: updates.news ? JSON.stringify(updates.news) : clan.news_json || '[]',
-        logo: updates.logo !== undefined ? updates.logo : clan.logo
+        logo: updates.logo !== undefined ? updates.logo : clan.logo,
+        join_type: updates.join_type || clan.join_type || 'Abierto',
+        faction: updates.faction || clan.faction || 'MARS'
       };
 
       const resp = await fetch(`${API_URL}/clans/update`, {
@@ -388,7 +391,8 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
           status: body.status,
           join_type: body.join_type,
           news: updates.news || clan.news || [],
-          logo: body.logo
+          logo: body.logo,
+          faction: body.faction
         });
         setEditMode(null);
       } else {
@@ -558,11 +562,11 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           {canEdit && (
                             editMode === 'info' ? (
                                 <span>
-                                   <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => handleUpdateClanMetadata({ tag: editValues.tag.toUpperCase(), name: editValues.name, status: editValues.status })}>✔ guardar</span>
+                                   <span style={{ color: '#00cc66', cursor: 'pointer', marginRight: '10px' }} onClick={() => handleUpdateClanMetadata({ tag: editValues.tag.toUpperCase(), name: editValues.name, status: editValues.status, join_type: editValues.join_type, faction: editValues.faction })}>✔ guardar</span>
                                    <span style={{ color: '#ff3366', cursor: 'pointer' }} onClick={() => setEditMode(null)}>✖ cancelar</span>
                                 </span>
                             ) : (
-                                <span style={{ color: '#88aaff', fontSize: '0.8rem', cursor: 'pointer' }} onClick={() => {setEditMode('info'); setEditValues({tag: clan.tag, name: clan.name, status: clan.status || 'Reclutando'})}}>✎ editar</span>
+                                <span style={{ color: '#88aaff', fontSize: '0.8rem', cursor: 'pointer' }} onClick={() => {setEditMode('info'); setEditValues({tag: clan.tag, name: clan.name, status: clan.status || 'Reclutando', join_type: clan.join_type || 'Abierto', faction: clan.faction || 'MARS'})}}>✎ editar</span>
                             )
                           )}
                         </div>
@@ -590,10 +594,23 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                           </div>
                           
                           <div style={{ color: '#888' }}>Posición del clan:</div>
-                          <div style={{ color: '#fff' }}>0</div>
+                          <div style={{ color: '#00ffcc', fontWeight: 'bold' }}>#{clan.rank || 'N/A'}</div>
                           
                           <div style={{ color: '#888' }}>Afiliación a empresa:</div>
-                          <div style={{ color: '#fff' }}>{getCompanyName(clan.faction)}</div>
+                          {editMode === 'info' ? (
+                               <select 
+                                 value={editValues.faction} 
+                                 onChange={e => setEditValues({...editValues, faction: e.target.value})}
+                                 style={{ background: '#0a0f1a', color: '#fff', border: '1px solid #334466', padding: '2px 5px', outline: 'none', cursor: 'pointer' }}
+                               >
+                                   <option value="MARS">M.A.R.S.</option>
+                                   <option value="MOON">M.O.O.N.</option>
+                                   <option value="PLUTO">P.L.U.T.O.</option>
+                                   <option value="ALL">Multifacción</option>
+                               </select>
+                           ) : (
+                               <div style={{ color: '#fff' }}>{getCompanyName(clan.faction)}</div>
+                           )}
                           
                           <div style={{ color: '#888' }}>Tasa de impuestos:</div>
                           <div style={{ color: '#fff' }}>{clan.tax_rate || 0}% ({ Math.floor((clan.members || []).reduce((sum, m) => sum + (m.credits || 0), 0) * ((clan.tax_rate || 0) / 100)).toLocaleString() } CR diarios)</div>
@@ -1271,6 +1288,19 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                       style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid #334466', color: 'white', borderRadius: '4px', outline: 'none' }}
                       required
                     />
+                  </div>
+                   <div>
+                    <label style={{ display: 'block', color: '#ffcc00', marginBottom: '5px', fontSize: '0.8rem', textTransform: 'uppercase' }}>Afiliación de Empresa</label>
+                    <select 
+                      value={selectedFaction} 
+                      onChange={e => setSelectedFaction(e.target.value)} 
+                      style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid #334466', color: 'white', borderRadius: '4px', outline: 'none', cursor: 'pointer' }}
+                    >
+                      <option value="MARS">M.A.R.S.</option>
+                      <option value="MOON">M.O.O.N.</option>
+                      <option value="PLUTO">P.L.U.T.O.</option>
+                      <option value="ALL">Multifacción (Cualquiera puede unirse)</option>
+                    </select>
                   </div>
 
                   <div style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '4px', border: '1px solid #1a2a4a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -25,6 +25,8 @@ class GameState:
         self.auctions = self._init_auctions()
         from datetime import datetime
         self.last_reset_hour = datetime.now().hour
+        self.auction_duration = 3600
+        self.last_auction_reset = time.time()
         print(f"DEBUG: GameState iniciado con {len(self.auctions)} subastas. Hora local: {self.last_reset_hour}")
         
         # --- BASE Y ZONA SEGURA ---
@@ -321,7 +323,7 @@ class GameState:
             for _ in range(5):
                 self.spawn_special_chest(map_id)
 
-    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None, initial_wips=None, initial_eco=None):
+    def add_player(self, client_id, websocket, ship_type="tank", initial_level=1, initial_xp=0, initial_credits=2000, initial_paladio=0, initial_minerals=None, initial_upgrades=None, initial_modules=None, initial_ammo=None, user_id=None, faction="MARS", clan_tag=None, initial_wips=None, initial_eco=None, equipped_design=None):
         self.clients[client_id] = websocket
         
         prof = self.SHIP_PROFILES.get(ship_type, self.SHIP_PROFILES["starter"])
@@ -382,6 +384,7 @@ class GameState:
             "paladio": initial_paladio,
             "faction": faction, # Mars, Moon, Pluto
             "clan_tag": clan_tag,  # User created clan (e.g. [ABC])
+            "equipped_design": equipped_design,
             "repair_accumulated": 0.0,
             "last_repair_msg_time": 0.0,
             "active_missions": [],
@@ -405,6 +408,7 @@ class GameState:
         if user_id:
             try:
                 # Cargar misiones
+                from database import get_missions_db, get_user_stats_db
                 mission_data = get_missions_db(user_id)
                 player["active_missions"] = mission_data.get("active", [])
                 
@@ -421,7 +425,12 @@ class GameState:
                         player["wips"] = db_stats["wips"]
                     if "owned_ships" in db_stats:
                         player["owned_ships"] = db_stats["owned_ships"]
-                    print(f"Estado cargado desde DB para {user_id}: upgrades={initial_upgrades}, invisible={player['is_invisible']}, eco_active={player['eco'].get('active')}, ships={player['owned_ships']}")
+                    if "ammo" in db_stats:
+                        # Priorizar munición de DB sobre la recibida por el cliente
+                        db_ammo = db_stats["ammo"]
+                        player["ammo"] = {k: v for k, v in db_ammo.items() if not k.startswith("missile")}
+                        player["missiles"] = {k: v for k, v in db_ammo.items() if k.startswith("missile")}
+                    print(f"Estado cargado desde DB para {user_id}: ammo={player['ammo']}, missiles={player['missiles']}, ships={player['owned_ships']}")
             except Exception as e:
                 print(f"Error loading missions/upgrades for {user_id}: {e}")
 
@@ -451,8 +460,8 @@ class GameState:
         # Primera actualización de stats
         self.recalculate_player_stats(player)
  
-        if initial_ammo:
-            # Separar munición de láseres vs misiles
+        if initial_ammo and not user_id:
+            # Separar munición de láseres vs misiles (Solo si no hay datos persistentes en DB)
             for k, v in initial_ammo.items():
                 if k.startswith("missile_"):
                     player["missiles"][k] = v
@@ -477,6 +486,7 @@ class GameState:
             player["x"] = saved.get("x", 1750)
             player["y"] = saved.get("y", 1150)
             player["current_map"] = saved.get("current_map", "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"))
+            player["equipped_design"] = saved.get("equipped_design", equipped_design)
             
             # Use provided faction/clan if they are fresh, else use saved
             player["faction"] = faction
@@ -536,6 +546,7 @@ class GameState:
                     "missiles": player.get("missiles", {}).copy(),
                     "minerals": player.get("minerals", {}).copy(),
                     "is_invisible": player.get("is_invisible", False),
+                    "equipped_design": player.get("equipped_design"),
                     "last_save": time.time()
                 }
                 print(f"Guardando persistencia para {user_id}: Credits={player['credits']}, Map={player['current_map']}, Invisible={player.get('is_invisible')}")
@@ -931,7 +942,7 @@ class GameState:
         p["credits"] -= needed
         auction["highest_bid"] = amount
         auction["highest_bidder"] = user_id
-        auction["highest_bidder_name"] = p["display_name"]
+        auction["highest_bidder_name"] = p.get("display_name", p.get("user_id", "Piloto"))
         auction["player_bids"][user_id] = amount
         
         # Notificar al usuario que su puja es la líder
@@ -957,7 +968,7 @@ class GameState:
             if amount < auction["highest_bid"] + min_increment:
                 return False, f"Debes superar la puja actual por al menos {min_increment:,} Créditos adicionales"
             
-        from database import get_user_stats_db, update_user_credits
+        from database import get_user_stats_db, update_user_credits, send_system_message_db
         stats = get_user_stats_db(user_id)
         if not stats: return False, "Usuario no encontrado"
         
@@ -1037,9 +1048,13 @@ class GameState:
                 if "inventory" not in player: player["inventory"] = []
                 player["inventory"].append(item_id)
             elif item_type == "ammo":
-                count = 10000 if item_id != "missile_3" else 1000
-                if "ammo" not in player: player["ammo"] = {}
-                player["ammo"][item_id] = player["ammo"].get(item_id, 0) + count
+                count = 10000 if not item_id.startswith("missile") else 1000
+                if item_id.startswith("missile"):
+                    if "missiles" not in player: player["missiles"] = {"missile_1": 0, "missile_2": 0, "missile_3": 0}
+                    player["missiles"][item_id] = player["missiles"].get(item_id, 0) + count
+                else:
+                    if "ammo" not in player: player["ammo"] = {"standard": 0, "thermal": 0, "plasma": 0, "siphon": 0}
+                    player["ammo"][item_id] = player["ammo"].get(item_id, 0) + count
             
             self.recalculate_player_stats(player)
         else:
@@ -1062,8 +1077,8 @@ class GameState:
                         wips.append({"id": f"wip_{random.random()}", "type": item_id, "lvl": 1, "equipped": {"lasers": [], "generators": []}})
                         update_stats_offline(player_id, {"wips": wips})
                     elif item_type == "ammo":
-                        ammo = stats.get("ammo", {})
-                        count = 10000 if item_id != "missile_3" else 1000
+                        ammo = stats.get("ammo", {}) # Note: stats['ammo'] from DB contains combined ammo
+                        count = 10000 if not item_id.startswith("missile") else 1000
                         ammo[item_id] = ammo.get(item_id, 0) + count
                         update_stats_offline(player_id, {"ammo": ammo})
             except Exception as e:
@@ -2306,6 +2321,32 @@ class GameState:
                 else:
                     player[stat_key] += bonus_total
 
+        # 3. Aplicar Bonos de Diseño Legendario
+        design_id = player.get("equipped_design")
+        if design_id:
+            DESIGNS_BONUSES = {
+                "design_support_emerald": {"hp": 0.10, "shld": 0.10},
+                "design_sovereign_ember_fang": {"atk": 0.15, "spd": 0.05},
+                "design_harvester_industrial": {"atk": 0.20},
+                "design_solar_wind_eclipse": {"shld": 0.10, "absorption": 0.05},
+                "design_bastion_celestial": {"hp": 0.15, "shld": 0.15, "absorption": 0.15}
+            }
+            bonus = DESIGNS_BONUSES.get(design_id)
+            if bonus:
+                if "hp" in bonus: player["max_hp"] *= (1 + bonus["hp"])
+                if "shld" in bonus: player["max_shld"] *= (1 + bonus["shld"])
+                if "atk" in bonus: player["atk"] *= (1 + bonus["atk"])
+                if "spd" in bonus: player["spd"] *= (1 + bonus["spd"])
+                if "absorption" in bonus: player["shield_absorption"] += bonus["absorption"]
+
+        # 4. Asegurar Enteros para evitar decimales en HUD
+        player["max_hp"] = int(player["max_hp"])
+        player["max_shld"] = int(player["max_shld"])
+        player["hp"] = int(player["hp"])
+        player["shld"] = int(player["shld"])
+        player["atk"] = int(player["atk"])
+        player["spd"] = int(player["spd"])
+
         # Ajustar valores actuales si el máximo bajó
         player["shld"] = min(player["shld"], player["max_shld"])
         player["hp"] = min(player["hp"], player["max_hp"])
@@ -2596,7 +2637,32 @@ class GameState:
         
         print(f"Cambio de nave completado para {client_id}.")
 
+    def update_design(self, client_id, design_id):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        old_max_hp = player.get("max_hp", player.get("base_max_hp", 100))
+        old_max_shld = player.get("max_shld", player.get("base_max_shld", 100))
+        
+        player["equipped_design"] = design_id
+        self.recalculate_player_stats(player)
+        
+        # Escalar salud/escudo actual proporcionalmente al nuevo máximo
+        if old_max_hp > 0:
+            hp_ratio = player["hp"] / old_max_hp
+            player["hp"] = player["max_hp"] * hp_ratio
+        if old_max_shld > 0:
+            shld_ratio = player["shld"] / old_max_shld
+            player["shld"] = player["max_shld"] * shld_ratio
+            
+        print(f"Diseño actualizado y stats escaladas para {client_id}: {design_id}")
+
     def gain_xp(self, player, amount):
+        # Aplicar bono de diseño si corresponde
+        design_id = player.get("equipped_design")
+        if design_id == "design_sovereign_ember_fang":
+            amount = int(amount * 1.15)
+            
         # El 15% de la experiencia se desvía al ECO si está activo
         if player.get("eco") and player["eco"].get("active"):
             eco_portion = int(amount * 0.15)

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getItemById } from '../utils/gameData';
 import './Auctions.css';
 
 const Auctions = ({ auctions, resetIn, onBid, userCredits, onBack }) => {
@@ -85,7 +86,9 @@ const Auctions = ({ auctions, resetIn, onBid, userCredits, onBack }) => {
               auctions.map((auc) => (
                 <tr key={auc.id} className={auc.your_bid > 0 ? 'active-bid' : ''}>
                   <td className="item-name">
-                    <div className="item-icon">{getItemIcon(auc.item_id)}</div>
+                    <div className="item-icon-wrapper">
+                      {getItemDisplay(auc.item_id)}
+                    </div>
                     {auc.name}
                   </td>
                   <td className="item-value">{auc.value}</td>
@@ -126,15 +129,13 @@ const Auctions = ({ auctions, resetIn, onBid, userCredits, onBack }) => {
   );
 };
 
-const getItemIcon = (id) => {
-    if (id.includes('goliath')) return '🚀';
-    if (id.includes('vengeance')) return '⚡';
-    if (id.includes('revenge')) return '🦅';
-    if (id.includes('sparks')) return '🛰️';
-    if (id.includes('cpu')) return '💾';
-    if (id.includes('rep')) return '🔧';
-    if (id.includes('carga')) return '📦';
-    return '📦';
+const getItemDisplay = (id) => {
+    const item = getItemById(id);
+    if (item) {
+        if (item.image) return <img src={item.image} alt={item.name} className="auction-item-img" />;
+        return <span className="auction-item-emoji">{item.icon || '📦'}</span>;
+    }
+    return <span className="auction-item-emoji">📦</span>;
 };
 
 export default Auctions;

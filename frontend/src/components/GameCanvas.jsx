@@ -5,7 +5,7 @@ import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, onUpdateOwnedShips }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, onUpdateOwnedShips, equippedDesign }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -385,13 +385,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
     user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag,
-    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco
+    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, equippedDesign
   });
   
   useEffect(() => {
     propsRef.current = {
       user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag,
-      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco
+      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, equippedDesign
     };
   });
 
@@ -620,9 +620,14 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         // Smooth Chasing / Interpolation for Players
         state.players?.forEach(p => {
           if (p.hp > 0 && p.tx !== undefined) {
+             if (p.tx == null || isNaN(p.tx)) p.tx = p.x || 0;
+             if (p.ty == null || isNaN(p.ty)) p.ty = p.y || 0;
+             if (p.x == null || isNaN(p.x)) p.x = p.tx;
+             if (p.y == null || isNaN(p.y)) p.y = p.ty;
+             
              const dist = Math.hypot(p.tx - p.x, p.ty - p.y);
              // Si hay demasiada diferencia (lag spike), hacer salto instantáneo (snap)
-             if (dist > 500) {
+             if (dist > 500 || isNaN(dist)) {
                  p.x = p.tx; p.y = p.ty;
              } else {
                  // El jugador propio necesita interpolación más agresiva
@@ -697,10 +702,17 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           if (me) {
             const m_width = gameStateRef.current.map_width || 10000;
             const m_height = gameStateRef.current.map_height || 8000;
-            cameraRef.current.x = Math.max(0, Math.min(m_width - canvas.width, me.x - canvas.width / 2));
-            cameraRef.current.y = Math.max(0, Math.min(m_height - canvas.height, me.y - canvas.height / 2));
+            const safeMeX = isNaN(me.x) ? 0 : (me.x || 0);
+            const safeMeY = isNaN(me.y) ? 0 : (me.y || 0);
+            cameraRef.current.x = Math.max(0, Math.min(m_width - canvas.width, safeMeX - canvas.width / 2)) || 0;
+            cameraRef.current.y = Math.max(0, Math.min(m_height - canvas.height, safeMeY - canvas.height / 2)) || 0;
           }
-          drawGame(ctx, { ...gameStateRef.current, selectedTargetId: keys.current.locked_target_id }, cameraRef.current.x, cameraRef.current.y);
+          try {
+            drawGame(ctx, { ...gameStateRef.current, selectedTargetId: keys.current.locked_target_id }, cameraRef.current.x, cameraRef.current.y);
+          } catch (e) {
+            console.error("Rendering error:", e);
+            setError(e.stack || e.toString());
+          }
         }
       }
       animationId = requestAnimationFrame(renderLoop);
@@ -755,7 +767,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         minerals: p.initialMinerals, upgrades: p.initialUpgrades,
         clan: p.initialClan, clanTag: p.initialClanTag,
         wips: p.initialWips,
-        eco: p.initialEco
+        eco: p.initialEco,
+        equippedDesign: p.equippedDesign
       }));
       joinSentRef.current = true;
     }
@@ -789,6 +802,15 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       }));
     }
   }, [initialUpgrades, gameStarted]);
+
+  useEffect(() => {
+    if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      wsRef.current.send(JSON.stringify({ 
+        type: 'update_design', 
+        equippedDesign: equippedDesign 
+      }));
+    }
+  }, [equippedDesign, gameStarted]);
 
   useEffect(() => {
     if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
@@ -975,8 +997,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span style={{ fontSize: '0.65rem', color: '#ff4466', fontWeight: 'bold', fontFamily: 'Orbitron' }}>❤️ CASCO</span>
                             <span style={{ fontSize: '0.65rem', color: '#fff', fontFamily: 'Orbitron' }}>
-                                {Math.floor(hudState?.hp ?? 0)} / {hudState?.max_hp ?? 0}
-                                {gameState?.timed_bonuses?.hp > 0 && <span style={{ color: '#ff4466', fontSize: '0.6rem', marginLeft: '4px' }}>(+{gameState.timed_bonuses.hp})</span>}
+                                {Math.floor(hudState?.hp ?? 0)} / {Math.floor(hudState?.max_hp ?? 0)}
+                                {gameState?.timed_bonuses?.hp > 0 && <span style={{ color: '#ff4466', fontSize: '0.6rem', marginLeft: '4px' }}>(+{Math.floor(gameState.timed_bonuses.hp)})</span>}
                             </span>
                         </div>
                         <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(255,68,102,0.2)' }}>
@@ -995,8 +1017,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span style={{ fontSize: '0.65rem', color: '#00aaff', fontWeight: 'bold', fontFamily: 'Orbitron' }}>🛡️ ESCUDO</span>
                             <span style={{ fontSize: '0.65rem', color: '#fff', fontFamily: 'Orbitron' }}>
-                                {Math.floor(hudState?.shld ?? 0)} / {hudState?.max_shld ?? 0}
-                                {gameState?.timed_bonuses?.shld > 0 && <span style={{ color: '#00aaff', fontSize: '0.6rem', marginLeft: '4px' }}>(+{gameState.timed_bonuses.shld})</span>}
+                                {Math.floor(hudState?.shld ?? 0)} / {Math.floor(hudState?.max_shld ?? 0)}
+                                {gameState?.timed_bonuses?.shld > 0 && <span style={{ color: '#00aaff', fontSize: '0.6rem', marginLeft: '4px' }}>(+{Math.floor(gameState.timed_bonuses.shld)})</span>}
                             </span>
                         </div>
                         <div style={{ width: '100%', height: '6px', background: 'rgba(0,0,0,0.5)', borderRadius: '3px', overflow: 'hidden', border: '1px solid rgba(0,170,255,0.2)' }}>

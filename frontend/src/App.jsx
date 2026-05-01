@@ -11,7 +11,7 @@ import FactionSelect from './components/FactionSelect'
 import AdminPanel from './components/AdminPanel'
 import TopBar from './components/TopBar'
 import NavigationBar from './components/NavigationBar'
-import { SHIPS, WIPS_CATALOG } from './utils/gameData'
+import { SHIPS, WIPS_CATALOG, getItemById } from './utils/gameData'
 import Ranking from './components/Ranking'
 import Packages from './components/Packages'
 import Missions from './components/Missions'
@@ -110,6 +110,8 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
   const [onlineCount, setOnlineCount] = useState(0);
 
   const [isInvisible, setIsInvisible] = useState(() => {
@@ -125,6 +127,30 @@ function App() {
     const saved = localStorage.getItem('game_wips');
     return saved ? JSON.parse(saved) : [];
   });
+
+  const [equippedDesigns, setEquippedDesigns] = useState(() => {
+    const saved = localStorage.getItem('game_equipped_designs');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'game_equipped_designs' && e.newValue) {
+        setEquippedDesigns(JSON.parse(e.newValue));
+      }
+      if (e.key === 'selected_ship_id' && e.newValue) {
+        setSelectedShipId(e.newValue);
+      }
+      if (e.key === 'game_credits' && e.newValue) {
+        setCredits(parseInt(e.newValue));
+      }
+      if (e.key === 'game_paladio' && e.newValue) {
+        setPaladio(parseInt(e.newValue));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const [eco, setEco] = useState(() => {
     const saved = localStorage.getItem('game_eco');
@@ -186,11 +212,20 @@ function App() {
       setCurrentView('reset_password');
     }
     fetchLeaderboard();
+    fetchUnreadCount();
     if (user) {
       fetchClanData(user.username);
     }
-    // No longer calling fetchOnlineCount here, handled by WS useEffect
 
+    // Polling para correos sin leer cada 30 segundos
+    const unreadInterval = setInterval(() => {
+      if (user) fetchUnreadCount();
+    }, 30000);
+
+    return () => clearInterval(unreadInterval);
+  }, [user, API_URL]);
+
+  useEffect(() => {
     // Sincronización de Sesión de Juego entre pestañas
     const syncGameSession = (e) => {
       if (e.key === 'og_game_running') {
@@ -227,6 +262,19 @@ function App() {
       if (data.leaderboard) setLeaderboard(data.leaderboard);
     } catch (e) {
       console.error("Error fetching leaderboard:", e);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    if (!user) return;
+    try {
+      const resp = await fetch(`${API_URL}/mail/unread_count/${user.username}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setUnreadMessages(data.count || 0);
+      }
+    } catch (e) {
+      console.error("Error fetching unread count:", e);
     }
   };
 
@@ -353,13 +401,113 @@ function App() {
             equipped: equippedByShip,
             timed_upgrades: upgrades,
             wips,
-            eco
+            eco,
+            ammo
           })
         });
       } catch (e) {
         console.log("Sync error:", e);
       }
     }, 500); // 500ms debounce
+  };
+
+  const hydrateInventory = (rawInventory) => {
+    if (!rawInventory) return [];
+    
+    const hydrated = [];
+    const ammoToRestore = {};
+
+    rawInventory.forEach(item => {
+      if (typeof item === 'string') {
+        const itemDef = getItemById(item);
+        if (itemDef) {
+          // If it's ammo or fuel that ended up in inventory by mistake
+          if (itemDef.isStackable || itemDef.id.startsWith('missile') || ['thermal', 'plasma', 'siphon', 'standard'].includes(itemDef.id)) {
+            const amount = itemDef.id.startsWith('missile') ? 1000 : 10000;
+            ammoToRestore[item] = (ammoToRestore[item] || 0) + amount;
+          } else {
+            // It's a module ID
+            hydrated.push({ ...itemDef, instanceId: Date.now() + Math.random() });
+          }
+        }
+      } else {
+        // It's already an object
+        hydrated.push(item);
+      }
+    });
+
+    if (Object.keys(ammoToRestore).length > 0 || rawInventory.some(i => typeof i === 'string')) {
+      if (Object.keys(ammoToRestore).length > 0) {
+        setAmmo(prev => {
+          const newAmmo = { ...prev };
+          Object.keys(ammoToRestore).forEach(id => {
+            newAmmo[id] = (newAmmo[id] || 0) + ammoToRestore[id];
+          });
+          return newAmmo;
+        });
+      }
+      // Force a sync soon to clean up the DB and persist hydrated objects
+      setTimeout(syncStats, 2000);
+    }
+
+    return hydrated;
+  };
+
+  const hydrateEquipped = (rawEquipped) => {
+    if (!rawEquipped) return {};
+    const hydrated = {};
+    let changed = false;
+    Object.keys(rawEquipped).forEach(shipId => {
+      hydrated[shipId] = rawEquipped[shipId].map(item => {
+        if (typeof item === 'string') {
+          const def = getItemById(item);
+          changed = true;
+          return def ? { ...def, instanceId: Date.now() + Math.random() } : null;
+        }
+        return item;
+      }).filter(Boolean);
+    });
+    if (changed) setTimeout(syncStats, 2000);
+    return hydrated;
+  };
+
+  const hydrateWips = (rawWips) => {
+    if (!rawWips) return [];
+    let changed = false;
+    const hydrated = rawWips.map(wip => {
+      const hydratedEquipped = (wip.equipped || []).map(item => {
+        if (typeof item === 'string') {
+          const def = getItemById(item);
+          changed = true;
+          return def ? { ...def, instanceId: Date.now() + Math.random() } : null;
+        }
+        return item;
+      }).filter(Boolean);
+      return { ...wip, equipped: hydratedEquipped };
+    });
+    if (changed) setTimeout(syncStats, 2000);
+    return hydrated;
+  };
+
+  const hydrateEco = (rawEco) => {
+    if (!rawEco) return { active: false };
+    if (!rawEco.equipped) return rawEco;
+    
+    let changed = false;
+    const hydratedEquipped = {};
+    Object.keys(rawEco.equipped).forEach(type => {
+      hydratedEquipped[type] = rawEco.equipped[type].map(item => {
+        if (typeof item === 'string') {
+          const def = getItemById(item);
+          changed = true;
+          return def ? { ...def, instanceId: Date.now() + Math.random() } : null;
+        }
+        return item;
+      }).filter(Boolean);
+    });
+    
+    if (changed) setTimeout(syncStats, 2000);
+    return { ...rawEco, equipped: hydratedEquipped };
   };
 
   const refreshStats = async () => {
@@ -378,19 +526,25 @@ function App() {
           setOwnedShips(data.owned_ships);
         }
         if (data.inventory && JSON.stringify(data.inventory) !== JSON.stringify(inventory)) {
-          setInventory(data.inventory);
+          setInventory(hydrateInventory(data.inventory));
         }
         if (data.is_invisible !== undefined && data.is_invisible !== isInvisible) {
           setIsInvisible(data.is_invisible);
         }
         if (data.equipped && JSON.stringify(data.equipped) !== JSON.stringify(equippedByShip)) {
-          setEquippedByShip(data.equipped);
+          setEquippedByShip(hydrateEquipped(data.equipped));
         }
         if (data.minerals && JSON.stringify(data.minerals) !== JSON.stringify(minerals)) {
           setMinerals(data.minerals);
         }
+        if (data.wips && JSON.stringify(data.wips) !== JSON.stringify(wips)) {
+          setWips(hydrateWips(data.wips));
+        }
         if (data.eco && JSON.stringify(data.eco) !== JSON.stringify(eco)) {
-          setEco(data.eco);
+          setEco(hydrateEco(data.eco));
+        }
+        if (data.ammo && JSON.stringify(data.ammo) !== JSON.stringify(ammo)) {
+          setAmmo(data.ammo);
         }
         if (data.auctions) {
           console.log("Subastas recibidas:", data.auctions.length);
@@ -560,12 +714,14 @@ function App() {
         localStorage.setItem('owned_ships', JSON.stringify(data.owned_ships));
       }
       if (data.inventory) {
-        setInventory(data.inventory);
-        localStorage.setItem('game_inventory', JSON.stringify(data.inventory));
+        const hydrated = hydrateInventory(data.inventory);
+        setInventory(hydrated);
+        localStorage.setItem('game_inventory', JSON.stringify(hydrated));
       }
       if (data.equipped) {
-        setEquippedByShip(data.equipped);
-        localStorage.setItem('equipped_modules', JSON.stringify(data.equipped));
+        const hydrated = hydrateEquipped(data.equipped);
+        setEquippedByShip(hydrated);
+        localStorage.setItem('equipped_modules', JSON.stringify(hydrated));
       }
       if (data.minerals) {
         setMinerals(data.minerals);
@@ -579,12 +735,18 @@ function App() {
         setIsInvisible(data.is_invisible);
       }
       if (data.wips) {
-        setWips(data.wips);
-        localStorage.setItem('game_wips', JSON.stringify(data.wips));
+        const hydrated = hydrateWips(data.wips);
+        setWips(hydrated);
+        localStorage.setItem('game_wips', JSON.stringify(hydrated));
       }
       if (data.eco) {
-        setEco(data.eco);
-        localStorage.setItem('game_eco', JSON.stringify(data.eco));
+        const hydrated = hydrateEco(data.eco);
+        setEco(hydrated);
+        localStorage.setItem('game_eco', JSON.stringify(hydrated));
+      }
+      if (data.ammo) {
+        setAmmo(data.ammo);
+        localStorage.setItem('game_ammo', JSON.stringify(data.ammo));
       }
 
       if (!data.faction) {
@@ -782,11 +944,30 @@ function App() {
     
     const currentEquipped = equippedByShip[shipId] || [];
     
+    // RESTRICCIÓN: Solo una CPU de expansión de ranuras por nave
+    const isSlotCpu = module.extraSlots || module.extraLaserSlots || module.extraShieldSlots || module.extraEngineSlots;
+    if (isSlotCpu) {
+      const alreadyHasSlotCpu = currentEquipped.some(m => 
+        m.extraSlots || m.extraLaserSlots || m.extraShieldSlots || m.extraEngineSlots
+      );
+      if (alreadyHasSlotCpu) {
+        alert("⚠️ Error: Solo puedes equipar UNA CPU de expansión de ranuras por nave.");
+        return;
+      }
+    }
+    
     // Calcular ranuras disponibles dinámicamente
     const extraUtilitySlots = currentEquipped.reduce((acc, m) => acc + (m.extraSlots || 0), 0);
-    const totalSlotsForType = (module.type === 'utility') 
-      ? (ship.slots.utility + extraUtilitySlots) 
-      : (ship.slots[module.type] || 0);
+    const extraLaserSlots = currentEquipped.reduce((acc, m) => acc + (m.extraLaserSlots || 0), 0);
+    const extraShieldSlots = currentEquipped.reduce((acc, m) => acc + (m.extraShieldSlots || 0), 0);
+    const extraEngineSlots = currentEquipped.reduce((acc, m) => acc + (m.extraEngineSlots || 0), 0);
+
+    let totalSlotsForType = 0;
+    if (module.type === 'utility') totalSlotsForType = (ship.slots.utility || 0) + extraUtilitySlots;
+    else if (module.type === 'lasers') totalSlotsForType = (ship.slots.lasers || 0) + extraLaserSlots;
+    else if (module.type === 'shields') totalSlotsForType = (ship.slots.shields || 0) + extraShieldSlots;
+    else if (module.type === 'engines') totalSlotsForType = (ship.slots.engines || 0) + extraEngineSlots;
+    else totalSlotsForType = ship.slots[module.type] || 0;
 
     const usedSlots = currentEquipped.filter(m => m.type === module.type).length;
     
@@ -1022,6 +1203,27 @@ function App() {
     const module = currentEquipped.find(m => m.instanceId === instanceId);
     if (!module) return;
 
+    // PROTECCIÓN: No permitir quitar CPU de ranuras si hay módulos que dependen de ellas
+    const isSlotCpu = module.extraSlots || module.extraLaserSlots || module.extraShieldSlots || module.extraEngineSlots;
+    if (isSlotCpu) {
+      const ship = SHIPS.find(s => s.id === shipId);
+      const remaining = currentEquipped.filter(m => m.instanceId !== instanceId);
+      
+      const checkCategory = (type, extraProp) => {
+        const equippedCount = remaining.filter(m => m.type === type).length;
+        const availableSlots = (ship.slots[type] || 0) + remaining.reduce((acc, m) => acc + (m[extraProp] || 0), 0);
+        return equippedCount <= availableSlots;
+      };
+
+      if (!checkCategory('utility', 'extraSlots') || 
+          !checkCategory('lasers', 'extraLaserSlots') || 
+          !checkCategory('shields', 'extraShieldSlots') || 
+          !checkCategory('engines', 'extraEngineSlots')) {
+        alert("⚠️ No puedes desequipar esta CPU: Tienes demasiados módulos instalados. Quita primero algunos módulos para liberar espacio.");
+        return;
+      }
+    }
+
     // Move from ship to inventory
     setEquippedByShip(prev => ({
       ...prev,
@@ -1082,6 +1284,19 @@ function App() {
 
   const handleUpdatePaladio = (newUridium) => {
     setPaladio(newUridium);
+  };
+
+  const handleEquipDesign = (shipId, designId) => {
+    setEquippedDesigns(prev => {
+      const next = { ...prev };
+      if (designId) {
+        next[shipId] = designId;
+      } else {
+        delete next[shipId];
+      }
+      localStorage.setItem('game_equipped_designs', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleBuyShip = (shipId, shipCost) => {
@@ -1156,7 +1371,7 @@ function App() {
             onLogout={handleLogout} 
             onNavigate={setCurrentView} 
           />
-          <NavigationBar currentView={currentView} onNavigate={setCurrentView} />
+          <NavigationBar currentView={currentView} onNavigate={setCurrentView} unreadCount={unreadMessages} />
         </>
       )}
 
@@ -1211,12 +1426,14 @@ function App() {
           paladio={paladio}
           xp={xp}
           level={level}
+          unreadCount={unreadMessages}
           minerals={minerals}
           selectedShipId={selectedShipId}
           equippedByShip={equippedByShip}
           upgrades={upgrades}
           leaderboard={leaderboard}
           isGameActive={isGameActive}
+          equippedDesign={equippedDesigns[selectedShipId]}
         />
       )}
 
@@ -1236,7 +1453,6 @@ function App() {
             onNavigate={setCurrentView}
           />
         )}
-        {currentView === 'ranking' && <Ranking onNavigate={setCurrentView} />}
 
       {currentView === 'hangar' && (
         <Hangar 
@@ -1264,6 +1480,8 @@ function App() {
           wips={wips}
           onEquipWip={handleEquipWip}
           onUnequipWip={handleUnequipWip}
+          equippedDesigns={equippedDesigns}
+          onEquipDesign={handleEquipDesign}
           eco={eco}
           onEquipEco={handleEquipEco}
           onUnequipEco={handleUnequipEco}
@@ -1345,7 +1563,7 @@ function App() {
       )}
 
         {currentView === 'ranking' && (
-          <Ranking leaderboard={leaderboard} onBack={() => setCurrentView('menu')} />
+          <Ranking onBack={() => setCurrentView('menu')} />
         )}
 
         {currentView === 'packages' && (
@@ -1360,8 +1578,12 @@ function App() {
         {currentView === 'messages' && (
         <MessagesPage 
           user={user} 
-          onBack={() => setCurrentView('menu')} 
+          onBack={() => {
+            setCurrentView('menu');
+            fetchUnreadCount();
+          }} 
           onNavigate={setCurrentView}
+          onRefreshUnread={fetchUnreadCount}
         />
       )}
 
@@ -1406,6 +1628,7 @@ function App() {
             onUpdateWips={(newWips) => setWips(newWips)}
             onUpdateEco={(newEco) => setEco(newEco)}
             onUpdateOwnedShips={setOwnedShips}
+            equippedDesign={equippedDesigns[selectedShipId]}
           />
         </>
       )}

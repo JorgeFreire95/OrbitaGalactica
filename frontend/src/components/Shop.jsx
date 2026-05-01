@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, ECO_FUEL, ECO_REPAIR, ECO_COLLECTOR, ECO_TRACKER, ECO_KAMIKAZE, ECO_SELF_REPAIR, getRank } from '../utils/gameData';
+import { SHIPS, MODULES_CATALOG, AMMO_CATALOG, MISSILE_CATALOG, MINERAL_TYPES, WIPS_CATALOG, ECO_CONFIG, ECO_PROTOCOLS, ECO_FUEL, ECO_REPAIR, ECO_COLLECTOR, ECO_TRACKER, ECO_KAMIKAZE, ECO_SELF_REPAIR, DESIGNS_CATALOG, getRank } from '../utils/gameData';
 import NavigationBar from './NavigationBar';
 import ShipIcon from './ShipIcon';
 
@@ -57,12 +57,13 @@ export default function Shop({
 
   const categories = [
     { id: 'naves', label: 'Naves', icon: '🚀' },
+    { id: 'disenos', label: 'Diseños', icon: '🎨' },
     { id: 'armas', label: 'Armas', icon: '🎯' },
     { id: 'generadores', label: 'Generadores', icon: '🛡️' },
     { id: 'municion', label: 'Munición', icon: '📦' },
-    { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'wips', label: 'Wips', icon: '🛰️' },
     { id: 'eco', label: 'E.C.O.', icon: '🤖' },
+    { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'materiales', label: 'Materiales', icon: '💎' },
   ];
 
@@ -76,6 +77,7 @@ export default function Shop({
       case 'extras': raw = MODULES_CATALOG.filter(m => m.type === 'utility'); break;
       case 'wips': raw = WIPS_CATALOG; break;
       case 'eco': raw = [ECO_CONFIG, ...ECO_REPAIR, ...ECO_COLLECTOR, ...ECO_TRACKER, ...ECO_KAMIKAZE, ...ECO_SELF_REPAIR, ...ECO_FUEL, ...ECO_PROTOCOLS]; break;
+      case 'disenos': raw = DESIGNS_CATALOG; break;
       case 'materiales': raw = MINERAL_TYPES; break;
     }
 
@@ -264,9 +266,17 @@ export default function Shop({
               {activeCategory === 'eco' && item.id === 'eco' && eco.active && (
                 <div style={{ position: 'absolute', top: '5px', left: '5px', background: '#00ffcc', color: 'black', fontSize: '0.6rem', padding: '2px 5px', borderRadius: '3px', fontWeight: 'bold', zIndex: 10 }}>ADQUIRIDO</div>
               )}
+              {activeCategory === 'disenos' && inventory.find(i => i.id === item.id) && (
+                <div style={{ position: 'absolute', top: '5px', left: '5px', background: '#00ffcc', color: 'black', fontSize: '0.6rem', padding: '2px 5px', borderRadius: '3px', fontWeight: 'bold', zIndex: 10 }}>ADQUIRIDO</div>
+              )}
               <div style={{ fontSize: '2.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50px' }}>
                 {activeCategory === 'naves' ? (
                   <ShipIcon type={item.id} image={item.image} color={item.color || (item.id === 'sovereign' ? '#e6b800' : '#00b3ff')} size={50} />
+                ) : activeCategory === 'disenos' ? (
+                  <div style={{ position: 'relative' }}>
+                    <ShipIcon type={item.ship_id} image={item.image} color="#fff" size={50} />
+                    <div style={{ position: 'absolute', bottom: -5, right: -5, background: '#000', borderRadius: '50%', padding: '2px' }}>🎨</div>
+                  </div>
                 ) : (
                   item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', objectFit: 'contain' }} /> : item.icon
                 )}
@@ -585,11 +595,11 @@ export default function Shop({
                   </div>
                   <button 
                     className="buy-button" 
-                    disabled={isMineral ? amountOwned === 0 : (activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) || !isAffordable}
+                    disabled={isMineral ? amountOwned === 0 : (activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) || (activeCategory === 'disenos' && inventory.find(i => i.id === currentItem.id)) || !isAffordable}
                     onClick={handleAction}
-                    style={{ background: ((activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active)) ? '#333' : '' }}
+                    style={{ background: ((activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) || (activeCategory === 'disenos' && inventory.find(i => i.id === currentItem.id))) ? '#333' : '' }}
                   >
-                    {(activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) ? 'YA EN PROPIEDAD' : isMineral ? 'VENDER TODO' : 'COMPRAR'}
+                    {(activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) || (activeCategory === 'disenos' && inventory.find(i => i.id === currentItem.id)) ? 'YA EN PROPIEDAD' : isMineral ? 'VENDER TODO' : 'COMPRAR'}
                   </button>
                 </div>
               </>
