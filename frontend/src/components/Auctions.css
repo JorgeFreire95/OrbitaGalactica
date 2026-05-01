@@ -1,0 +1,224 @@
+.auctions-container {
+  padding: 30px;
+  color: #fff;
+  background: rgba(0, 5, 15, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  box-shadow: 0 0 40px rgba(0, 150, 255, 0.15);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.auctions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 2px solid rgba(0, 200, 255, 0.2);
+  padding-bottom: 15px;
+}
+
+.auctions-header h1 {
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 4px;
+  background: linear-gradient(to right, #00c8ff, #0077ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.back-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ccc;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.timer-badge {
+  background: rgba(255, 50, 50, 0.1);
+  border: 1px solid #ff3232;
+  padding: 8px 15px;
+  border-radius: 6px;
+  font-family: 'Roboto Mono', monospace;
+  font-weight: bold;
+  color: #ff3232;
+}
+
+.timer-badge span {
+  color: #fff;
+  margin-left: 5px;
+}
+
+.auctions-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px 25px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+}
+
+.user-credits {
+  font-size: 1.1rem;
+  color: #aaa;
+}
+
+.user-credits span {
+  color: #ffcc00;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+}
+
+.auctions-table-container {
+  overflow-x: auto;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.auctions-table-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.auctions-table-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.auctions-table-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 200, 255, 0.3);
+  border-radius: 4px;
+}
+
+.auctions-table-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 200, 255, 0.5);
+}
+
+.auctions-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.auctions-table th {
+  padding: 15px;
+  background: rgba(10, 20, 40, 0.95);
+  color: #00c8ff;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.auctions-table td {
+  padding: 20px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.auctions-table tr:hover {
+  background: rgba(0, 200, 255, 0.03);
+}
+
+.active-bid {
+  background: rgba(0, 255, 150, 0.05) !important;
+}
+
+.item-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.item-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 1.2rem;
+}
+
+.item-value {
+  color: #00ffcc;
+  font-family: 'Roboto Mono', monospace;
+}
+
+.best-bidder {
+  color: #aaa;
+}
+
+.bid-amount {
+  font-weight: bold;
+  color: #ffcc00;
+  font-size: 1.1rem;
+}
+
+.your-bid {
+  color: #00ff96;
+  font-weight: bold;
+}
+
+.bid-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.bid-controls input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 120px;
+  outline: none;
+}
+
+.bid-controls input:focus {
+  border-color: #00c8ff;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.2);
+}
+
+.bid-controls button {
+  background: linear-gradient(to bottom, #00c8ff, #0077ff);
+  border: none;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bid-controls button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 150, 255, 0.3);
+}
+
+.bid-controls button:active {
+  transform: translateY(0);
+}

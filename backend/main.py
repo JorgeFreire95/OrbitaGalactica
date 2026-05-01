@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 import os
 import requests
+import time
 from typing import Optional, List, Dict
 
 import mercadopago
@@ -345,6 +346,9 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "jump_portal" and player_added:
                 game_state.jump_portal(client_id)
 
+            elif data.get("type") == "use_cloak" and player_added:
+                game_state.use_cloak(client_id)
+
             elif data.get("type") == "chat" and player_added:
                 text = data.get("text")
                 channel = data.get("channel", "global")
@@ -413,6 +417,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 sender_name = data.get("sender")
                 if sender_name:
                     game_state.handle_friend_accept(client_id, sender_name)
+            
+            elif data.get("type") == "auction_bid" and player_added:
+                auction_id = data.get("auction_id")
+                amount = data.get("amount")
+                if auction_id and amount:
+                    game_state.place_auction_bid(client_id, auction_id, amount)
                 
     except WebSocketDisconnect as e:
         logger.info(f"DEBUG: Game client disconnected: {client_id} Code: {e.code}")
@@ -764,7 +774,41 @@ async def api_get_user_stats(username: str):
     stats = get_user_stats_db(username)
     if not stats:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Añadir info de subastas (Sincronizado con hora local)
+    from datetime import datetime
+    now_dt = datetime.now()
+    seconds_until_next_hour = 3600 - (now_dt.minute * 60 + now_dt.second)
+    
+    stats["auctions"] = [{**auc, "your_bid": auc["player_bids"].get(username, 0)} for auc in game_state.auctions]
+    stats["auction_reset_in"] = seconds_until_next_hour
+    print(f"DEBUG: Enviando {len(stats['auctions'])} subastas. Reset en {seconds_until_next_hour}s")
     return stats
+
+class AuctionBidRequest(BaseModel):
+    username: str
+    auction_id: str
+    amount: int
+
+@app.post("/api/auctions/bid")
+async def api_auction_bid(req: AuctionBidRequest):
+    # Primero buscamos si el jugador está en el juego
+    client_id = None
+    for cid, p in game_state.players.items():
+        if p.get("user_id") == req.username:
+            client_id = cid
+            break
+    
+    if client_id:
+        success, msg = game_state.place_auction_bid(client_id, req.auction_id, req.amount)
+        if not success:
+            raise HTTPException(status_code=400, detail=msg)
+        return {"success": True, "message": msg}
+    else:
+        success, msg = game_state.place_auction_bid_offline(req.username, req.auction_id, req.amount)
+        if not success:
+            raise HTTPException(status_code=400, detail=msg)
+        return {"success": True, "message": msg}
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):

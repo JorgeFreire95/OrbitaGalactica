@@ -18,112 +18,114 @@ export const SHIPS = [
     id: 'tank',
     name: 'Aegis Vanguard',
     hp: 260000,
-    shld: 0,
+    shld: 150,
     atk: 70,
     spd: 260,
     color: '#ffb300',
     desc: 'Un acorazado pesado diseñado para absorber grandes cantidades de castigo.',
     image: '/aegis_vanguard_v2.png?v=2',
     ui_image: '/aegis_vanguard_v2.png?v=2',
-    slots: { lasers: 2, shields: 6, engines: 3, utility: 2 },
+    slots: { lasers: 8, shields: 10, engines: 5, utility: 3 },
     cargo_capacity: 800,
-    cost: 0
+    cost: 285000
   },
   {
     id: 'fast',
     name: 'Nova Striker (Rápida)',
     hp: 116000,
     atk: 110,
-    spd: 160,
+    spd: 330,
     color: '#00ccff',
     desc: 'Frágil pero muy rápida ⚡',
     image: '/nova_striker_v2.png?v=2',
-    slots: { lasers: 3, shields: 2, engines: 7, utility: 2 },
+    slots: { lasers: 4, shields: 3, engines: 3, utility: 2 },
     shld: 50,
     cargo_capacity: 500,
-    cost: 0
+    cost: 70000
   },
   {
     id: 'stealth',
     name: 'Orion Phantom',
     hp: 164000,
-    shld: 0,
+    shld: 80,
     atk: 130,
     spd: 360,
     color: '#9933ff',
     desc: 'Una nave de asalto sigilosa capaz de emboscar enemigos sin ser detectada.',
     image: '/orion_phantom_v2.png?v=2',
     ui_image: '/orion_phantom_v2.png?v=2',
-    slots: { lasers: 5, shields: 3, engines: 4, utility: 3 },
+    slots: { lasers: 6, shields: 4, engines: 4, utility: 2 },
     cargo_capacity: 600,
-    cost: 0
+    cost: 100000
   },
   {
     id: 'heavy',
     name: 'Titan Hammer',
     hp: 356000,
-    shld: 0,
+    shld: 150,
     atk: 180,
     spd: 300,
     color: '#ff3333',
     desc: 'Una nave pesada con una potencia de fuego devastadora y un blindaje impenetrable.',
     image: '/titan_hammer_v2.png?v=2',
     ui_image: '/titan_hammer_v2.png?v=2',
-    slots: { lasers: 8, shields: 4, engines: 2, utility: 1 },
+    slots: { lasers: 15, shields: 7, engines: 7, utility: 3 },
     cargo_capacity: 1500,
-    cost: 0
+    cost: 100000,
+    currency: 'paladio'
   },
   {
     id: 'support',
     name: 'Helix Support',
     hp: 375000,
-    shld: 0,
+    shld: 120,
     atk: 60,
     spd: 300,
     color: '#33ff99',
     desc: 'Una nave de apoyo táctico con sistemas avanzados de reparación y una bodega masiva.',
     image: '/helix_support_v2.png?v=2',
     ui_image: '/helix_support_v2.png?v=2',
-    slots: { lasers: 2, shields: 3, engines: 4, utility: 6 },
+    slots: { lasers: 10, shields: 7, engines: 8, utility: 3 },
     cargo_capacity: 2000,
-    cost: 0
+    cost: 200000,
+    currency: 'paladio'
   },
   {
     id: 'sovereign',
     name: 'Sovereign Exterminator',
-    desc: 'El pináculo del combate táctico. Equipada con 15 ranuras de láser y un casco reforzado con tecnología de materia oscura.',
+    desc: 'El pináculo del combate táctico. Equipada con 14 ranuras de láser y un casco reforzado con tecnología de materia oscura.',
     image: '/sovereign_v3.png?v=3',
-    cost: 150000,
+    cost: 200000,
     currency: 'paladio',
     hp: 360000, shld: 250, spd: 220, cargo_capacity: 1500,
-    slots: { lasers: 15, shields: 10, engines: 2, utility: 3 }
+    slots: { lasers: 14, shields: 7, engines: 8, utility: 3 }
   },
   {
     id: 'harvester',
     name: 'Cosmic Harvester',
     desc: 'Una planta de procesamiento móvil. Su bodega ultra-expandida permite recolectar flotas enteras de minerales.',
     image: '/harvester_v2.png?v=2',
-    cost: 75000,
+    cost: 250000,
     currency: 'paladio',
     hp: 325000, shld: 150, spd: 400, cargo_capacity: 1500,
-    slots: { lasers: 4, shields: 6, engines: 2, utility: 8 }
+    slots: { lasers: 13, shields: 5, engines: 5, utility: 3 }
   },
   {
     id: 'interceptor',
     name: 'Solar Wind',
     desc: 'La nave más rápida jamás construida. Su diseño minimalista sacrifica blindaje por una velocidad de evasión inigualable.',
     image: '/interceptor_v2.png?v=2',
-    cost: 100000,
+    cost: 45000,
     currency: 'paladio',
     hp: 200000, shld: 120, spd: 370, cargo_capacity: 500,
-    slots: { lasers: 6, shields: 4, engines: 12, utility: 2 }
+    slots: { lasers: 5, shields: 6, engines: 6, utility: 2 }
   },
   {
     id: 'bastion',
     name: 'Obsidian Bastion',
     desc: 'Una fortaleza inexpugnable. Su casco de obsidiana reforzada y sus múltiples generadores de escudo la hacen casi indestructible.',
     image: '/bastion_v2.png?v=2',
-    cost: 250000,
+    cost: 160000,
     currency: 'paladio',
     hp: 650000, shld: 400, spd: 240, cargo_capacity: 4000,
     slots: { lasers: 7, shields: 15, engines: 5, utility: 5 }
@@ -143,15 +145,23 @@ export const MODULES_CATALOG = [
   { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 1000, currency: 'paladio', spd: 7,  icon: '🚀' },
   { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 2000, currency: 'paladio', spd: 10,  icon: '🚀' },
   
-  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 0, repair_rate: 5.0, icon: '🔧' },
-  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 0, repair_rate: 7.5, icon: '🛠️' },
-  { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 0, desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
-  { id: 'util_auto_repair', type: 'utility', lvl: 2, name: 'Reparación Automática', cost: 0, desc: 'Activa el robot de reparación automáticamente cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
+  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 630, icon: '🔧' },
+  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️' },
+  { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 500, currency: 'paladio', desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
+  { id: 'util_auto_repair_cpu', type: 'utility', lvl: 2, name: 'AUTO-CPU de roboreparación', cost: 10000, currency: 'paladio', desc: 'Inicia automáticamente a un robot de reparación disponible cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
+  { id: 'util_turbo_missile', type: 'utility', lvl: 2, name: 'Misil Turbo', cost: 10000, currency: 'paladio', desc: 'Duplica la velocidad de lanzamiento de los misiles.', icon: '☄️', is_turbo_missile: true },
+  { id: 'util_auto_missile', type: 'utility', lvl: 2, name: 'CPU Misil Automático', cost: 25000, currency: 'paladio', desc: 'Dispara misiles automáticamente lo más rápido posible durante un ataque.', icon: '🛰️', is_auto_missile: true },
+  { id: 'util_cloak_l', type: 'utility', lvl: 2, name: 'CPU de camuflaje L', cost: 5000, currency: 'paladio', desc: 'Proporciona 10 camuflajes para hacer tu nave invisible.', icon: '🎭', charges: 10, is_cloak_cpu: true },
+  { id: 'util_cloak_xl', type: 'utility', lvl: 2, name: 'CPU de camuflaje XL', cost: 22500, currency: 'paladio', desc: 'Proporciona 50 camuflajes para hacer tu nave invisible.', icon: '👺', charges: 50, is_cloak_cpu: true },
+  { id: 'util_cargo_compressor', type: 'utility', lvl: 2, name: 'Compresor de Carga', cost: 10000, currency: 'paladio', desc: 'Duplica el tonelaje disponible con compresión molecular.', icon: '🎒', is_cargo_compressor: true },
+  { id: 'util_slot_cpu_1', type: 'utility', lvl: 1, name: 'CPU 1 de ranura', cost: 600000, currency: 'credits', desc: 'Añade 2 nuevas ranuras libres para extras en la nave.', icon: '🎛️', extraSlots: 2 },
+  { id: 'util_slot_cpu_2', type: 'utility', lvl: 2, name: 'CPU 2 de ranura', cost: 150000, currency: 'paladio', desc: 'Proporciona 6 nuevas ranuras para extras para tu nave.', icon: '📟', extraSlots: 6 },
+  { id: 'util_slot_cpu_3', type: 'utility', lvl: 3, name: 'CPU 3 de ranura', cost: 250000, currency: 'paladio', desc: 'Proporciona 10 ranuras nuevas para extras en la nave.', icon: '📼', extraSlots: 10 },
 ];
 
 export const WIPS_CATALOG = [
-  { id: 'dron', name: 'Dron', cost: 0, slots: 1, desc: 'Wip básico con 1 ranura para arma o escudo.', icon: '🛰️', image: '/wisp_v1.png' },
-  { id: 'sparks', name: 'Sparks', cost: 0, slots: 2, desc: 'Wip avanzado con 2 ranuras para arma o escudo.', icon: '🛰️', image: '/wisp_v2.png' }
+  { id: 'dron', name: 'Dron', cost: 100000, slots: 1, desc: 'Wip básico con 1 ranura para arma o escudo.', icon: '🛰️', image: '/wisp_v1.png' },
+  { id: 'sparks', name: 'Sparks', cost: 15000, currency: 'paladio', slots: 2, desc: 'Wip avanzado con 2 ranuras para arma o escudo.', icon: '🛰️', image: '/wisp_v2.png' }
 ];
 
 export const AMMO_CATALOG = [
@@ -178,26 +188,24 @@ export const ECO_CONFIG = {
   hp: 50000,
   fuel: 100000
 };
-
 export const ECO_PROTOCOLS = [
-  // Nivel 1 (Habilitado para ECO Nivel 1-4)
-  { id: 'proto_laser_1', type: 'protocols', lvl: 1, name: 'Protocolo de Precisión I', cost: 1000, atk: 15, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 1).' },
-  { id: 'proto_shield_1', type: 'protocols', lvl: 1, name: 'Protocolo de Escudo I', cost: 1000, shld: 200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 1).' },
-  { id: 'proto_cargo_1', type: 'protocols', lvl: 1, name: 'Protocolo de Carga I', cost: 1000, cargo: 2000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 1).' },
-  { id: 'proto_hp_1', type: 'protocols', lvl: 1, name: 'Protocolo de Casco I', cost: 1000, hp: 500, icon: '❤️', desc: 'Aumenta la vida estructural (Nivel 1).' },
-
-  // Nivel 2 (Habilitado para ECO Nivel 5-9)
-  { id: 'proto_laser_2', type: 'protocols', lvl: 2, name: 'Protocolo de Precisión II', cost: 5000, atk: 35, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 2).' },
-  { id: 'proto_shield_2', type: 'protocols', lvl: 2, name: 'Protocolo de Escudo II', cost: 5000, shld: 500, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 2).' },
-  { id: 'proto_cargo_2', type: 'protocols', lvl: 2, name: 'Protocolo de Carga II', cost: 5000, cargo: 5000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 2).' },
-  { id: 'proto_hp_2', type: 'protocols', lvl: 2, name: 'Protocolo de Casco II', cost: 5000, hp: 1200, icon: '❤️', desc: 'Aumenta la vida estructural (Nivel 2).' },
-
-  // Nivel 3 (Habilitado para ECO Nivel 10-15)
-  { id: 'proto_laser_3', type: 'protocols', lvl: 3, name: 'Protocolo de Precisión III', cost: 25000, atk: 75, icon: '🎯', desc: 'Aumenta la potencia de fuego (Nivel 3).' },
-  { id: 'proto_shield_3', type: 'protocols', lvl: 3, name: 'Protocolo de Escudo III', cost: 25000, shld: 1200, icon: '🛡️', desc: 'Refuerza la capacidad defensiva (Nivel 3).' },
-  { id: 'proto_cargo_3', type: 'protocols', lvl: 3, name: 'Protocolo de Carga III', cost: 25000, cargo: 12000, icon: '📦', desc: 'Expande la bodega de carga (Nivel 3).' },
-  { id: 'proto_hp_3', type: 'protocols', lvl: 3, name: 'Protocolo de Casco III', cost: 25000, hp: 3000, icon: '❤️', desc: 'Aumenta la vida estructural (Nivel 3).' },
+  { id: 'proto_radar_1', type: 'protocols', lvl: 1, name: 'Protocolo de Radar I', cost: 3000, currency: 'paladio', radar_bonus: 0.02, icon: '📡', desc: 'Aumenta el alcance del radar de tu ECO en un 2%.' },
+  { id: 'proto_radar_2', type: 'protocols', lvl: 2, name: 'Protocolo de Radar II', cost: 7500, currency: 'paladio', radar_bonus: 0.06, icon: '📡', desc: 'Aumenta el alcance del radar de tu ECO en un 6%.' },
+  { id: 'proto_radar_3', type: 'protocols', lvl: 3, name: 'Protocolo de Radar III', cost: 25000, currency: 'paladio', radar_bonus: 0.12, icon: '📡', desc: 'Aumenta el alcance del radar de tu ECO en un 12%.' },
+  { id: 'proto_laser_1', type: 'protocols', lvl: 1, name: 'Protocolo de Arma Láser I', cost: 5000, currency: 'paladio', laser_bonus: 0.01, icon: '🎯', desc: 'Aumenta los daños de láser de tu ECO en un 1%.' },
+  { id: 'proto_laser_2', type: 'protocols', lvl: 2, name: 'Protocolo de Arma Láser II', cost: 12500, currency: 'paladio', laser_bonus: 0.02, icon: '🎯', desc: 'Aumenta los daños de láser de tu ECO en un 2%.' },
+  { id: 'proto_laser_3', type: 'protocols', lvl: 3, name: 'Protocolo de Arma Láser III', cost: 45000, currency: 'paladio', laser_bonus: 0.04, icon: '🎯', desc: 'Aumenta los daños de láser de tu ECO en un 4%.' },
+  { id: 'proto_hp_1', type: 'protocols', lvl: 1, name: 'Protocolo de PV I', cost: 5000, currency: 'paladio', hp_bonus: 0.01, icon: '❤️', desc: 'Aumenta los PV de tu ECO en un 1%.' },
+  { id: 'proto_hp_2', type: 'protocols', lvl: 2, name: 'Protocolo de PV II', cost: 12500, currency: 'paladio', hp_bonus: 0.02, icon: '❤️', desc: 'Aumenta los PV de tu ECO en un 2%.' },
+  { id: 'proto_hp_3', type: 'protocols', lvl: 3, name: 'Protocolo de PV III', cost: 45000, currency: 'paladio', hp_bonus: 0.04, icon: '❤️', desc: 'Aumenta los PV de tu ECO en un 4%.' },
+  { id: 'proto_econ_1', type: 'protocols', lvl: 1, name: 'Protocolo de Economía I', cost: 5000, currency: 'paladio', econ_bonus: 0.03, icon: '⛽', desc: 'Reduce el consumo de combustible de tu ECO en un 3%.' },
+  { id: 'proto_econ_2', type: 'protocols', lvl: 2, name: 'Protocolo de Economía II', cost: 12500, currency: 'paladio', econ_bonus: 0.035, icon: '⛽', desc: 'Reduce el consumo de combustible de tu ECO en un 3.5%.' },
+  { id: 'proto_econ_3', type: 'protocols', lvl: 3, name: 'Protocolo de Economía III', cost: 45000, currency: 'paladio', econ_bonus: 0.04, icon: '⛽', desc: 'Reduce el consumo de combustible de tu ECO en un 4%.' },
+  { id: 'proto_alien_1', type: 'protocols', lvl: 1, name: 'Protocolo Antialienígenas I', cost: 3000, currency: 'paladio', anti_alien_bonus: 0.01, icon: '👽', desc: 'Aumenta los daños de tu ECO contra alienígenas en un 1%.' },
+  { id: 'proto_alien_2', type: 'protocols', lvl: 2, name: 'Protocolo Antialienígenas II', cost: 7500, currency: 'paladio', anti_alien_bonus: 0.03, icon: '👽', desc: 'Aumenta los daños de tu ECO contra alienígenas en un 3%.' },
+  { id: 'proto_alien_3', type: 'protocols', lvl: 3, name: 'Protocolo Antialienígenas III', cost: 25000, currency: 'paladio', anti_alien_bonus: 0.06, icon: '👽', desc: 'Aumenta los daños de tu ECO contra alienígenas en un 6%.' },
 ];
+
 
 export const ECO_REPAIR = [
   { 
@@ -431,4 +439,5 @@ export const MINERAL_TYPES = [
   { id: 'titanium', name: 'Titanio', color: '#00c8ff', icon: '💎', stat: 'shld', desc: 'Mejora escudos base', sellPrice: 15 },
   { id: 'plutonium', name: 'Plutonio', color: '#ff3333', icon: '🏮', stat: 'atk',  desc: 'Mejora ataque base', sellPrice: 25 },
   { id: 'silicon',   name: 'Silicio',  color: '#00ffcc', icon: '💾', stat: 'spd',  desc: 'Mejora velocidad base', sellPrice: 18 },
+  { id: 'iridium',   name: 'Iridio',   color: '#cc00ff', icon: '🔮', stat: 'hp',   desc: 'Mejora casco base', sellPrice: 50 },
 ];

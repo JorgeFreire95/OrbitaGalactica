@@ -43,6 +43,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  
+  // --- MISSION TRACKER DRAGGABLE STATE ---
+  const [missionPos, setMissionPos] = useState(() => {
+    const saved = localStorage.getItem('og_mission_pos');
+    return saved ? JSON.parse(saved) : { x: window.innerWidth - 320, y: 150 };
+  });
+  const [isDraggingMission, setIsDraggingMission] = useState(false);
+  const isDraggingMissionRef = useRef(false);
+  const missionDragOffset = useRef({ x: 0, y: 0 });
+  
   const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', ammo: '', wips: '', eco: '', is_invisible: null });
   
   const [inviteIdText, setInviteIdText] = useState('');
@@ -197,6 +207,11 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       }
     }
     if (k === 'j') handleJump();
+    if (k === 'c') {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'use_cloak' }));
+      }
+    }
   }, [handleJump]);
 
   const handleKeyUp = useCallback((e) => {
@@ -266,13 +281,18 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     if (isDraggingRef.current) {
       localStorage.setItem('og_hotbar_pos', JSON.stringify(hotbarPos));
     }
+    if (isDraggingMissionRef.current) {
+      localStorage.setItem('og_mission_pos', JSON.stringify(missionPos));
+    }
     setIsDragging(false);
     isDraggingRef.current = false;
+    setIsDraggingMission(false);
+    isDraggingMissionRef.current = false;
     isNavigatingRef.current = false;
-  }, [hotbarPos]);
+  }, [hotbarPos, missionPos]);
 
   const handleMouseMove = useCallback((e) => {
-    if (isDraggingRef.current || isDraggingEcoRef.current) {
+    if (isDraggingRef.current || isDraggingEcoRef.current || isDraggingMissionRef.current) {
       if (isDraggingRef.current) {
         setHotbarPos({
           x: e.clientX - dragOffset.current.x,
@@ -283,6 +303,12 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           setEcoPos({
             x: e.clientX - ecoDragOffset.current.x,
             y: e.clientY - ecoDragOffset.current.y
+          });
+      }
+      if (isDraggingMissionRef.current) {
+          setMissionPos({
+            x: e.clientX - missionDragOffset.current.x,
+            y: e.clientY - missionDragOffset.current.y
           });
       }
       return;
@@ -320,6 +346,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     dragOffset.current = { x: e.clientX - hotbarPos.x, y: e.clientY - hotbarPos.y };
     e.stopPropagation();
   }, [isUiLocked, hotbarPos]);
+
+  const handleMissionMouseDown = useCallback((e) => {
+    setIsDraggingMission(true);
+    isDraggingMissionRef.current = true;
+    missionDragOffset.current = { x: e.clientX - missionPos.x, y: e.clientY - missionPos.y };
+    e.stopPropagation();
+  }, [missionPos]);
 
   const toggleUiLock = useCallback(() => {
     setIsUiLocked(prev => {
@@ -1324,12 +1357,20 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 className={`mission-tracker-hud ${missionTrackerExpanded ? 'expanded' : ''}`}
                 onMouseEnter={() => !missionTrackerExpanded && setMissionTrackerExpanded(true)}
                 onMouseLeave={() => missionTrackerExpanded && setMissionTrackerExpanded(false)}
+                style={{
+                  position: 'fixed',
+                  left: `${missionPos.x}px`,
+                  top: `${missionPos.y}px`,
+                  zIndex: 900,
+                  pointerEvents: 'auto',
+                  cursor: isDraggingMission ? 'grabbing' : 'default'
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setMissionTrackerExpanded(!missionTrackerExpanded);
                 }}
               >
-                <div className="mission-hud-header">
+                <div className="mission-hud-header" onMouseDown={handleMissionMouseDown} style={{ cursor: isDraggingMission ? 'grabbing' : 'grab' }}>
                   <div className="mission-hud-title">
                     {missionTrackerExpanded ? '📜 BITÁCORA DE MISIONES' : '🎯 OBJETIVOS'}
                   </div>

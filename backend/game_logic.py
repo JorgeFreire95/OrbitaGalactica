@@ -21,6 +21,12 @@ class GameState:
         self.last_special_spawn = time.time()
         self.special_spawn_rate = 30.0 # Más constante: cada 30 segundos
         
+        # --- SISTEMA DE SUBASTAS ---
+        self.auctions = self._init_auctions()
+        from datetime import datetime
+        self.last_reset_hour = datetime.now().hour
+        print(f"DEBUG: GameState iniciado con {len(self.auctions)} subastas. Hora local: {self.last_reset_hour}")
+        
         # --- BASE Y ZONA SEGURA ---
         self.BASE_X = 1750
         self.BASE_Y = 1150
@@ -245,47 +251,47 @@ class GameState:
                 "cargo_capacity": 100
             },
             "tank": {
-                "hp": 260000, "shld": 0, "atk": 70, "spd": 260, "color": "#ffb300",
-                "slots": {"lasers": 2, "shields": 6, "engines": 3, "utility": 2},
+                "hp": 260000, "shld": 150, "atk": 70, "spd": 260, "color": "#ffb300",
+                "slots": {"lasers": 8, "shields": 10, "engines": 5, "utility": 3},
                 "cargo_capacity": 800
             },
             "fast": {
-                "hp": 116000, "shld": 0, "atk": 110, "spd": 330, "color": "#00ccff",
-                "slots": {"lasers": 3, "shields": 2, "engines": 7, "utility": 2},
-                "cargo_capacity": 400
+                "hp": 116000, "shld": 50, "atk": 110, "spd": 330, "color": "#00ccff",
+                "slots": {"lasers": 4, "shields": 3, "engines": 3, "utility": 2},
+                "cargo_capacity": 500
             },
             "stealth": {
-                "hp": 164000, "shld": 0, "atk": 130, "spd": 360, "color": "#9933ff",
-                "slots": {"lasers": 5, "shields": 3, "engines": 4, "utility": 3},
+                "hp": 164000, "shld": 80, "atk": 130, "spd": 360, "color": "#9933ff",
+                "slots": {"lasers": 6, "shields": 4, "engines": 4, "utility": 2},
                 "cargo_capacity": 600
             },
             "heavy": {
-                "hp": 356000, "shld": 0, "atk": 180, "spd": 300, "color": "#ff3333",
-                "slots": {"lasers": 8, "shields": 4, "engines": 2, "utility": 1},
+                "hp": 356000, "shld": 150, "atk": 180, "spd": 300, "color": "#ff3333",
+                "slots": {"lasers": 15, "shields": 7, "engines": 7, "utility": 3},
                 "cargo_capacity": 1500
             },
             "support": {
-                "hp": 375000, "shld": 0, "atk": 60, "spd": 300, "color": "#33ff99",
-                "slots": {"lasers": 2, "shields": 3, "engines": 4, "utility": 6},
+                "hp": 375000, "shld": 120, "atk": 60, "spd": 300, "color": "#33ff99",
+                "slots": {"lasers": 10, "shields": 7, "engines": 8, "utility": 3},
                 "cargo_capacity": 2000
             },
             "sovereign": {
-                "hp": 360000, "shld": 0, "atk": 250, "spd": 220, "color": "#e6b800",
-                "slots": {"lasers": 15, "shields": 10, "engines": 2, "utility": 3},
+                "hp": 360000, "shld": 250, "atk": 250, "spd": 220, "color": "#e6b800",
+                "slots": {"lasers": 14, "shields": 7, "engines": 8, "utility": 3},
                 "cargo_capacity": 1500
             },
             "harvester": {
-                "hp": 325000, "shld": 0, "atk": 80, "spd": 400, "color": "#00ff00",
-                "slots": {"lasers": 4, "shields": 6, "engines": 2, "utility": 8},
+                "hp": 325000, "shld": 150, "atk": 80, "spd": 400, "color": "#00ff00",
+                "slots": {"lasers": 13, "shields": 5, "engines": 5, "utility": 3},
                 "cargo_capacity": 1500
             },
             "interceptor": {
-                "hp": 200000, "shld": 0, "atk": 150, "spd": 370, "color": "#ffff00",
-                "slots": {"lasers": 6, "shields": 2, "engines": 12, "utility": 2},
+                "hp": 200000, "shld": 120, "atk": 150, "spd": 370, "color": "#ffff00",
+                "slots": {"lasers": 5, "shields": 6, "engines": 6, "utility": 2},
                 "cargo_capacity": 500
             },
             "bastion": {
-                "hp": 650000, "shld": 0, "atk": 100, "spd": 240, "color": "#333333",
+                "hp": 650000, "shld": 400, "atk": 100, "spd": 240, "color": "#333333",
                 "slots": {"lasers": 7, "shields": 15, "engines": 5, "utility": 5},
                 "cargo_capacity": 4000
             }
@@ -370,7 +376,8 @@ class GameState:
             "xp": initial_xp + (((initial_level - 1) * initial_level // 2) * 1000) if initial_xp < (((initial_level - 1) * initial_level // 2) * 1000) else initial_xp,
             "xp_next": (initial_level * (initial_level + 1) // 2) * 1000,
             "minerals": initial_minerals if (initial_minerals and isinstance(initial_minerals, dict)) else {"titanium": 0, "plutonium": 0, "silicon": 0},
-            "max_cargo": prof.get("cargo_capacity", 1500), # Capacidad aumentada significativamente
+            "max_cargo": prof.get("cargo_capacity", 1500),
+            "base_max_cargo": prof.get("cargo_capacity", 1500),
             "current_map": "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"),
             "paladio": initial_paladio,
             "faction": faction, # Mars, Moon, Pluto
@@ -766,8 +773,13 @@ class GameState:
                 "target_id": target_id_for_proj
             })
 
-        # Missile Firing (Tecla E)
-        if keys.get("missile_shoot") and (now - player["last_missile_shot"] > 1.5): # Cooldown de 1.5s
+        # Missile Firing (Tecla E o Automático)
+        missile_cooldown = 0.75 if player.get("has_turbo_missile") else 1.5
+        
+        # Trigger si presiona E O si tiene el CPU automático y está disparando láseres
+        should_fire_missile = keys.get("missile_shoot") or (player.get("has_auto_missile") and player.get("shoot_active") and player.get("locked_target_id"))
+        
+        if should_fire_missile and (now - player["last_missile_shot"] > missile_cooldown):
             m_type = player.get("missile_type", "missile_1")
             if player["missiles"].get(m_type, 0) > 0:
                 player["missiles"][m_type] -= 1
@@ -808,6 +820,254 @@ class GameState:
                     "life": 4.0, # Los misiles duran más
                     "map_id": player["current_map"]
                 })
+
+    def _init_auctions(self):
+        # Artículos que se venden por Paladio (pujables por Créditos)
+        # Excluidos: ECO, módulos de ECO y protocolos de ECO.
+        items = [
+            # --- NAVES (Por Paladio) ---
+            {"id": "heavy", "name": "Titan Hammer", "type": "ship", "value": "100.000 Paladio", "start_bid": 10000},
+            {"id": "support", "name": "Helix Support", "type": "ship", "value": "200.000 Paladio", "start_bid": 10000},
+            {"id": "sovereign", "name": "Sovereign Exterminator", "type": "ship", "value": "200.000 Paladio", "start_bid": 10000},
+            {"id": "harvester", "name": "Cosmic Harvester", "type": "ship", "value": "250.000 Paladio", "start_bid": 10000},
+            {"id": "interceptor", "name": "Solar Wind", "type": "ship", "value": "45.000 Paladio", "start_bid": 10000},
+            {"id": "bastion", "name": "Obsidian Bastion", "type": "ship", "value": "160.000 Paladio", "start_bid": 10000},
+            
+            # --- MUNICIÓN (Por Paladio) ---
+            {"id": "thermal", "name": "10.000 x Munición Térmica", "type": "ammo", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "plasma", "name": "10.000 x Munición Plasma", "type": "ammo", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "siphon", "name": "10.000 x Munición Sifón", "type": "ammo", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "missile_3", "name": "1.000 x Misiles Giga-Nuke", "type": "ammo", "value": "5.000 Paladio", "start_bid": 10000},
+            
+            # --- GENERADORES (Por Paladio) ---
+            {"id": "shield_2", "name": "Escudo Reforzado", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
+            {"id": "shield_3", "name": "Escudo Hiper", "type": "module", "value": "50.000 Paladio", "start_bid": 10000},
+            {"id": "engine_2", "name": "Turbo Motor", "type": "module", "value": "1.000 Paladio", "start_bid": 10000},
+            {"id": "engine_3", "name": "Hiper Motor", "type": "module", "value": "2.000 Paladio", "start_bid": 10000},
+            
+            # --- LÁSERES Y OTROS (Por Paladio) ---
+            {"id": "laser_2", "name": "Láser Plus", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "laser_3", "name": "Cañón Pesado", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_repair_2", "name": "Robot Reparación II", "type": "module", "value": "15.000 Paladio", "start_bid": 10000},
+            {"id": "sparks", "name": "WIP Sparks", "type": "wip", "value": "15.000 Paladio", "start_bid": 10000},
+            {"id": "util_cloak", "name": "Camuflaje Sigiloso", "type": "module", "value": "500 Paladio", "start_bid": 10000},
+            {"id": "util_auto_repair_cpu", "name": "Robo-reparación", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_turbo_missile", "name": "Misil Turbo CPU", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_auto_missile", "name": "CPU Misil Auto", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
+            {"id": "util_cloak_l", "name": "CPU Camuflaje L", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "util_cloak_xl", "name": "CPU Camuflaje XL", "type": "module", "value": "22.500 Paladio", "start_bid": 10000},
+            {"id": "util_cargo_compressor", "name": "Compresor de Carga", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_slot_cpu_2", "name": "Ranuras Extra II", "type": "module", "value": "150.000 Paladio", "start_bid": 10000},
+            {"id": "util_slot_cpu_3", "name": "Ranuras Extra III", "type": "module", "value": "250.000 Paladio", "start_bid": 10000},
+        ]
+        
+        auctions = []
+        for i, item in enumerate(items):
+            auctions.append({
+                "id": f"auc_{i}",
+                "item_id": item["id"],
+                "name": item["name"],
+                "type": item["type"],
+                "value": item["value"],
+                "highest_bid": item["start_bid"],
+                "highest_bidder": None,
+                "highest_bidder_name": "-",
+                "player_bids": {} # player_id: amount
+            })
+        return auctions
+
+    def place_auction_bid(self, client_id, auction_id, amount):
+        p = self.players.get(client_id)
+        if not p: return False, "Jugador no encontrado"
+        
+        auction = next((a for a in self.auctions if a["id"] == auction_id), None)
+        if not auction: return False, "Subasta no encontrada"
+        
+        min_increment = 10000
+        if auction["highest_bidder"] is None:
+            if amount < auction["highest_bid"]:
+                return False, f"La puja mínima inicial es de {auction['highest_bid']:,} Créditos"
+        else:
+            if amount < auction["highest_bid"] + min_increment:
+                return False, f"Debes superar la puja actual por al menos {min_increment:,} Créditos adicionales"
+        
+        # Créditos necesarios (considerando si ya pujó antes)
+        user_id = p.get("user_id")
+        current_p_bid = auction["player_bids"].get(user_id, 0)
+        needed = amount - current_p_bid
+        
+        if p["credits"] < needed:
+            return False, "Créditos insuficientes"
+        
+        # Devolver créditos al anterior líder
+        if auction["highest_bidder"] and auction["highest_bidder"] != user_id:
+            old_leader_id = auction["highest_bidder"]
+            old_amount = auction["highest_bid"]
+            
+            # Notificar al anterior líder que le han superado la puja
+            from database import send_system_message_db
+            send_system_message_db(
+                old_leader_id, 
+                "Puja Superada", 
+                f"Otro usuario ha superado tu puja por el artículo: {auction['name']}. Tus {old_amount:,} créditos han sido devueltos a tu cuenta."
+            )
+            
+            # Buscar si el anterior líder está online
+            old_leader_p = next((pl for pl in self.players.values() if pl.get("user_id") == old_leader_id), None)
+            if old_leader_p:
+                old_leader_p["credits"] += old_amount
+            else:
+                # Offline: Actualizar en DB
+                try:
+                    from database import get_user_stats_db, update_user_credits
+                    stats = get_user_stats_db(old_leader_id)
+                    if stats:
+                        new_credits = stats.get("credits", 0) + old_amount
+                        update_user_credits(old_leader_id, new_credits)
+                except Exception as e:
+                    print(f"DEBUG: Error devolviendo créditos offline: {e}")
+        
+        # Aplicar puja
+        p["credits"] -= needed
+        auction["highest_bid"] = amount
+        auction["highest_bidder"] = user_id
+        auction["highest_bidder_name"] = p["display_name"]
+        auction["player_bids"][user_id] = amount
+        
+        # Notificar al usuario que su puja es la líder
+        from database import send_system_message_db
+        send_system_message_db(
+            user_id,
+            "Puja Realizada",
+            f"Has realizado una puja líder de {amount:,} créditos por el artículo: {auction['name']}."
+        )
+        
+        return True, "¡Puja líder realizada!"
+
+    def place_auction_bid_offline(self, user_id, auction_id, amount):
+        # Esta función maneja pujas desde el menú cuando el jugador NO está en el mapa
+        auction = next((a for a in self.auctions if a["id"] == auction_id), None)
+        if not auction: return False, "Subasta no encontrada"
+        
+        min_increment = 10000
+        if auction["highest_bidder"] is None:
+            if amount < auction["highest_bid"]:
+                return False, f"La puja mínima inicial es de {auction['highest_bid']:,} Créditos"
+        else:
+            if amount < auction["highest_bid"] + min_increment:
+                return False, f"Debes superar la puja actual por al menos {min_increment:,} Créditos adicionales"
+            
+        from database import get_user_stats_db, update_user_credits
+        stats = get_user_stats_db(user_id)
+        if not stats: return False, "Usuario no encontrado"
+        
+        current_credits = stats.get("credits", 0)
+        current_p_bid = auction["player_bids"].get(user_id, 0)
+        needed = amount - current_p_bid
+        
+        if current_credits < needed:
+            return False, "Créditos insuficientes"
+            
+        # Devolver créditos al anterior líder
+        if auction["highest_bidder"] and auction["highest_bidder"] != user_id:
+            old_leader_id = auction["highest_bidder"]
+            old_amount = auction["highest_bid"]
+            
+            old_leader_p = next((pl for pl in self.players.values() if pl.get("user_id") == old_leader_id), None)
+            if old_leader_p:
+                old_leader_p["credits"] += old_amount
+            else:
+                old_stats = get_user_stats_db(old_leader_id)
+                if old_stats:
+                    update_user_credits(old_leader_id, old_stats.get("credits", 0) + old_amount)
+            
+            # Notificar al anterior líder
+            send_system_message_db(
+                old_leader_id,
+                "Puja Superada",
+                f"Otro usuario ha superado tu puja por el artículo: {auction['name']}. Tus {old_amount:,} créditos han sido devueltos a tu cuenta."
+            )
+                    
+        # Aplicar puja
+        update_user_credits(user_id, current_credits - needed)
+        auction["highest_bid"] = amount
+        auction["highest_bidder"] = user_id
+        auction["highest_bidder_name"] = stats.get("display_name", user_id)
+        auction["player_bids"][user_id] = amount
+        
+        # Notificar al usuario
+        send_system_message_db(
+            user_id,
+            "Puja Realizada",
+            f"Has realizado una puja líder de {amount:,} créditos por el artículo: {auction['name']}."
+        )
+        
+        return True, "¡Puja líder realizada!"
+
+    def finalize_auctions(self):
+        for auc in self.auctions:
+            winner_id = auc["highest_bidder"]
+            if winner_id:
+                self._reward_auction_winner(winner_id, auc)
+                # Notificar al ganador
+                from database import send_system_message_db
+                send_system_message_db(
+                    winner_id,
+                    "¡Subasta Ganada!",
+                    f"¡Felicidades! Has ganado la subasta del artículo: {auc['name']}. El objeto ha sido añadido a tu cuenta."
+                )
+        
+        self.auctions = self._init_auctions()
+        self.last_auction_reset = time.time()
+
+    def _reward_auction_winner(self, player_id, auction):
+        player = self.players.get(player_id)
+        item_id = auction["item_id"]
+        item_type = auction["type"]
+        
+        if player:
+            if item_type == "ship":
+                if "owned_ships" not in player: player["owned_ships"] = ["starter"]
+                if item_id not in player["owned_ships"]:
+                    player["owned_ships"].append(item_id)
+            elif item_type == "wip":
+                if "wips" not in player: player["wips"] = []
+                player["wips"].append({"id": f"wip_{random.random()}", "type": item_id, "lvl": 1, "equipped": {"lasers": [], "generators": []}})
+            elif item_type == "module":
+                if "inventory" not in player: player["inventory"] = []
+                player["inventory"].append(item_id)
+            elif item_type == "ammo":
+                count = 10000 if item_id != "missile_3" else 1000
+                if "ammo" not in player: player["ammo"] = {}
+                player["ammo"][item_id] = player["ammo"].get(item_id, 0) + count
+            
+            self.recalculate_player_stats(player)
+        else:
+            # Offline
+            try:
+                from database import get_user_stats_db, update_stats_offline
+                stats = get_user_stats_db(player_id)
+                if stats:
+                    if item_type == "ship":
+                        ships = stats.get("owned_ships", ["starter"])
+                        if item_id not in ships:
+                            ships.append(item_id)
+                            update_stats_offline(player_id, {"owned_ships": ships})
+                    elif item_type == "module":
+                        inv = stats.get("inventory", [])
+                        inv.append(item_id)
+                        update_stats_offline(player_id, {"inventory": inv})
+                    elif item_type == "wip":
+                        wips = stats.get("wips", [])
+                        wips.append({"id": f"wip_{random.random()}", "type": item_id, "lvl": 1, "equipped": {"lasers": [], "generators": []}})
+                        update_stats_offline(player_id, {"wips": wips})
+                    elif item_type == "ammo":
+                        ammo = stats.get("ammo", {})
+                        count = 10000 if item_id != "missile_3" else 1000
+                        ammo[item_id] = ammo.get(item_id, 0) + count
+                        update_stats_offline(player_id, {"ammo": ammo})
+            except Exception as e:
+                print(f"DEBUG: Error entregando premio offline: {e}")
 
     def update(self, dt):
         now = time.time()
@@ -1062,7 +1322,7 @@ class GameState:
             
             # 1. Consumo de combustible
             # Consumo base: 1 unidad por segundo
-            fuel_cons = 1.0
+            fuel_cons = 1.0 * eco.get("fuel_efficiency_mult", 1.0)
             
             # Consumo extra por reparación activa
             is_repairing = False
@@ -1245,6 +1505,7 @@ class GameState:
                     "vx": math.cos(angle) * 600,
                     "vy": math.sin(angle) * 600,
                     "damage": eco.get("atk", 25),
+                    "anti_alien_mult": eco.get("anti_alien_mult", 1.0),
                     "life": 1.0,
                     "map_id": p["current_map"],
                     "color": "#00ffcc" # Color cian para el ECO
@@ -1258,6 +1519,14 @@ class GameState:
             p["eco"] = eco
 
 
+        # --- ACTUALIZAR SUBASTAS (A cada hora en punto local) ---
+        from datetime import datetime
+        now_dt = datetime.now()
+        if now_dt.hour != self.last_reset_hour:
+            self.finalize_auctions()
+            self.last_reset_hour = now_dt.hour
+            print(f"DEBUG: Subasta reiniciada a las {self.last_reset_hour}:00")
+            
         # 3. Update Projectiles
         for proj in self.projectiles:
             # --- LÓGICA DE MISILES TELEDIRIGIDOS (HOMING) ---
@@ -1412,6 +1681,8 @@ class GameState:
                         if p.get("ammo_type") != "siphon":
                             # 100% EFECTIVIDAD: Los jugadores ignoran la defensa del alien
                             final_damage = p["damage"] 
+                            if p.get("anti_alien_mult"):
+                                final_damage *= p["anti_alien_mult"]
                             e["hp"] -= final_damage
                             
                             # Retaliation: Si es un hunter, fijar como target al que le disparó
@@ -1821,6 +2092,7 @@ class GameState:
         player["spd"] = player.get("base_spd", 60)
         player["max_shld"] = player.get("base_max_shld", 150)
         player["max_hp"] = player.get("base_max_hp", 180)
+        player["max_cargo"] = player.get("base_max_cargo", 1500)
         player["shield_absorption"] = 0.8 # Default 80%
 
         # 1. Sumar Módulos Equipados
@@ -1829,6 +2101,9 @@ class GameState:
         player["shields"] = 0
         player["repair_rate"] = 0 # Reiniciar tasa de reparación
         player["has_auto_repair"] = False
+        player["has_turbo_missile"] = False
+        player["has_auto_missile"] = False
+        player["has_cargo_compressor"] = False
         
         # Para el cálculo del color del láser
         heavy_cannon_count = 0
@@ -1858,6 +2133,9 @@ class GameState:
             if "hp" in mod: player["max_hp"] += mod["hp"]
             if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
             if mod.get("is_auto_repair"): player["has_auto_repair"] = True
+            if mod.get("is_turbo_missile"): player["has_turbo_missile"] = True
+            if mod.get("is_auto_missile"): player["has_auto_missile"] = True
+            if mod.get("is_cargo_compressor"): player["has_cargo_compressor"] = True
 
             # Recount for visuals
             m_type = mod.get("type", "")
@@ -1901,6 +2179,10 @@ class GameState:
         if total_shld_for_abs > 0:
             player["shield_absorption"] = weighted_abs_sum / total_shld_for_abs
 
+        # Aplicar multiplicadores finales de extras
+        if player.get("has_cargo_compressor"):
+            player["max_cargo"] *= 2
+
         # --- DETERMINAR COLOR DEL LÁSER ---
         # El usuario quiere que si TODAS las ranuras de armas tienen Cañón Pesado (laser_3), el color sea verde.
         # De lo contrario (para muni estándar/térmica/plasma), será rojo.
@@ -1935,19 +2217,46 @@ class GameState:
             if eco.get("deployed"):
                 # Sumar módulos equipados específicamente en el ECO
                 equipped = eco.get("equipped", {})
+                
+                # 1. Calcular multiplicadores de protocolos
+                radar_bonus = 0
+                laser_bonus = 0
+                hp_bonus = 0
+                econ_bonus = 0
+                anti_alien_bonus = 0
+                for mods in equipped.values():
+                    for mod in mods:
+                        if mod.get("radar_bonus"):
+                            radar_bonus += mod["radar_bonus"]
+                        if mod.get("laser_bonus"):
+                            laser_bonus += mod["laser_bonus"]
+                        if mod.get("hp_bonus"):
+                            hp_bonus += mod["hp_bonus"]
+                        if mod.get("econ_bonus"):
+                            econ_bonus += mod["econ_bonus"]
+                        if mod.get("anti_alien_bonus"):
+                            anti_alien_bonus += mod["anti_alien_bonus"]
+                
+                radar_mult = 1.0 + radar_bonus
+                laser_mult = 1.0 + laser_bonus
+                hp_mult = 1.0 + hp_bonus
+                eco["fuel_efficiency_mult"] = max(0.1, 1.0 - econ_bonus)
+                eco["anti_alien_mult"] = 1.0 + anti_alien_bonus
+
                 for cat, mods in equipped.items():
                     for mod in mods:
                         if "atk" in mod: eco["atk"] += mod["atk"]
                         if "shld" in mod: eco["max_shield"] += mod["shld"]
                         if "spd" in mod: eco["speed"] += mod["spd"]
+                        if "hp" in mod: eco["max_hp"] += mod["hp"]
                         
                         # Autorrecolector
                         if "range" in mod and "eco_coll" in mod.get("id", ""):
-                            eco["collector_range"] = max(eco.get("collector_range", 0), mod["range"])
+                            eco["collector_range"] = max(eco.get("collector_range", 0), mod["range"] * radar_mult)
                         
                         # Rastreador de Enemigos
                         if "range" in mod and "eco_track" in mod.get("id", ""):
-                            eco["tracker_range"] = max(eco.get("tracker_range", 0), mod["range"])
+                            eco["tracker_range"] = max(eco.get("tracker_range", 0), mod["range"] * radar_mult)
 
                         # Kamikaze
                         if "damage" in mod and "eco_kami" in mod.get("id", ""):
@@ -1959,6 +2268,10 @@ class GameState:
                             if "atk_bonus" in mod: eco["atk"] *= (1 + mod["atk_bonus"])
                             if "shld_bonus" in mod: eco["max_shield"] *= (1 + mod["shld_bonus"])
                             if "spd_bonus" in mod: eco["speed"] *= (1 + mod["spd_bonus"])
+
+                # Aplicar multiplicadores finales de protocolos
+                eco["atk"] *= laser_mult
+                eco["max_hp"] *= hp_mult
 
                 # El nivel del dron potencia el equipo instalado (total final)
                 eco["max_shield"] *= lvl_mult
@@ -2216,6 +2529,40 @@ class GameState:
                 player["repair_bot_active"] = not player.get("repair_bot_active", False)
                 print(f"Repair bot toggled for {client_id}: {player['repair_bot_active']}")
 
+    def use_cloak(self, client_id):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        
+        if player.get("is_invisible"):
+            self._send_sys_msg(client_id, "ℹ️ Ya eres invisible.")
+            return
+
+        # Buscar un CPU de camuflaje con cargas entre los equipados
+        cloak_module = None
+        for mod in player.get("equipped", []):
+            if mod.get("is_cloak_cpu") and mod.get("charges", 0) > 0:
+                cloak_module = mod
+                break
+        
+        if cloak_module:
+            cloak_module["charges"] -= 1
+            player["is_invisible"] = True
+            self._send_sys_msg(client_id, f"🎭 Camuflaje activado. Quedan {cloak_module['charges']} cargas en este CPU.")
+            
+            # Persistir inmediatamente
+            if player.get("user_id") and "guest" not in client_id:
+                try:
+                    from database import sync_user_stats
+                    sync_user_stats(
+                        player["user_id"], 
+                        player["level"], player["xp"], player["credits"], player["paladio"],
+                        equipped=player["equipped"],
+                        is_invisible=True
+                    )
+                except: pass
+        else:
+            self._send_sys_msg(client_id, "⚠️ No tienes CPUs de camuflaje con cargas equipadas.")
+
     def switch_ship(self, client_id, ship_type):
         """Cambia la nave del jugador en tiempo real actualizando sus estadísticas base."""
         if client_id not in self.players:
@@ -2237,7 +2584,7 @@ class GameState:
         player["base_max_shld"] = prof["shld"]
         player["base_atk"] = prof["atk"]
         player["base_spd"] = prof["spd"]
-        player["max_cargo"] = prof.get("cargo_capacity", 1500)
+        player["base_max_cargo"] = prof.get("cargo_capacity", 1500)
         player["slots"] = prof["slots"]
         
         # 3. Recalcular Estadísticas Finales (Módulos + Laboratorio)
@@ -2426,10 +2773,11 @@ class GameState:
                 "timed_bonuses": {
                     k: sum(u.get("amount", 0) for u in me.get("timed_upgrades", {}).get(k, []))
                     for k in ["atk", "shld", "spd", "hp"]
-                }
+                },
+                "auctions": [{**auc, "your_bid": auc["player_bids"].get(client_id, 0)} for auc in self.auctions],
+                "auction_reset_in": max(0, int(self.auction_duration - (time.time() - self.last_auction_reset)))
             }
-            
-            # Resetear flag tras incluirlo en el estado
+        # Resetear flag tras incluirlo en el estado
             if me.get("needs_mission_sync"):
                 me["needs_mission_sync"] = False
                 

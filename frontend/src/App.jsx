@@ -17,6 +17,7 @@ import Packages from './components/Packages'
 import Missions from './components/Missions'
 import FriendsPage from './components/FriendsPage'
 import MessagesPage from './components/MessagesPage'
+import Auctions from './components/Auctions'
 import './index.css'
 
 const API_URL = 'http://127.0.0.1:8000/api';
@@ -166,6 +167,9 @@ function App() {
     }
     return defaultEco;
   });
+
+  const [auctions, setAuctions] = useState([]);
+  const [auctionResetIn, setAuctionResetIn] = useState(0);
 
   // Legacy fleet cleanup removed.
 
@@ -388,6 +392,13 @@ function App() {
         if (data.eco && JSON.stringify(data.eco) !== JSON.stringify(eco)) {
           setEco(data.eco);
         }
+        if (data.auctions) {
+          console.log("Subastas recibidas:", data.auctions.length);
+          setAuctions(data.auctions);
+        }
+        if (data.auction_reset_in !== undefined) {
+          setAuctionResetIn(data.auction_reset_in);
+        }
       }
       // Also refresh clan data periodically
       fetchClanData(user.username);
@@ -413,9 +424,16 @@ function App() {
   // Polling for external updates (donations, taxes, admin edits)
   useEffect(() => {
     if (!user) return;
+    refreshStats(); // Cargar inmediatamente al montar o cambiar usuario
     const interval = setInterval(refreshStats, 30000); // Cada 30 segundos
     return () => clearInterval(interval);
-  }, [user, credits, paladio, level, xp]);
+  }, [user]);
+
+  useEffect(() => {
+    if (user && currentView === 'subasta') {
+      refreshStats();
+    }
+  }, [currentView]);
 
   // Real-time Presence WebSocket
   useEffect(() => {
@@ -623,7 +641,7 @@ function App() {
       setPaladio(0);
       setLevel(1);
       setXp(0);
-      setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
+      setMinerals({ titanium: 0, plutonium: 0, silicon: 0, iridium: 0 });
       setInventory([]);
       setEquippedByShip({});
       setAmmo({ 
@@ -638,6 +656,25 @@ function App() {
       setCurrentView('menu');
     } catch (e) {
       alert('Error de conexión con el servidor principal.');
+    }
+  };
+
+  const handleAuctionBid = async (auctionId, amount) => {
+    try {
+      const resp = await fetch(`${API_URL}/auctions/bid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, auction_id: auctionId, amount: parseInt(amount) })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        alert(data.message);
+        refreshStats(); // Actualizar inmediatamente
+      } else {
+        alert(data.detail || 'Error al pujar');
+      }
+    } catch (e) {
+      alert('Error de conexión.');
     }
   };
 
@@ -744,9 +781,16 @@ function App() {
     if (!ship) return;
     
     const currentEquipped = equippedByShip[shipId] || [];
+    
+    // Calcular ranuras disponibles dinámicamente
+    const extraUtilitySlots = currentEquipped.reduce((acc, m) => acc + (m.extraSlots || 0), 0);
+    const totalSlotsForType = (module.type === 'utility') 
+      ? (ship.slots.utility + extraUtilitySlots) 
+      : (ship.slots[module.type] || 0);
+
     const usedSlots = currentEquipped.filter(m => m.type === module.type).length;
     
-    if (usedSlots >= ship.slots[module.type]) {
+    if (usedSlots >= totalSlotsForType) {
       alert(`No hay ranuras libres para ${module.type} en esta nave.`);
       return;
     }
@@ -812,16 +856,35 @@ function App() {
     setInventory(prev => [...prev, module]);
   };
 
-  const handleBuyWip = (wipId, cost) => {
-    if (credits < cost) return false;
-    if (wips.length >= 8) {
+  const handleBuyWip = (wipId) => {
+    const SPARKS_PRICES = [15000, 24000, 42000, 60000, 84000, 96000, 126000, 200000];
+    const currentWipsCount = wips.length;
+
+    if (currentWipsCount >= 8) {
       alert("Ya has alcanzado el límite máximo de 8 Wips.");
       return false;
     }
-    setCredits(prev => prev - cost);
+
+    if (wipId === 'sparks') {
+      const currentCost = SPARKS_PRICES[currentWipsCount];
+      if (paladio < currentCost) {
+        alert(`No tienes suficiente Paladio. Necesitas ${currentCost.toLocaleString()} PAL.`);
+        return false;
+      }
+      setPaladio(prev => prev - currentCost);
+    } else {
+      // Dron: starts at 100,000 and doubles
+      const currentCost = 100000 * Math.pow(2, currentWipsCount);
+      if (credits < currentCost) {
+        alert(`No tienes suficientes créditos. Necesitas ${currentCost.toLocaleString()} Cr.`);
+        return false;
+      }
+      setCredits(prev => prev - currentCost);
+    }
+
     setWips(prev => [...prev, {
       instanceId: Date.now(),
-      type: wipId, // 'dron' or 'sparks'
+      type: wipId,
       equipped: [],
       integrity: 100
     }]);
@@ -846,6 +909,7 @@ function App() {
     setInventory(prev => [...prev, { ...protocol, instanceId: Date.now() }]);
     return true;
   };
+
 
   const handleBuyEcoFuel = (amount, totalCost) => {
     if (paladio < totalCost) return false;
@@ -977,7 +1041,7 @@ function App() {
     });
     setLevel(1);
     setXp(0);
-    setMinerals({ titanium: 0, plutonium: 0, silicon: 0 });
+    setMinerals({ titanium: 0, plutonium: 0, silicon: 0, iridium: 0 });
     setUpgrades({ atk: [], shld: [], spd: [] });
     localStorage.clear();
   };
@@ -1077,7 +1141,7 @@ function App() {
 
   const currentEquippedModules = equippedByShip[selectedShipId] || [];
 
-  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages', 'missions'].includes(currentView);
+  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages', 'missions', 'subasta', 'messages', 'friends', 'ranking'].includes(currentView);
 
   return (
     <div className="app-container">
@@ -1294,12 +1358,23 @@ function App() {
         )}
 
         {currentView === 'messages' && (
-          <MessagesPage 
-            user={user}
-            onBack={() => setCurrentView('menu')}
-          />
-        )}
-      </div>
+        <MessagesPage 
+          user={user} 
+          onBack={() => setCurrentView('menu')} 
+          onNavigate={setCurrentView}
+        />
+      )}
+
+      {currentView === 'subasta' && (
+        <Auctions 
+          auctions={auctions}
+          resetIn={auctionResetIn}
+          onBid={handleAuctionBid}
+          userCredits={credits}
+          onBack={() => setCurrentView('menu')}
+        />
+      )}
+</div>
       
       {currentView === 'game' && (
         <>

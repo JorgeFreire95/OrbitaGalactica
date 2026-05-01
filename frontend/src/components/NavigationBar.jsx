@@ -11,7 +11,7 @@ const NavigationBar = ({ currentView, onNavigate }) => {
     { id: 'friends', label: 'Amigos' },
     { id: 'messages', label: 'Correos' },
     { id: 'packages', label: 'Paquetes' },
-    { id: 'subasta', label: 'Subasta', wip: true },
+    { id: 'subasta', label: 'Subasta' },
   ];
 
   const handleNavigate = (tab) => {

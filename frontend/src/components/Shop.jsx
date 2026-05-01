@@ -28,8 +28,8 @@ export default function Shop({
   setPaladio,
   onBuyEcoFuel
 }) {
-  const [activeCategory, setActiveCategory] = useState('armas');
-  const [selectedItem, setSelectedItem] = useState(MODULES_CATALOG.find(m => m.type === 'lasers'));
+  const [activeCategory, setActiveCategory] = useState('naves');
+  const [selectedItem, setSelectedItem] = useState(SHIPS[0]);
   const [selectedLvl, setSelectedLvl] = useState(1);
   const [successMessage, setSuccessMessage] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
@@ -56,13 +56,13 @@ export default function Shop({
   };
 
   const categories = [
+    { id: 'naves', label: 'Naves', icon: '🚀' },
     { id: 'armas', label: 'Armas', icon: '🎯' },
-    { id: 'municion', label: 'Munición', icon: '📦' },
     { id: 'generadores', label: 'Generadores', icon: '🛡️' },
+    { id: 'municion', label: 'Munición', icon: '📦' },
+    { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'wips', label: 'Wips', icon: '🛰️' },
     { id: 'eco', label: 'E.C.O.', icon: '🤖' },
-    { id: 'naves', label: 'Naves', icon: '🚀' },
-    { id: 'extras', label: 'Extras', icon: '⚛️' },
     { id: 'materiales', label: 'Materiales', icon: '💎' },
   ];
 
@@ -159,7 +159,7 @@ export default function Shop({
     }
 
     if (activeCategory === 'wips') {
-      onBuyWip(targetItem);
+      onBuyWip(targetItem.id);
       triggerSuccess('Wip adquirido');
       return;
     }
@@ -174,10 +174,25 @@ export default function Shop({
   };
 
   const currentQty = currentItem?.isStackable ? buyQty : 1;
-  const currentTotalCost = currentItem ? (currentItem.cost * currentQty) : 0;
+  
+  const getDynamicCost = () => {
+    if (!currentItem) return 0;
+    if (activeCategory === 'wips') {
+      if (currentItem.id === 'sparks') {
+        const SPARKS_PRICES = [15000, 24000, 42000, 60000, 84000, 96000, 126000, 200000];
+        return SPARKS_PRICES[wipsCount] || SPARKS_PRICES[7];
+      }
+      return 100000 * Math.pow(2, wipsCount);
+    }
+    return currentItem.cost * currentQty;
+  };
+
+  const currentTotalCost = getDynamicCost();
 
   const isAffordable = currentItem 
-    ? (currentItem.currency === 'paladio' ? paladio >= currentTotalCost : credits >= currentTotalCost) 
+    ? ( (activeCategory === 'wips' && currentItem.id === 'sparks') || currentItem.currency === 'paladio' 
+        ? paladio >= currentTotalCost 
+        : credits >= currentTotalCost) 
     : false;
   const isMineral = activeCategory === 'materiales';
   const amountOwned = isMineral ? (minerals[selectedItem?.id] || 0) : 0;
@@ -258,7 +273,11 @@ export default function Shop({
               </div>
               <div className="shop-item-name">{item.name}</div>
               <div className="shop-item-price">
-                {(item.cost !== undefined) ? `${item.cost.toLocaleString()} ${item.currency === 'paladio' ? 'PAL' : 'Cr'}` : `${item.sellPrice} Cr/u`}
+                {activeCategory === 'wips' 
+                  ? (item.id === 'sparks' 
+                      ? `${([15000, 24000, 42000, 60000, 84000, 96000, 126000, 200000][wipsCount] || 200000).toLocaleString()} PAL`
+                      : `${(100000 * Math.pow(2, wipsCount)).toLocaleString()} Cr`)
+                  : (item.cost !== undefined) ? `${item.cost.toLocaleString()} ${item.currency === 'paladio' ? 'PAL' : 'Cr'}` : `${item.sellPrice} Cr/u`}
               </div>
             </div>
           ))}
@@ -312,9 +331,11 @@ export default function Shop({
                     </div>
                   )}
 
-                  {currentItem.id !== 'eco' && (
+                  {(activeCategory !== 'materiales' && activeCategory !== 'wips') && (
                   <div style={{ margin: '20px 0 10px 0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '5px' }}>
-                    <span style={{ fontSize: '0.7rem', color: '#00ffcc', textTransform: 'uppercase', letterSpacing: '1px' }}>Especificaciones Técnicas</span>
+                    <span style={{ fontSize: '0.7rem', color: '#00ffcc', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {activeCategory === 'eco' && currentItem.id === 'eco' ? 'Especificaciones del Sistema' : 'Especificaciones Técnicas'}
+                    </span>
                   </div>
                   )}
 
@@ -423,9 +444,20 @@ export default function Shop({
                         <span style={{ color: '#00ffcc' }}>{currentItem.repair_rate} HP/s</span>
                       </div>
                     )}
+                    {activeCategory === 'materiales' && (
+                      <>
+                        <div className="preview-stat-row">
+                          <span>Precio de Venta</span>
+                          <span style={{ color: '#ffcc00' }}>{currentItem.sellPrice} créditos</span>
+                        </div>
+                        <div className="preview-stat-row">
+                          <span>Mejora en Laboratorio</span>
+                          <span style={{ color: '#00ffcc' }}>{currentItem.stat?.toUpperCase()}</span>
+                        </div>
+                      </>
+                    )}
                     {activeCategory === 'naves' && (
                       <>
-                        <div style={{ marginTop: '15px', marginBottom: '10px', color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid #333', paddingBottom: '5px' }}>ESPECIFICACIONES TÉCNICAS</div>
                         <div className="preview-stat-row">
                           <span>Vida Base</span>
                           <span style={{ color: '#ff3366' }}>{currentItem.hp?.toLocaleString()} HP</span>
@@ -454,7 +486,6 @@ export default function Shop({
                     )}
                     {activeCategory === 'eco' && currentItem.id === 'eco' && (
                       <>
-                        <div style={{ marginTop: '15px', marginBottom: '10px', color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', borderBottom: '1px solid #333', paddingBottom: '5px' }}>ESPECIFICACIONES DEL SISTEMA</div>
                         <div className="preview-stat-row">
                           <span>Vida Base</span>
                           <span style={{ color: '#ff3366' }}>{currentItem.hp?.toLocaleString()} HP</span>

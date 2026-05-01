@@ -48,8 +48,9 @@
 
 ### 🤖 E.C.O. (Emergency Companion Observer)
 - **Unidad de Apoyo Avanzada**: El sistema E.C.O. es un dron de apoyo inteligente con IA dedicada que actúa de forma independiente para asistir al piloto en situaciones críticas.
+- **Sincronización Autónoma y Estabilidad**: El dron opera como una entidad secundaria completamente independiente de las físicas de la nave principal, con un seguimiento de posición preciso y fluido. Posee su propio sistema de salud y sincronización de estado reflejado fielmente en su HUD.
 - **Sistema de Progresión y Veteranía**: El E.C.O. posee su propio sistema de niveles (hasta **Nivel 15**). Recibe automáticamente el **15% de la experiencia** ganada por el piloto en combates y misiones, permitiendo una evolución paralela al rango del jugador.
-- **Gestión de Combustible (Fuel System)**: El dron requiere combustible para operar. Posee un tanque de **100,000 unidades** que se consume durante el despliegue y de forma acelerada al activar protocolos de reparación. Si el combustible se agota, el dron se repliega automáticamente.
+- **Gestión de Combustible (Fuel System)**: El dron requiere combustible para operar. Posee un tanque de **100,000 unidades** que se consume durante el despliegue y de forma acelerada al activar protocolos de reparación. Si el combustible se agota, el dron se repliega automáticamente. Además, el sistema ahora permite el **comercio (venta) de excedentes de combustible** directamente en la interfaz.
 - **Protocolos de Reparación Inteligente**:
     - **Reparación Remota (Nivel 1-3)**: El E.C.O. puede proyectar un haz reparador sobre la nave del piloto para restaurar vida estructural en pleno combate. El protocolo consume combustible extra y tiene una probabilidad de rechazo basada en el nivel del módulo.
     - **Auto-Reparación (Nivel 1-3)**: Protocolo de mantenimiento interno que permite al E.C.O. recuperar sus propios puntos de vida y escudo de forma gradual.
@@ -58,8 +59,8 @@
     - **Nivel 5-9**: Equipamiento Avanzado (Tier 2).
     - **Nivel 10-15**: Equipamiento de Élite (Tier 3).
 - **Expansión de Ranuras por Paladio**: El chasis del E.C.O. es altamente modular. El piloto puede desbloquear hasta **5 láseres, 10 generadores, 10 protocolos y 5 módulos de utilidad** invirtiendo **500 de Paladio** por cada expansión de ranura.
-- **Tienda Inteligente y Dinámica**: Interfaz optimizada con selector de nivel dinámico para protocolos, eliminando la saturación visual y mostrando especificaciones técnicas y costes en tiempo real.
-- **IA de Seguimiento Dinámico**: Algoritmo de navegación autónoma con vector de velocidad propio que permite al dron orbitar la nave o realizar maniobras de evasión.
+- **Tienda Inteligente y Dinámica**: Interfaz optimizada con vistas desplazables ("scrollable") para garantizar el acceso rápido a los botones de compra. Presenta un selector de nivel dinámico, omitiendo encabezados técnicos redundantes y mostrando la información más relevante de manera concisa.
+- **IA de Seguimiento Dinámico**: Algoritmo de navegación autónoma con vector de velocidad propio que permite al dron orbitar la nave o realizar maniobras de evasión sin interferir con la renderización del jugador principal.
 - **HUD de Estado y XP**: Proyección holográfica sobre el chasis que muestra vida, escudo, nivel actual y una **barra de experiencia (XP)** detallada.
 
 ### 💬 Sistema Social y Chat Integrado
@@ -109,6 +110,12 @@ Los **Cofres Especiales** (resaltados en el radar) aparecen de forma aleatoria e
 - **🚀 Misiles (15%)**: Entre **5 y 15** misiles (M-1, M-2 o M-3).
 - **🪐 Paladio (20%)**: Entre **2 y 10** unidades de Paladio.
 
+### ⚖️ Casa de Subastas Galáctica
+- **Pujas en Tiempo Real**: Sistema de subastas en el que los pilotos pueden competir por equipamiento exclusivo (como el **Módulo de Compresión de Carga**).
+- **Sincronización Autoritativa**: Temporizador global sincronizado servidor-cliente para garantizar un cierre justo y simultáneo de todas las subastas.
+- **Notificaciones In-Game Automatizadas**: Alertas inmediatas integradas en el HUD sobre el estado de las pujas, notificaciones de sobrepuja y confirmación de victorias.
+- **Transacciones y Seguridad**: Operaciones de base de datos robustas para el débito de créditos y la transferencia de inventario, diseñadas para un comercio seguro sin vulnerabilidades.
+
 ### ⛴️ Flota Estelar (Naves Disponibles)
 Elige la nave que mejor se adapte a tu estilo de juego. Desde veloces interceptores hasta fortalezas pesadas:
 
@@ -131,7 +138,7 @@ Elige la nave que mejor se adapte a tu estilo de juego. Desde veloces intercepto
 ### 👾 Bestiario Alienígena y Amenaza Activa
 El universo de Órbita Galáctica es ahora más peligroso. Todos los alienígenas han sido reprogramados con un **Protocolo de Caza Activa**:
 - **IA de Cazador (Hunter AI)**: Los alienígenas no solo deambulan; ahora detectan tu presencia, te persiguen y abren fuego de forma agresiva.
-- **Escalado Táctico**: La velocidad de proyectiles y la cadencia de fuego de los aliens aumenta dinámicamente según el nivel del mapa.
+- **Escalado Táctico y Estadísticas**: La velocidad de proyectiles y la cadencia de fuego de los aliens aumenta dinámicamente según el nivel del mapa. Las estadísticas de combate de las naves enemigas han sido rebalanceadas para ofrecer un reto más equilibrado y exigente.
 - **Visualización de Daño Hostil**: Los impactos recibidos de naves alienígenas se muestran en **rojo brillante** en el HUD, permitiendo identificar rápidamente la gravedad del combate.
 
 Razas detectadas:

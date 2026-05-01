@@ -5,11 +5,15 @@ const MessagesPage = ({ user, onBack }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedMessage, setSelectedMessage] = useState(null);
-    const [messageType, setMessageType] = useState('inbox'); // 'inbox' or 'sent'
+    const [messageType, setMessageType] = useState('inbox'); // 'inbox', 'sent', or 'compose'
+    const [friends, setFriends] = useState([]);
+    const [recipients, setRecipients] = useState([]); // Combined list of friends and admins
+    const [sending, setSending] = useState(false);
+    
     const API_URL = 'http://localhost:8000/api';
 
     const fetchMessages = async () => {
-        if (!user) return;
+        if (!user || messageType === 'compose') return;
         setLoading(true);
         try {
             const endpoint = messageType === 'inbox' ? `mail/list/${user.username}` : `mail/sent/${user.username}`;
@@ -25,9 +29,53 @@ const MessagesPage = ({ user, onBack }) => {
         }
     };
 
+    const fetchRecipients = async () => {
+        if (!user) return;
+        try {
+            // Fetch friends and all users (to find admins)
+            const [friendsResp, allUsersResp] = await Promise.all([
+                fetch(`${API_URL}/friends/${user.username}`),
+                fetch(`${API_URL}/users`)
+            ]);
+
+            let friendsList = [];
+            let adminsList = [];
+
+            if (friendsResp.ok) {
+                const data = await friendsResp.json();
+                friendsList = data.friends || [];
+            }
+
+            if (allUsersResp.ok) {
+                const data = await allUsersResp.json();
+                // Filter admins and exclude self
+                adminsList = data.filter(u => u.is_admin && u.username !== user.username).map(u => ({
+                    username: u.username,
+                    isAdmin: true
+                }));
+            }
+
+            // Combine and remove duplicates
+            const combined = [...adminsList];
+            friendsList.forEach(f => {
+                if (!combined.find(c => c.username === f)) {
+                    combined.push({ username: f, isAdmin: false });
+                }
+            });
+
+            setRecipients(combined.sort((a, b) => a.username.localeCompare(b.username)));
+        } catch (err) {
+            console.error("Error fetching recipients:", err);
+        }
+    };
+
     useEffect(() => {
-        fetchMessages();
-        setSelectedMessage(null);
+        if (messageType === 'compose') {
+            fetchRecipients();
+        } else {
+            fetchMessages();
+            setSelectedMessage(null);
+        }
     }, [user, messageType]);
 
     const handleRead = async (msg) => {
@@ -47,6 +95,37 @@ const MessagesPage = ({ user, onBack }) => {
         }
     };
 
+    const handleSendMail = async (e) => {
+        e.preventDefault();
+        setSending(true);
+        const formData = new FormData(e.target);
+        const body = {
+            sender: user.username,
+            receiver: formData.get('receiver'),
+            subject: formData.get('subject'),
+            body: formData.get('body')
+        };
+
+        try {
+            const resp = await fetch(`${API_URL}/mail/send`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) {
+                alert('Mensaje enviado con éxito');
+                setMessageType('sent');
+            } else {
+                alert('Error al enviar el mensaje');
+            }
+        } catch (err) {
+            console.error("Send mail error:", err);
+            alert('Error de conexión');
+        } finally {
+            setSending(false);
+        }
+    };
+
     const formatDate = (dateStr) => {
         const d = new Date(dateStr);
         return d.toLocaleString('es-ES', { 
@@ -63,7 +142,8 @@ const MessagesPage = ({ user, onBack }) => {
                     <h1>SISTEMA DE CORREO</h1>
                 </div>
                 <div className="msg-stats">
-                    <span>{messages.filter(m => !m.is_read).length} SIN LEER</span>
+                    {messageType !== 'compose' && <span>{messages.filter(m => !m.is_read).length} SIN LEER</span>}
+                    {messageType === 'compose' && <span>REDACTANDO</span>}
                 </div>
             </div>
 
@@ -82,40 +162,87 @@ const MessagesPage = ({ user, onBack }) => {
                         >
                             ENVIADOS
                         </button>
+                        <button 
+                            className={`tab-btn ${messageType === 'compose' ? 'active' : ''}`}
+                            onClick={() => setMessageType('compose')}
+                            style={{ background: messageType === 'compose' ? 'rgba(0, 255, 204, 0.2)' : undefined, color: messageType === 'compose' ? '#00ffcc' : undefined }}
+                        >
+                            REDACTAR
+                        </button>
                     </div>
-                    <div className="messages-scroll">
-                        {loading ? (
-                            <div className="msg-loading">Sincronizando...</div>
-                        ) : messages.length === 0 ? (
-                            <div className="msg-empty">No hay mensajes en esta sección.</div>
-                        ) : (
-                            messages.map(msg => (
-                                <div 
-                                    key={msg.id} 
-                                    className={`message-item ${msg.is_read ? 'read' : 'unread'} ${selectedMessage?.id === msg.id ? 'active' : ''}`}
-                                    onClick={() => handleRead(msg)}
-                                >
-                                    <div className="msg-icon">
-                                        {msg.type === 'mail' ? '📧' : '🛡️'}
-                                    </div>
-                                    <div className="msg-main">
-                                        <div className="msg-subject">{msg.subject}</div>
-                                        <div className="msg-meta">
-                                            <span className="msg-sender">
-                                                {messageType === 'inbox' ? `De: ${msg.sender}` : `Para: ${msg.receiver}`}
-                                            </span>
-                                            <span className="msg-date">{formatDate(msg.sent_at)}</span>
+                    
+                    {messageType !== 'compose' ? (
+                        <div className="messages-scroll">
+                            {loading ? (
+                                <div className="msg-loading">Sincronizando...</div>
+                            ) : messages.length === 0 ? (
+                                <div className="msg-empty">No hay mensajes en esta sección.</div>
+                            ) : (
+                                messages.map(msg => (
+                                    <div 
+                                        key={msg.id} 
+                                        className={`message-item ${msg.is_read ? 'read' : 'unread'} ${selectedMessage?.id === msg.id ? 'active' : ''}`}
+                                        onClick={() => handleRead(msg)}
+                                    >
+                                        <div className="msg-icon">
+                                            {msg.type === 'mail' ? '📧' : '🛡️'}
                                         </div>
+                                        <div className="msg-main">
+                                            <div className="msg-subject">{msg.subject}</div>
+                                            <div className="msg-meta">
+                                                <span className="msg-sender">
+                                                    {messageType === 'inbox' ? `De: ${msg.sender}` : `Para: ${msg.receiver}`}
+                                                </span>
+                                                <span className="msg-date">{formatDate(msg.sent_at)}</span>
+                                            </div>
+                                        </div>
+                                        {messageType === 'inbox' && !msg.is_read && <div className="unread-dot"></div>}
                                     </div>
-                                    {messageType === 'inbox' && !msg.is_read && <div className="unread-dot"></div>}
-                                </div>
-                            ))
-                        )}
-                    </div>
+                                ))
+                            )}
+                        </div>
+                    ) : (
+                        <div className="compose-info">
+                            <h3>Consejos de Redacción</h3>
+                            <p>Mantén la cordialidad con otros pilotos.</p>
+                            <p>Los administradores recibirán tu mensaje en su buzón prioritario.</p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="message-detail-panel">
-                    {selectedMessage ? (
+                    {messageType === 'compose' ? (
+                        <div className="compose-view">
+                            <h2>REDACTAR NUEVO MENSAJE</h2>
+                            <form onSubmit={handleSendMail} className="compose-form">
+                                <div className="form-group">
+                                    <label>PARA:</label>
+                                    <select name="receiver" required defaultValue="">
+                                        <option value="" disabled>Selecciona un destinatario...</option>
+                                        {recipients.map(r => (
+                                            <option key={r.username} value={r.username}>
+                                                {r.username} {r.isAdmin ? '(admin)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>ASUNTO:</label>
+                                    <input name="subject" type="text" placeholder="Asunto del mensaje..." required />
+                                </div>
+                                <div className="form-group">
+                                    <label>MENSAJE:</label>
+                                    <textarea name="body" placeholder="Escribe tu mensaje aquí..." required rows={10}></textarea>
+                                </div>
+                                <div className="compose-footer">
+                                    <button type="button" className="back-btn" onClick={() => setMessageType('inbox')}>CANCELAR</button>
+                                    <button type="submit" className="send-btn" disabled={sending}>
+                                        {sending ? 'ENVIANDO...' : 'ENVIAR TRANSMISIÓN'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    ) : selectedMessage ? (
                         <div className="message-view">
                             <div className="detail-header">
                                 <div className="detail-title">{selectedMessage.subject}</div>
@@ -130,8 +257,12 @@ const MessagesPage = ({ user, onBack }) => {
                             </div>
                             <div className="detail-footer">
                                 <button className="delete-btn" onClick={() => alert('Próximamente: Eliminar')}>ELIMINAR</button>
-                                {selectedMessage.type === 'mail' && (
-                                    <button className="reply-btn" onClick={() => alert('Próximamente: Responder')}>RESPONDER</button>
+                                {messageType === 'inbox' && selectedMessage.type === 'mail' && (
+                                    <button className="reply-btn" onClick={() => {
+                                        // Set recipient and subject automatically for reply
+                                        setMessageType('compose');
+                                        // We'll need to pass these values to the form, but for now just switching view
+                                    }}>RESPONDER</button>
                                 )}
                             </div>
                         </div>

@@ -54,7 +54,8 @@ export default function Hangar({
     atk: viewedShip.atk + currentEquipped.reduce((acc, m) => acc + (m.atk || 0), 0) + (upgrades.atk || []).reduce((acc, u) => acc + (u.amount || 0), 0),
     spd: viewedShip.spd + currentEquipped.reduce((acc, m) => acc + (m.spd || 0), 0) + (upgrades.spd || []).reduce((acc, u) => acc + (u.amount || 0), 0),
     lasersSlots: viewedShip.slots.lasers,
-    genSlots: viewedShip.slots.shields + viewedShip.slots.engines
+    genSlots: viewedShip.slots.shields + viewedShip.slots.engines,
+    utilitySlots: (viewedShip.slots.utility || 0) + currentEquipped.reduce((acc, m) => acc + (m.extraSlots || 0), 0)
   };
 
   return (
@@ -126,6 +127,10 @@ export default function Hangar({
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Ranuras Generadores</span>
                   <span className="fleet-stat-value">{stats.genSlots}</span>
+              </div>
+              <div className="fleet-stat-row">
+                  <span className="fleet-stat-label">Ranuras Extras</span>
+                  <span className="fleet-stat-value">{stats.utilitySlots}</span>
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Experiencia Nave</span>

@@ -41,7 +41,11 @@ export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequi
             onMouseOver={(e) => { if((item || isLocked) && !isBlocked) e.currentTarget.style.transform = 'scale(1.1)'; }}
             onMouseOut={(e) => { if((item || isLocked) && !isBlocked) e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            {isLocked ? '🔒' : (item && '✅')}
+            {isLocked ? '🔒' : (item && (
+              item.image ? 
+                <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }} /> 
+                : <span style={{ fontSize: '10px' }}>{item.icon}</span>
+            ))}
           </div>
         );
       })}

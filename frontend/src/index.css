@@ -2786,9 +2786,6 @@ canvas {
 
 /* --- MISSION TRACKER HUD WINDOW --- */
 .mission-tracker-hud {
-  position: fixed;
-  right: 20px;
-  top: 180px;
   width: 250px;
   background: rgba(5, 8, 16, 0.75);
   backdrop-filter: blur(8px);

@@ -614,6 +614,44 @@ def update_user(target_username, new_username, new_email, new_faction, level=Non
     finally:
         conn.close()
 
+def update_user_credits(username, amount):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        c.execute("UPDATE users SET credits = ? WHERE username = ?", (amount, username))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating user credits: {e}")
+        return False
+    finally:
+        conn.close()
+
+def update_stats_offline(username, updates):
+    """Actualiza campos específicos de un usuario offline, manejando conversiones JSON."""
+    stats = get_user_stats_db(username)
+    if not stats: return False
+    
+    # Mapeo de campos a sus nombres en sync_user_stats
+    # (credits, paladio, xp, level, minerals, owned_ships, inventory, equipped, timed_upgrades, wips, eco)
+    for key, value in updates.items():
+        stats[key] = value
+        
+    return sync_user_stats(
+        username=username,
+        level=stats.get("level", 1),
+        xp=stats.get("xp", 0),
+        credits=stats.get("credits", 50000),
+        paladio=stats.get("paladio", 0),
+        minerals=stats.get("minerals"),
+        owned_ships=stats.get("owned_ships"),
+        inventory=stats.get("inventory"),
+        equipped=stats.get("equipped"),
+        timed_upgrades=stats.get("timed_upgrades"),
+        wips=stats.get("wips"),
+        eco=stats.get("eco")
+    )
+
 def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None, is_invisible=None, wips=None, eco=None, **kwargs):
     conn = get_connection()
     c = conn.cursor()
@@ -805,20 +843,6 @@ def create_clan_db(tag, name, leader):
     finally:
         conn.close()
 
-def send_system_message_db(username, subject, body):
-    conn = get_connection()
-    c = conn.cursor()
-    try:
-        c.execute('''
-            INSERT INTO messages (sender, receiver, subject, body)
-            VALUES (?, ?, ?, ?)
-        ''', ("SYSTEM", username, subject, body))
-        conn.commit()
-        return True
-    except Exception:
-        return False
-    finally:
-        conn.close()
 
 def create_clan_request_db(clan_tag, username, message):
     conn = get_connection()
@@ -1797,11 +1821,11 @@ def get_friend_requests(username):
 def get_all_users_db():
     conn = get_connection()
     c = conn.cursor()
-    # Obtenemos username, faction y level para el buscador
-    c.execute("SELECT username, faction, level FROM users")
+    # Obtenemos username, faction, level, is_admin y is_super_admin para el buscador
+    c.execute("SELECT username, faction, level, is_admin, is_super_admin FROM users")
     rows = c.fetchall()
     conn.close()
-    return [{"username": r[0], "faction": r[1], "level": r[2]} for r in rows]
+    return [{"username": r[0], "faction": r[1], "level": r[2], "is_admin": bool(r[3] or r[4])} for r in rows]
 
 def remove_friend_db(user_a, user_b):
     conn = get_connection()
