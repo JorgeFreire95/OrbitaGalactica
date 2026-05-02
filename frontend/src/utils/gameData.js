@@ -11,7 +11,7 @@ export const SHIPS = [
     ui_image: '/phoenix_v3.png?v=5',
     slots: { lasers: 1, shields: 1, engines: 1, utility: 1 },
     shld: 30,
-    cargo_capacity: 100,
+    cargo_capacity: 500,
     cost: 0
   },
   {
@@ -157,8 +157,8 @@ export const MODULES_CATALOG = [
   { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 3000, currency: 'paladio', spd: 7,  icon: '🚀', desc: 'Inyectores de paladio que permiten una aceleración significativamente mayor.', image: '/turbo_motor.png' },
   { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 6000, currency: 'paladio', spd: 10,  icon: '🚀', desc: 'Núcleo de energía inestable que impulsa la nave a velocidades extremas.', image: '/hyper_motor.png' },
   
-  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 315, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.' },
-  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️', desc: 'Robot de nanotecnología avanzada capaz de reparar daños estructurales a gran velocidad.' },
+  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 315, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.', image: '/repair_robot_1.jpg' },
+  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️', desc: 'Robot de nanotecnología avanzada capaz de reparar daños estructurales a gran velocidad.', image: '/repair_robot_2.jpg' },
   { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 500, currency: 'paladio', desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
   { id: 'util_auto_repair_cpu', type: 'utility', lvl: 2, name: 'AUTO-CPU de roboreparación', cost: 10000, currency: 'paladio', desc: 'Inicia automáticamente a un robot de reparación disponible cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
   { id: 'util_turbo_missile', type: 'utility', lvl: 2, name: 'Misil Turbo', cost: 10000, currency: 'paladio', desc: 'Duplica la velocidad de lanzamiento de los misiles.', icon: '☄️', is_turbo_missile: true },
@@ -184,9 +184,9 @@ export const AMMO_CATALOG = [
 ];
 
 export const MISSILE_CATALOG = [
-  { id: 'missile_1', name: 'M-1 "Seta"',    damage: 1000,  cost: 100,   count: 1, icon: '🚀', color: '#ffcc00', isStackable: true },
-  { id: 'missile_2', name: 'M-2 "Ciclón"',  damage: 2000, cost: 500,  count: 1, icon: '🚀', color: '#ff6600', isStackable: true },
-  { id: 'missile_3', name: 'M-3 "Giga-Nuke"', damage: 4000, cost: 5, currency: 'paladio', count: 1, icon: '☢️', color: '#ff0000', isStackable: true },
+  { id: 'missile_1', name: 'M-1 "Seta"',    damage: 1000,  cost: 100,   count: 1, icon: '🚀', image: '/m1_seta.jpg', color: '#ffcc00', isStackable: true },
+  { id: 'missile_2', name: 'M-2 "Ciclón"',  damage: 2000, cost: 500,  count: 1, icon: '🚀', image: '/m2_ciclon.jpg', color: '#ff6600', isStackable: true },
+  { id: 'missile_3', name: 'M-3 "Giga-Nuke"', damage: 4000, cost: 5, currency: 'paladio', count: 1, icon: '☢️', image: '/m3_giganuke.jpg', color: '#ff0000', isStackable: true },
 ];
 
 export const ECO_CONFIG = {

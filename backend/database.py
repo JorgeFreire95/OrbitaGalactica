@@ -183,6 +183,7 @@ def init_db():
             reward_credits INTEGER DEFAULT 0,
             reward_paladio INTEGER DEFAULT 0,
             reward_ammo_json TEXT DEFAULT '{}',
+            map_name TEXT,
             next_mission_id INTEGER
         )
     ''')
@@ -200,6 +201,11 @@ def init_db():
     ''')
     
     # Migraciones
+    try:
+        c.execute("ALTER TABLE missions ADD COLUMN map_name TEXT")
+    except sqlite3.OperationalError:
+        pass
+    
     try:
         c.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
     except sqlite3.OperationalError:
@@ -334,16 +340,16 @@ def init_missions(conn):
     c.execute("SELECT COUNT(*) FROM missions")
     if c.fetchone()[0] == 0:
         missions = [
-            (1, "Bautismo de Fuego", "Elimina 10 alienígenas Gryllos para demostrar tu valía.", "Gryllos", 10, 1, 1000, 5000, 10, json.dumps({"standard": 1000}), 2),
-            (2, "Limpieza de Selene", "Los Xylos están invadiendo sectores lunares. Acaba con 15 de ellos.", "Xylos", 15, 2, 2500, 12000, 25, json.dumps({"thermal": 200}), 3),
-            (3, "Nebulosa Hostil", "Caza 20 Nykor en las zonas de gas denso.", "Nykor", 20, 3, 6000, 25000, 50, json.dumps({"plasma": 100}), 4),
-            (4, "Punta del Horizonte", "El vacío es peligroso. Elimina 25 Syrith para asegurar la ruta.", "Syrith", 25, 4, 12000, 50000, 100, json.dumps({"siphon": 50, "missile_1": 20}), 5),
-            (5, "Tormenta sobre Marte", "Caza 30 Vexis bajo las tormentas de polvo.", "Vexis", 30, 5, 25000, 100000, 250, json.dumps({"plasma": 500, "missile_2": 50}), 6),
-            (6, "Desafío de los Antiguos", "Elimina 40 Kragos en las ruinas de Plutón.", "Kragos", 40, 6, 50000, 250000, 500, json.dumps({"plasma": 1000, "missile_3": 25}), None)
+            (1, "Bautismo de Fuego", "Elimina 10 alienígenas Gryllos para demostrar tu valía.", "Gryllos", 10, 1, 1000, 5000, 10, json.dumps({"standard": 1000}), "Mars 1 / Moon 1 / Pluto 1", 2),
+            (2, "Limpieza de Selene", "Los Xylos están invadiendo sectores lunares. Acaba con 15 de ellos.", "Xylos", 15, 2, 2500, 12000, 25, json.dumps({"thermal": 200}), "Moon 2", 3),
+            (3, "Nebulosa Hostil", "Caza 20 Nykor en las zonas de gas denso.", "Nykor", 20, 3, 6000, 25000, 50, json.dumps({"plasma": 100}), "Neutral 1", 4),
+            (4, "Punta del Horizonte", "El vacío es peligroso. Elimina 25 Syrith para asegurar la ruta.", "Syrith", 25, 4, 12000, 50000, 100, json.dumps({"siphon": 50, "missile_1": 20}), "Pluto 4", 5),
+            (5, "Tormenta sobre Marte", "Caza 30 Vexis bajo las tormentas de polvo.", "Vexis", 30, 5, 25000, 100000, 250, json.dumps({"plasma": 500, "missile_2": 50}), "Mars 5", 6),
+            (6, "Desafío de los Antiguos", "Elimina 40 Kragos en las ruinas de Plutón.", "Kragos", 40, 6, 50000, 250000, 500, json.dumps({"plasma": 1000, "missile_3": 25}), "Pluto 7", None)
         ]
         c.executemany('''
-            INSERT INTO missions (id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, next_mission_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO missions (id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, map_name, next_mission_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', missions)
         conn.commit()
         print("Misiones inicializadas correctamente.")
@@ -1653,12 +1659,49 @@ def get_missions_db(username):
     conn = get_connection()
     c = conn.cursor()
     import json
+    import re
     try:
+        # Get user faction for map localization
+        c.execute('SELECT faction FROM users WHERE username = ?', (username,))
+        f_row = c.fetchone()
+        user_faction = f_row[0].upper() if f_row else "MARS"
+        
+        def localize_map(map_str, faction):
+            if not map_str: return "Sector Desconocido"
+            
+            # Faction names mapping
+            f_names = {
+                "MARS": "Marte",
+                "MOON": "Luna",
+                "PLUTO": "Plutón"
+            }
+            f_prefix = f_names.get(faction, "Marte")
+            
+            # Case 1: Multiple options "Mars 1 / Moon 1 / Pluto 1"
+            if " / " in map_str:
+                parts = map_str.split(" / ")
+                for p in parts:
+                    if faction.lower() in p.lower() or f_prefix.lower() in p.lower():
+                        return p
+                return parts[0]
+            
+            # Case 2: Shared/Neutral maps
+            if "Neutral" in map_str or "Sector" in map_str:
+                return map_str
+                
+            # Case 3: Specific faction map "Moon 2" -> "Marte 2"
+            match = re.search(r'(Mars|Moon|Pluto|Marte|Luna|Plutón)\s*(\d+)', map_str, re.IGNORECASE)
+            if match:
+                num = match.group(2)
+                return f"{f_prefix} {num}"
+                
+            return map_str
+
         # Get active missions
         c.execute('''
             SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
                    m.min_level, m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
-                   um.progress, um.status
+                   um.progress, um.status, m.map_name
             FROM missions m
             JOIN user_missions um ON m.id = um.mission_id
             WHERE um.username = ? AND um.status IN ('active', 'completed')
@@ -1666,22 +1709,20 @@ def get_missions_db(username):
         active_rows = c.fetchall()
         
         active_missions = []
-        completed_mission_ids = []
         for r in active_rows:
             active_missions.append({
                 "id": r[0], "title": r[1], "description": r[2], 
                 "target_alien": r[3], "target_count": r[4],
                 "min_level": r[5], "reward_xp": r[6], "reward_credits": r[7], "reward_paladio": r[8],
                 "reward_ammo": json.loads(r[9]),
-                "progress": r[10], "status": r[11]
+                "progress": r[10], "status": r[11], "map_name": localize_map(r[12], user_faction)
             })
-            if r[10] == 'completed': completed_mission_ids.append(r[0])
             
         # Get all completed/claimed missions for this user to know what to offer next
         c.execute('''
             SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
                    m.min_level, m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
-                   um.progress, um.status
+                   um.progress, um.status, m.map_name
             FROM missions m
             JOIN user_missions um ON m.id = um.mission_id
             WHERE um.username = ? AND um.status = "claimed"
@@ -1696,7 +1737,7 @@ def get_missions_db(username):
                 "target_alien": r[3], "target_count": r[4],
                 "min_level": r[5], "reward_xp": r[6], "reward_credits": r[7], "reward_paladio": r[8],
                 "reward_ammo": json.loads(r[9]),
-                "progress": r[10], "status": r[11]
+                "progress": r[10], "status": r[11], "map_name": localize_map(r[12], user_faction)
             })
             claimed_ids.append(r[0])
         
@@ -1704,12 +1745,15 @@ def get_missions_db(username):
         available_missions = []
         already_interacted_ids = set(claimed_ids) | set(m["id"] for m in active_missions)
         
+        query = "SELECT id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, map_name FROM missions"
         if already_interacted_ids:
             placeholders = ','.join(['?'] * len(already_interacted_ids))
-            query = f"SELECT * FROM missions WHERE id NOT IN ({placeholders}) ORDER BY id ASC"
+            query += f" WHERE id NOT IN ({placeholders})"
+            query += " ORDER BY id ASC"
             c.execute(query, list(already_interacted_ids))
         else:
-            c.execute("SELECT * FROM missions ORDER BY id ASC")
+            query += " ORDER BY id ASC"
+            c.execute(query)
             
         rows = c.fetchall()
         for m in rows:
@@ -1717,7 +1761,7 @@ def get_missions_db(username):
                 "id": m[0], "title": m[1], "description": m[2],
                 "target_alien": m[3], "target_count": m[4], "min_level": m[5],
                 "reward_xp": m[6], "reward_credits": m[7], "reward_paladio": m[8],
-                "reward_ammo": json.loads(m[9])
+                "reward_ammo": json.loads(m[9]), "map_name": localize_map(m[10], user_faction)
             })
 
         return {"active": active_missions, "available": available_missions, "completed": completed_missions}

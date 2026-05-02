@@ -99,7 +99,6 @@ class GameState:
             "mars_7": {
                 "name": "Puesto de Avanzada Phobos", "level": 7, "style": "mars",
                 "portals": [
-                    {"x": 1833, "y": 1680, "target": "mars_6", "tx": 18238 - 220, "ty": 14463 - 220, "label": "Cantera Olympus"},
                     {"x": 17532, "y": 14300, "target": "mars_8", "tx": 1526 + 220, "ty": 1422 + 220, "label": "Plataforma Asedio"},
                     {"x": 1600, "y": 1920, "target": "mars_5", "tx": 2200 + 220, "ty": 13653 + 220, "label": "Base Dust-Storm"}
                 ]
@@ -252,7 +251,7 @@ class GameState:
             "starter": {
                 "hp": 104000, "shld": 0, "atk": 40, "spd": 120, "color": "#ffffff",
                 "slots": {"lasers": 1, "shields": 1, "engines": 1, "utility": 1},
-                "cargo_capacity": 100
+                "cargo_capacity": 500
             },
             "tank": {
                 "hp": 260000, "shld": 150, "atk": 70, "spd": 260, "color": "#ffb300",
@@ -402,7 +401,7 @@ class GameState:
                 "x": 1750, "y": 1150, "vx": 0, "vy": 0,
                 "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []},
                 "unlocked_slots": {"lasers": 1, "generators": 1, "protocols": 1, "utility": 1},
-                "xp": 0, "xp_next": 1000
+                "xp": 0, "xp_next": 100000
             },
             "active_abilities": {}, # {id: expiry_time}
             "ability_cooldowns": {}  # {id: ready_time}
@@ -443,6 +442,7 @@ class GameState:
         player["base_spd"] = prof["spd"]
         player["base_max_shld"] = prof["shld"]
         player["base_max_hp"] = prof["hp"]
+        player["base_max_cargo"] = prof.get("cargo_capacity", 1500)
 
         # Procesar mejoras iniciales (pueden ser formato nuevo o viejo)
         raw_upg = initial_upgrades if (initial_upgrades and isinstance(initial_upgrades, dict)) else {}
@@ -480,15 +480,14 @@ class GameState:
             player["level"] = saved.get("level", initial_level)
             current_xp = saved.get("xp", initial_xp)
             
-            # Migración: Si la XP guardada es menor al umbral acumulado del nivel anterior, 
-            # asumimos que es el sistema antiguo (residuo) y lo convertimos a total.
-            threshold_lvl_prev = ((player["level"] - 1) * player["level"] // 2) * 1000
+            # Migración al nuevo sistema de 100k por nivel
+            threshold_lvl_prev = (player["level"] - 1) * 100000
             if current_xp < threshold_lvl_prev:
                 player["xp"] = current_xp + threshold_lvl_prev
             else:
                 player["xp"] = current_xp
                 
-            player["xp_next"] = (player["level"] * (player["level"] + 1) // 2) * 1000
+            player["xp_next"] = player["level"] * 100000
             player["x"] = saved.get("x", 1750)
             player["y"] = saved.get("y", 1150)
             player["current_map"] = saved.get("current_map", "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"))
@@ -2216,7 +2215,7 @@ class GameState:
         player["spd"] = player.get("base_spd", 60)
         player["max_shld"] = player.get("base_max_shld", 150)
         player["max_hp"] = player.get("base_max_hp", 180)
-        player["max_cargo"] = player.get("base_max_cargo", 1500)
+        player["max_cargo"] = player.get("base_max_cargo", 100) # Default to 100 for Phoenix if not found
         player["shield_absorption"] = 0.8 # Default 80%
 
         # 1. Sumar Módulos Equipados
@@ -2911,7 +2910,7 @@ class GameState:
         # Level up logic (Cumulative System)
         while player["xp"] >= player["xp_next"]:
             player["level"] += 1
-            player["xp_next"] = (player["level"] * (player["level"] + 1) // 2) * 1000
+            player["xp_next"] = player["level"] * 100000
             player["hp"] = min(player["max_hp"], player["hp"] + 25)
 
     def gain_eco_xp(self, player, amount):

@@ -52,6 +52,11 @@ html, body, #root {
   scrollbar-color: #1a2a4a #050810;
 }
 
+select option {
+  background-color: #0d1426;
+  color: white;
+}
+
 /* --- INDUSTRIAL HANGAR STYLES (FLEET COMMAND) --- */
 .hangar-view-container {
   width: 100%;

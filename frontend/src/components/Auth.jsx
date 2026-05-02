@@ -18,6 +18,19 @@ export default function Auth({ onLogin, onRegister, onForgotPassword }) {
     if (regForm.password !== regForm.confirmPassword) {
       return alert('Las contraseñas no coinciden.');
     }
+    
+    // Nueva validación de contraseña
+    const password = regForm.password;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    if (!hasUpperCase) {
+      return alert('La contraseña debe tener al menos una letra mayúscula.');
+    }
+    if (!hasSpecialChar) {
+      return alert('La contraseña debe tener al menos un carácter especial (ej: !@#$%^&*).');
+    }
+
     if (!regForm.username || !regForm.email) {
       return alert('Completa todos los campos obligatorios para el registro.');
     }
@@ -98,7 +111,7 @@ export default function Auth({ onLogin, onRegister, onForgotPassword }) {
                     <input 
                       type="password" 
                       required 
-                      placeholder="Mín. 4 caracteres"
+                      placeholder="Mín. 4 car., Mayús. y Esp."
                       value={regForm.password}
                       onChange={e => setRegForm({...regForm, password: e.target.value})}
                     />

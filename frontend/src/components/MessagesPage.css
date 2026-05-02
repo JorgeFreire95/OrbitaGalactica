@@ -412,3 +412,10 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Mejora de visibilidad para select en navegadores basados en Chromium */
+select option {
+    background-color: #111 !important;
+    color: #fff !important;
+    padding: 10px;
+}

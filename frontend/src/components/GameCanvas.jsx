@@ -1741,9 +1741,9 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                     { id: 'siphon', type: 'laser', icon: '🔋', image: '/siphon_ammo.png' },
                                 ],
                                 missiles: [
-                                    { id: 'missile_1', type: 'missile', icon: '🚀' },
-                                    { id: 'missile_2', type: 'missile', icon: '🚀' },
-                                    { id: 'missile_3', type: 'missile', icon: '☢️' },
+                                    { id: 'missile_1', type: 'missile', icon: '🚀', image: '/m1_seta.jpg' },
+                                    { id: 'missile_2', type: 'missile', icon: '🚀', image: '/m2_ciclon.jpg' },
+                                    { id: 'missile_3', type: 'missile', icon: '☢️', image: '/m3_giganuke.jpg' },
                                 ],
                                 extras: (propsRef.current.initialModules || [])
                                     .map(moduleId => {

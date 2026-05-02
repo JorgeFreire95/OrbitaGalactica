@@ -12,6 +12,7 @@ import os
 import requests
 import time
 from typing import Optional, List, Dict
+import re
 
 import mercadopago
 
@@ -447,6 +448,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/api/register")
 async def api_register(req: RegisterRequest):
+    # Validaciones de seguridad de contraseña
+    password = req.password
+    if not re.search(r'[A-Z]', password):
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos una letra mayúscula.")
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos un carácter especial (ej: !@#$%^&*).")
+
     result = register_user(req.username, req.email, req.password)
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])

@@ -110,6 +110,12 @@ export default function Missions({ user, onNavigate, credits, level, xp, paladio
                         <span>Eliminar {m.target_alien}:</span>
                         <span className="objective-progress">{m.progress || 0} / {m.target_count}</span>
                     </div>
+                    {m.map_name && (
+                        <div className="objective">
+                            <span>Sector de Operaciones:</span>
+                            <span className="objective-progress" style={{ color: '#00d4ff' }}>{m.map_name}</span>
+                        </div>
+                    )}
                     {isActive && (
                          <div className="progress-bar-container">
                             <div 
