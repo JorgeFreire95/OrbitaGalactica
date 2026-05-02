@@ -22,8 +22,9 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Diseños Legendarios (Premium Skins)**: Sistema de personalización con bonos de combate reales (HP, Escudo, Daño, Absorción).
 - **Arsenal Inteligente**: Láseres de 4 niveles y misiles teledirigidos.
 - **CPU de Misil Automático**: Sistema de fuego autónomo que prioriza objetivos fijados en PVP y PVE.
-- **Módulo de Invisibilidad**: Tecnología de sigilo para maniobras tácticas.
-- **Laboratorio de Minerales**: Refinado de recursos para buffs temporales de 2 horas.
+- **Módulos de Sigilo**: Tecnología de invisibilidad estándar y **Invisibilidad Avanzada** (ataque sin revelación).
+- **Habilidades de Clase**: Habilidades activas únicas (**Invulnerabilidad, Provocación, Refuerzo de Escudo**).
+- **Laboratorio de Minerales**: Refinado de recursos con bonos porcentuales (**+15% HP, +10% SHLD, +8% SPD, +5% ATK**).
 
 ### 🤖 Épica: Sistemas de Apoyo (Drones & AI)
 - **E.C.O. (Emergency Companion Observer)**: Drone inteligente con nivel propio, sistema de combustible y protocolos de auto-reparación.
@@ -35,6 +36,7 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Party System**: Grupos tácticos con HUD compartido y recompensas divididas.
 - **Sindicatos (Clanes)**: Fundación de alianzas, gestión de tesorería, rangos y diplomacia.
 - **Mercado Estelar**: Casa de subastas sincronizada para items exclusivos.
+- **HUD Táctico Modular**: Interfaz de combate con ChatBox movible y barra de habilidades dinámica.
 
 ---
 
@@ -53,16 +55,16 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ## 📈 4. Sprint Status (Estado Actual del Desarrollo)
 
 ### ✅ Done (Terminado en el último incremento)
-- **Integración Helix Support**: Implementación completa de habilidades de reparación masiva (Beacons).
-- **Sistema de Compra Múltiple**: Selector de cantidad y botón "MAX" funcional para todo el catálogo de la tienda.
-- **PVP Targeting Fix**: Corrección de la limpieza de objetivos en el servidor; el fijado ahora persiste correctamente en combate entre jugadores.
-- **Auto-Missile CPU**: Lógica de disparo autónoma totalmente funcional y sincronizada con el estado de invisibilidad.
-- **Sincronización de Wips**: Los drones ahora transfieren correctamente sus habilidades de utilidad a la nave principal.
+- **Habilidades de Solar Wind**: Implementación de Invulnerabilidad e Invisibilidad Avanzada (sin revelación al disparar).
+- **Habilidades de Obsidian Bastion**: Sistema de Provocación (Aggro) y Refuerzo de Escudo dinámico.
+- **Modular HUD**: ChatBox movible condicionado al bloqueo de UI y hotbar de habilidades adaptativa.
+- **Balance de Minerales**: Actualización de bonos de refinado a valores porcentuales para escalado de late-game.
+- **Fixes de Subasta**: Corrección en la entrega de items ganados (Nave Sparks) y sincronización de créditos.
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.
 - Mejora de IA para naves alienígenas tipo "Drakon".
-- Implementación de efectos visuales para las balizas de soporte de la Helix.
+- Implementación de efectos visuales (Aura de Invulnerabilidad y Beacons).
 
 ### 📅 To Do (Siguientes Sprints)
 - **Módulos de Estación**: Bases conquistables por clanes.

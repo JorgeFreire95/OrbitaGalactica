@@ -403,7 +403,9 @@ class GameState:
                 "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []},
                 "unlocked_slots": {"lasers": 1, "generators": 1, "protocols": 1, "utility": 1},
                 "xp": 0, "xp_next": 1000
-            }
+            },
+            "active_abilities": {}, # {id: expiry_time}
+            "ability_cooldowns": {}  # {id: ready_time}
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -453,11 +455,13 @@ class GameState:
 
         # Convertir formato viejo si es necesario (retrocompatibilidad por si acaso)
         if isinstance(raw_upg.get("atk"), (int, float)) and raw_upg["atk"] > 0:
-            player["timed_upgrades"]["atk"].append({"amount": raw_upg["atk"], "expires": time.time() + 7200})
+            player["timed_upgrades"]["atk"].append({"amount": raw_upg["atk"], "expires": (time.time() + 7200) * 1000})
         if isinstance(raw_upg.get("shld"), (int, float)) and raw_upg["shld"] > 0:
-            player["timed_upgrades"]["shld"].append({"amount": raw_upg["shld"], "expires": time.time() + 7200})
+            player["timed_upgrades"]["shld"].append({"amount": raw_upg["shld"], "expires": (time.time() + 7200) * 1000})
         if isinstance(raw_upg.get("spd"), (int, float)) and raw_upg["spd"] > 0:
-            player["timed_upgrades"]["spd"].append({"amount": raw_upg["spd"], "expires": time.time() + 7200})
+            player["timed_upgrades"]["spd"].append({"amount": raw_upg["spd"], "expires": (time.time() + 7200) * 1000})
+        if isinstance(raw_upg.get("hp"), (int, float)) and raw_upg["hp"] > 0:
+            player["timed_upgrades"]["hp"].append({"amount": raw_upg["hp"], "expires": (time.time() + 7200) * 1000})
 
         # Primera actualización de stats
         self.recalculate_player_stats(player)
@@ -706,13 +710,19 @@ class GameState:
         if player["powerup"] == "rapid_fire":
             fire_rate *= 0.4
             
-        # Trigger si presiona E O si tiene el CPU automático y tiene un objetivo fijado
-        should_fire_missile = keys.get("missile_shoot") or (player.get("has_auto_missile") and player.get("locked_target_id"))
+        # Trigger si presiona E O si tiene el CPU automático, un objetivo fijado y la nave está atacando (shoot_active)
+        # Esto cumple con el requisito de "una vez empiece el ataque, empiece a tirar misiles de forma automática"
+        has_auto = player.get("has_auto_missile", False)
+        locked = player.get("locked_target_id")
+        is_attacking = player.get("shoot_active", False)
+        
+        should_fire_missile = keys.get("missile_shoot") or (has_auto and locked and is_attacking)
 
         # --- LÓGICA DE REVELACIÓN (Invisibilidad) ---
         # Si el jugador está intentando disparar (Láser o Misil), se revela inmediatamente
+        # EXCEPCIÓN: Si tiene activa la habilidad de Invisibilidad Avanzada, no se revela al disparar
         if (player.get("shoot_active") or should_fire_missile):
-            if player.get("is_invisible"):
+            if player.get("is_invisible") and "advanced_invisibility" not in player.get("active_abilities", {}):
                 player["is_invisible"] = False
                 print(f"REVELADO: {player.get('user_id')} ha iniciado un ataque.")
 
@@ -1055,7 +1065,14 @@ class GameState:
                     player["owned_ships"].append(item_id)
             elif item_type == "wip":
                 if "wips" not in player: player["wips"] = []
-                player["wips"].append({"id": f"wip_{random.random()}", "type": item_id, "lvl": 1, "equipped": {"lasers": [], "generators": []}})
+                # El frontend espera 'instanceId' e 'integrity'
+                player["wips"].append({
+                    "instanceId": f"wip_{random.random()}", 
+                    "type": item_id, 
+                    "lvl": 1, 
+                    "integrity": 100,
+                    "equipped": []
+                })
             elif item_type == "module":
                 if "inventory" not in player: player["inventory"] = []
                 player["inventory"].append(item_id)
@@ -1086,7 +1103,13 @@ class GameState:
                         update_stats_offline(player_id, {"inventory": inv})
                     elif item_type == "wip":
                         wips = stats.get("wips", [])
-                        wips.append({"id": f"wip_{random.random()}", "type": item_id, "lvl": 1, "equipped": {"lasers": [], "generators": []}})
+                        wips.append({
+                            "instanceId": f"wip_{random.random()}", 
+                            "type": item_id, 
+                            "lvl": 1, 
+                            "integrity": 100,
+                            "equipped": []
+                        })
                         update_stats_offline(player_id, {"wips": wips})
                     elif item_type == "ammo":
                         ammo = stats.get("ammo", {}) # Note: stats['ammo'] from DB contains combined ammo
@@ -1249,10 +1272,19 @@ class GameState:
                     p["timed_upgrades"][stat] = active
                     upg_changed = True
             
-            if upg_changed:
+            # --- GESTIÓN DE HABILIDADES ACTIVAS ---
+            ability_expired = False
+            for abi_id, expiry in list(p.get("active_abilities", {}).items()):
+                if now > expiry:
+                    if abi_id == "advanced_invisibility":
+                        p["is_invisible"] = False
+                    del p["active_abilities"][abi_id]
+                    ability_expired = True
+            
+            if upg_changed or ability_expired:
                 self.recalculate_player_stats(p)
-                # Persistir limpieza en DB para que no vuelvan al reconectar
-                if "guest" not in pid and p.get("user_id"):
+                # Persistir limpieza en DB si hubo cambios de mejoras
+                if upg_changed and "guest" not in pid and p.get("user_id"):
                     try:
                         sync_user_stats(
                             p["user_id"], 
@@ -1593,17 +1625,32 @@ class GameState:
             m_id = enemy.get("map_id")
             
             target_player = None
-            if ai_type == "hunter":
-                # Si ya tiene target, verificar que siga en el mapa, vivo y FUERA de zona segura
-                if enemy["aggro_target"] and enemy["aggro_target"] in self.players:
+            
+            # 1. SIEMPRE PRIORIZAR PROVOCACIÓN (Override actual target)
+            provocation_target = None
+            min_prov_dist = 1200 # Rango máximo de influencia
+            for pid, p in self.players.items():
+                if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False) and not p.get("is_invisible", False):
+                    if "provocation" in p.get("active_abilities", {}):
+                        d = math.hypot(enemy["x"] - p["x"], enemy["y"] - p["y"])
+                        if d < min_prov_dist:
+                            min_prov_dist = d
+                            provocation_target = p
+                            enemy["aggro_target"] = pid
+
+            if provocation_target:
+                target_player = provocation_target
+            else:
+                # 2. Si no hay provocación, seguir con el target actual si existe y es válido
+                if enemy.get("aggro_target") and enemy["aggro_target"] in self.players:
                     p = self.players[enemy["aggro_target"]]
                     if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False) and not p.get("is_invisible", False):
                         target_player = p
                     else:
-                        enemy["aggro_target"] = None # Perder rastro si entra a base o muere
+                        enemy["aggro_target"] = None # Perder rastro
                 
-                # Si no hay target o lo perdió, buscar el más cercano
-                if not target_player:
+                # 3. Si es hunter y no tiene target, buscar el más cercano
+                if not target_player and ai_type == "hunter":
                     min_dist = DETECTION_RANGE
                     for pid, p in self.players.items():
                         if p["current_map"] == m_id and p["hp"] > 0 and not p.get("in_safe_zone", False) and not p.get("is_invisible", False):
@@ -1831,6 +1878,8 @@ class GameState:
                     if p["owner_id"] == pid: continue # No friendly fire
                     if target["hp"] <= 0: continue
                     if p.get("map_id") != target.get("current_map"): continue # FIX: Map check
+                    # Comprobar habilidad de invulnerabilidad
+                    if "invulnerability" in target.get("active_abilities", {}): continue
 
                     dist = math.hypot(p["x"] - target["x"], p["y"] - target["y"])
                     if dist < 20:
@@ -1862,6 +1911,8 @@ class GameState:
                 for pid, target in self.players.items():
                     if target["hp"] <= 0 or target.get("in_safe_zone"): continue
                     if p.get("map_id") != target.get("current_map"): continue
+                    # Comprobar habilidad de invulnerabilidad
+                    if "invulnerability" in target.get("active_abilities", {}): continue
 
                     dist = math.hypot(p["x"] - target["x"], p["y"] - target["y"])
                     if dist < 25: # Colisión un poco más generosa para aliens
@@ -2207,7 +2258,11 @@ class GameState:
             if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
             if mod.get("is_auto_repair"): player["has_auto_repair"] = True
             if mod.get("is_turbo_missile"): player["has_turbo_missile"] = True
-            if mod.get("is_auto_missile"): player["has_auto_missile"] = True
+            if mod.get("is_auto_missile"): 
+                player["has_auto_missile"] = True
+                # Asegurar que tiene un tipo de misil seleccionado si no tiene ninguno o se acaba de equipar
+                if not player.get("missile_type"):
+                    player["missile_type"] = "missile_1"
             if mod.get("is_cargo_compressor"): player["has_cargo_compressor"] = True
 
             # Recount for visuals
@@ -2372,16 +2427,19 @@ class GameState:
             
             player["eco"] = eco
 
-        # 2. Sumar Mejoras Temporales (Laboratorio) - ACUMULATIVO
+        # 2. Sumar Mejoras Temporales (Laboratorio) - ACUMULATIVO (%)
         if "timed_upgrades" in player:
             for stat_key in ["atk", "shld", "spd", "hp"]:
-                bonus_total = sum(u.get("amount", 0) for u in player["timed_upgrades"].get(stat_key, []))
-                if stat_key == "shld":
-                    player["max_shld"] += bonus_total
-                elif stat_key == "hp":
-                    player["max_hp"] += bonus_total
-                else:
-                    player[stat_key] += bonus_total
+                # Sumamos todos los porcentajes acumulados (ej: 5 + 5 = 10%)
+                percent_total = sum(u.get("amount", 0) for u in player["timed_upgrades"].get(stat_key, []))
+                if percent_total > 0:
+                    mult = 1.0 + (percent_total / 100.0)
+                    if stat_key == "shld":
+                        player["max_shld"] *= mult
+                    elif stat_key == "hp":
+                        player["max_hp"] *= mult
+                    else:
+                        player[stat_key] *= mult
 
         # 3. Aplicar Bonos de Diseño Legendario
         design_id = player.get("equipped_design")
@@ -2400,6 +2458,10 @@ class GameState:
                 if "atk" in bonus: player["atk"] *= (1 + bonus["atk"])
                 if "spd" in bonus: player["spd"] *= (1 + bonus["spd"])
                 if "absorption" in bonus: player["shield_absorption"] += bonus["absorption"]
+
+        # 3.5. Aplicar Habilidades Activas
+        if "shield_reinforcement" in player.get("active_abilities", {}):
+            player["max_shld"] *= 1.15
 
         # 4. Asegurar Enteros para evitar decimales en HUD
         player["max_hp"] = int(player["max_hp"])
@@ -2512,8 +2574,11 @@ class GameState:
         if not free:
             player["credits"] -= cost
         
+        had_auto = player.get("has_auto_missile", False)
         player["equipped"].append(module_data)
         self.recalculate_player_stats(player)
+        if not had_auto and player.get("has_auto_missile"):
+            self._send_sys_msg(client_id, "🛰️ CPU DE MISIL AUTOMÁTICO EQUIPADA. Selecciona un misil para comenzar el fuego automático al atacar.")
 
     def update_equipped_modules(self, client_id, modules):
         """Sincroniza el equipamiento completo en tiempo real (solo en zona segura)."""
@@ -2525,9 +2590,115 @@ class GameState:
             print(f"Intento de cambio de equipamiento fuera de zona segura para {client_id}")
             return
             
+        had_auto = player.get("has_auto_missile", False)
         player["equipped"] = modules if isinstance(modules, list) else []
         self.recalculate_player_stats(player)
-        print(f"Equipamiento sincronizado para {client_id}: {len(player['equipped'])} módulos.")
+        
+        if not had_auto and player.get("has_auto_missile"):
+            self._send_sys_msg(client_id, "🛰️ CPU DE MISIL AUTOMÁTICO EQUIPADA. Selecciona un misil para comenzar el fuego automático al atacar.")
+
+    def use_ability(self, client_id, ability_id):
+        """Activa una habilidad especial de la nave si está disponible y fuera de cooldown."""
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        now = time.time()
+        ship_type = player.get("ship_type", "starter")
+        
+        # 1. Validar disponibilidad por tipo de nave
+        ALLOWED_ABILITIES = {
+            "bastion": ["provocation", "shield_reinforcement"],
+            "support": ["beacon_heal", "beacon_shield"],
+            "interceptor": ["invulnerability", "advanced_invisibility"]
+        }
+        
+        if ship_type not in ALLOWED_ABILITIES or ability_id not in ALLOWED_ABILITIES[ship_type]:
+            print(f"DEBUG: Habilidad rechazada. Ship: {ship_type}, Ability: {ability_id}, Allowed: {ALLOWED_ABILITIES.get(ship_type)}")
+            self._send_sys_msg(client_id, "⚠️ Tu nave no dispone de esta habilidad avanzada.")
+            return
+            
+        # 2. Configuración de parámetros
+        now = time.time()
+        ABILITIES_CONFIG = {
+            "provocation": {"duration": 10, "cooldown": 90},
+            "shield_reinforcement": {"duration": 10, "cooldown": 60},
+            "beacon_heal": {"duration": 10, "cooldown": 60},
+            "beacon_shield": {"duration": 10, "cooldown": 60},
+            "invulnerability": {"duration": 7, "cooldown": 60},
+            "advanced_invisibility": {"duration": 7, "cooldown": 60}
+        }
+        
+        if ability_id not in ABILITIES_CONFIG:
+            return
+            
+        config = ABILITIES_CONFIG[ability_id]
+        
+        # 3. Verificar Cooldown
+        last_ready = player.get("ability_cooldowns", {}).get(ability_id, 0)
+        if now < last_ready:
+            rem = int(last_ready - now)
+            self._send_sys_msg(client_id, f"⏳ Habilidad en recarga. Espera {rem}s.")
+            return
+            
+        # 4. Activar Habilidad
+        player["active_abilities"][ability_id] = now + config["duration"]
+        player["ability_cooldowns"][ability_id] = now + config["cooldown"]
+        
+        # 5. Ejecutar efectos específicos
+        if ability_id == "shield_reinforcement":
+            old_max = player["max_shld"]
+            self.recalculate_player_stats(player)
+            new_max = player["max_shld"]
+            player["shld"] = int(player["shld"] * (new_max / old_max)) if old_max > 0 else player["shld"]
+            self._send_sys_msg(client_id, "🛡️ REFUERZO DE ESCUDO ACTIVADO (+15% MAX SHIELD)")
+            
+        elif ability_id == "provocation":
+            m_id = player.get("current_map")
+            for en in self.enemies:
+                if en.get("map_id") == m_id:
+                    d = math.hypot(en["x"] - player["x"], en["y"] - player["y"])
+                    if d < 1000:
+                        en["aggro_target"] = client_id
+                        en["state"] = "hunting"
+            self._send_sys_msg(client_id, "📣 PROVOCACIÓN ACTIVADA: ¡Todos los enemigos te atacan!")
+            
+        elif ability_id == "invulnerability":
+            self._send_sys_msg(client_id, "✨ INVULNERABILIDAD ACTIVADA (7s)")
+
+        elif ability_id == "advanced_invisibility":
+            player["is_invisible"] = True
+            self._send_sys_msg(client_id, "👻 INVISIBILIDAD AVANZADA ACTIVADA (7s)")
+            
+        elif ability_id == "beacon_heal":
+            beacon = {
+                "id": f"beacon_hp_{client_id}_{now}",
+                "x": player["x"], "y": player["y"],
+                "type": "heal",
+                "radius": 350,
+                "power": 10000,
+                "owner_id": client_id,
+                "owner_name": player.get("name", "Piloto"),
+                "faction": player.get("faction"),
+                "map_id": player["current_map"],
+                "expiry": now + config["duration"]
+            }
+            self.beacons.append(beacon)
+            self._send_sys_msg(client_id, "🔧 Reparación de Vida desplegada.")
+            
+        elif ability_id == "beacon_shield":
+            beacon = {
+                "id": f"beacon_shld_{client_id}_{now}",
+                "x": player["x"], "y": player["y"],
+                "type": "shield",
+                "radius": 350,
+                "power": 10000,
+                "owner_id": client_id,
+                "owner_name": player.get("name", "Piloto"),
+                "faction": player.get("faction"),
+                "map_id": player["current_map"],
+                "expiry": now + config["duration"]
+            }
+            self.beacons.append(beacon)
+            self._send_sys_msg(client_id, "🛡️ Reparación de Escudo desplegada.")
 
     def update_wips(self, client_id, wips):
         """Sincroniza el sistema de drones Wips (solo en zona segura)."""
@@ -2632,59 +2803,6 @@ class GameState:
                 player["repair_bot_active"] = not player.get("repair_bot_active", False)
                 print(f"Repair bot toggled for {client_id}: {player['repair_bot_active']}")
 
-    def use_ability(self, client_id, ability_id):
-        if client_id not in self.players: return
-        player = self.players[client_id]
-        now = time.time()
-        
-        # 1. Validar Nave (Solo Helix Support por ahora)
-        if player.get("ship_type") != "support":
-            self._send_sys_msg(client_id, "⚠️ Tu nave no dispone de esta habilidad avanzada.")
-            return
-
-        # 2. Gestionar Cooldowns
-        cooldowns = player.setdefault("ability_cooldowns", {})
-        cd_time = 60.0 # 60 segundos de cooldown
-        
-        if now - cooldowns.get(ability_id, 0) < cd_time:
-            rem = int(cd_time - (now - cooldowns.get(ability_id, 0)))
-            self._send_sys_msg(client_id, f"⏳ Habilidad en recarga. Espera {rem}s.")
-            return
-
-        # 3. Ejecutar Habilidad
-        if ability_id == "beacon_heal":
-            beacon = {
-                "id": f"beacon_hp_{client_id}_{now}",
-                "x": player["x"], "y": player["y"],
-                "type": "heal",
-                "radius": 350,
-                "power": 10000, # 10.000 HP por tick (cada 2s)
-                "owner_id": client_id,
-                "owner_name": player.get("name", "Piloto"),
-                "faction": player.get("faction"),
-                "map_id": player["current_map"],
-                "expiry": now + 10.0 # Dura 10 segundos
-            }
-            self.beacons.append(beacon)
-            cooldowns[ability_id] = now
-            self._send_sys_msg(client_id, "🔧 Reparación de Vida desplegada.")
-            
-        elif ability_id == "beacon_shield":
-            beacon = {
-                "id": f"beacon_shld_{client_id}_{now}",
-                "x": player["x"], "y": player["y"],
-                "type": "shield",
-                "radius": 350,
-                "power": 10000, # 10.000 SHLD por tick
-                "owner_id": client_id,
-                "owner_name": player.get("name", "Piloto"),
-                "faction": player.get("faction"),
-                "map_id": player["current_map"],
-                "expiry": now + 10.0 # Dura 10 segundos
-            }
-            self.beacons.append(beacon)
-            cooldowns[ability_id] = now
-            self._send_sys_msg(client_id, "🛡️ Reparación de Escudo desplegada.")
 
     def use_cloak(self, client_id):
         if client_id not in self.players: return

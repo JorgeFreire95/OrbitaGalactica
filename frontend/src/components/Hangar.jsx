@@ -522,42 +522,65 @@ export default function Hangar({
                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', overflowY: 'auto' }}>
                     {inventory.map((item, originalIndex) => {
                        if (item.type === 'design') return null;
-                      return (
-                       <div 
-                         key={item.instanceId} 
-                         onClick={() => {
-                           if (isBlocked) return;
-                           if (activeTab === 'ship') onEquip(originalIndex, viewedShipId);
-                           else if (activeTab === 'wips' && selectedWipId) {
-                                if (item.type === 'lasers' || item.type === 'shields') onEquipWip(originalIndex, selectedWipId);
-                           }
-                           else if (activeTab === 'eco') {
-                                if (item.type === 'lasers') onEquipEco(originalIndex, 'lasers');
-                                else if (item.type === 'shields') onEquipEco(originalIndex, 'generators');
-                                else if (item.type === 'protocols') onEquipEco(originalIndex, 'protocols');
-                                else if (item.type === 'utility') onEquipEco(originalIndex, 'utility');
-                                else {
-                                    alert('Este módulo no es compatible con el sistema E.C.O.');
-                                }
-                           }
-                         }}
-                         style={{ 
-                           aspectRatio: '1/1', 
-                           background: '#070b16', 
-                           border: `1px solid ${isBlocked ? '#331122' : '#1a2a4a'}`, 
-                           display: 'flex', 
-                           alignItems: 'center', 
-                           justifyContent: 'center', 
-                           fontSize: '2rem', 
-                           cursor: isBlocked ? 'not-allowed' : 'pointer',
-                           opacity: isBlocked ? 0.4 : 1,
-                           filter: isBlocked ? 'grayscale(100%)' : 'none'
-                         }}
-                         title={isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
-                       >
-                         {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', objectFit: 'contain' }} /> : item.icon}
-                       </div>
-                      );
+                       return (
+                        <div 
+                          key={item.instanceId} 
+                          onClick={() => {
+                            if (isBlocked) return;
+                            if (activeTab === 'ship') onEquip(originalIndex, viewedShipId);
+                            else if (activeTab === 'wips' && selectedWipId) {
+                                 if (item.type === 'lasers' || item.type === 'shields') onEquipWip(originalIndex, selectedWipId);
+                            }
+                            else if (activeTab === 'eco') {
+                                 if (item.type === 'lasers') onEquipEco(originalIndex, 'lasers');
+                                 else if (item.type === 'shields') onEquipEco(originalIndex, 'generators');
+                                 else if (item.type === 'protocols') onEquipEco(originalIndex, 'protocols');
+                                 else if (item.type === 'utility') onEquipEco(originalIndex, 'utility');
+                                 else {
+                                     alert('Este módulo no es compatible con el sistema E.C.O.');
+                                 }
+                            }
+                          }}
+                          style={{ 
+                            minHeight: '80px',
+                            background: '#070b16', 
+                            border: `1px solid ${isBlocked ? '#331122' : '#1a2a4a'}`, 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            cursor: isBlocked ? 'not-allowed' : 'pointer',
+                            opacity: isBlocked ? 0.4 : 1,
+                            filter: isBlocked ? 'grayscale(100%)' : 'none',
+                            padding: '10px',
+                            transition: 'all 0.2s ease',
+                            borderRadius: '4px'
+                          }}
+                          className="inventory-item-card"
+                          title={isBlocked ? 'Bloqueado: No estás en zona segura' : `Equipar ${item.name}`}
+                        >
+                          <div style={{ fontSize: '2rem', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', objectFit: 'contain' }} /> : item.icon}
+                          </div>
+                          <div style={{ 
+                            fontSize: '0.7rem',
+                            color: '#fff',
+                            textAlign: 'center',
+                            width: '100%',
+                            marginTop: '2px',
+                            whiteSpace: 'nowrap',
+                            fontFamily: 'Orbitron',
+                            opacity: 0.9,
+                            textTransform: 'uppercase',
+                            fontWeight: 'bold',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '100%'
+                          }}>
+                            {item.name}
+                          </div>
+                        </div>
+                       );
                     })}
                     {inventory.length === 0 && <div style={{ gridColumn: 'span 5', color: '#555', textAlign: 'center', padding: '20px' }}>No hay módulos disponibles en el almacén.</div>}
                  </div>

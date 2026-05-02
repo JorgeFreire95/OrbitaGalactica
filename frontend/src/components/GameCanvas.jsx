@@ -373,7 +373,12 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const handleEcoMouseDown = (e) => { /* Disabled as per user request */ };
   const handleStatusMouseDown = (e) => { /* Disabled as per user request */ };
   const handlePartyMouseDown = (e) => { /* Disabled as per user request */ };
-  const handleChatMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleChatMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'chat', offset: { x: e.clientX - chatPos.x, y: e.clientY - chatPos.y } };
+    setIsDragging(true);
+    e.stopPropagation();
+  }, [isUiLocked, chatPos]);
   const handleMinimapMouseDown = (e) => { /* Disabled as per user request */ };
 
   const handleSafeZoneMouseDown = useCallback((e) => {
@@ -1683,15 +1688,14 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                 title={slot.desc || slot.name}
                             >
                                 <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || isRepairing) ? '100%' : '20%', opacity: (isActive || isRepairing) ? 1 : 0.3, background: isRepairing ? '#00ff66' : '' }} /></div>
-                                 <div className="slot-icon">
-                                     {slot.image ? <img src={slot.image} alt="icon" /> : (slot.icon || '')}
-                                 </div>
-                                 {slot.type === 'ability' && me?.ability_cooldowns?.[slot.ability_id] && (
+                                <div className="slot-icon">
+                                    {slot.image ? <img src={slot.image} alt="icon" /> : (slot.icon || '')}
+                                </div>
+                                {slot.type === 'ability' && me?.ability_cooldowns?.[slot.ability_id] && (
                                      (() => {
                                          const now = gameState?.server_time || (Date.now() / 1000);
-                                         const lastUsed = me.ability_cooldowns[slot.ability_id];
-                                         const cd = 60; 
-                                         const rem = Math.max(0, Math.ceil(cd - (now - lastUsed)));
+                                         const readyTime = me.ability_cooldowns[slot.ability_id];
+                                         const rem = Math.max(0, Math.ceil(readyTime - now));
                                          if (rem > 0) {
                                              return (
                                                  <div className="cooldown-overlay" style={{
@@ -1769,6 +1773,12 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                 abilities: (me?.ship_type === 'support') ? [
                                     { id: 'ability_beacon_heal', type: 'ability', name: 'Reparación de Vida', icon: '🔧', ability_id: 'beacon_heal', desc: 'Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los PV de todas tus naves amigas cercanas.' },
                                     { id: 'ability_beacon_shield', type: 'ability', name: 'Reparación de Escudo', icon: '🛡️', ability_id: 'beacon_shield', desc: 'Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los Escudos de todas tus naves amigas cercanas.' }
+                                ] : (me?.ship_type === 'bastion') ? [
+                                    { id: 'ability_provocation', type: 'ability', name: 'Provocación', icon: '📣', ability_id: 'provocation', desc: 'Redirige los ataques de todos los enemigos hacia ti durante 10 segundos.' },
+                                    { id: 'ability_shield_reinforcement', type: 'ability', name: 'Refuerzo de Escudo', icon: '🛡️', ability_id: 'shield_reinforcement', desc: 'Aumenta tu escudo máximo en un 15% durante 10 segundos.' }
+                                ] : (me?.ship_type === 'interceptor') ? [
+                                    { id: 'ability_invulnerability', type: 'ability', name: 'Invulnerabilidad', icon: '✨', ability_id: 'invulnerability', desc: 'Te hace completamente invulnerable a todo daño durante 7 segundos.' },
+                                    { id: 'ability_advanced_invisibility', type: 'ability', name: 'Invisibilidad Avanzada', icon: '👻', ability_id: 'advanced_invisibility', desc: 'Te hace invisible por 7 segundos y no se revela al disparar.' }
                                 ] : [],
                             };
 
@@ -1787,6 +1797,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                                 wsRef.current?.send(JSON.stringify({ type: 'toggle_repair' }));
                                             } else if (item.type === 'laser' || item.type === 'missile') {
                                                 wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: item.id }));
+                                            } else if (item.type === 'ability') {
+                                                wsRef.current?.send(JSON.stringify({ type: 'use_ability', ability_id: item.ability_id }));
                                             }
                                         }}
                                     >
@@ -1797,9 +1809,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                         {item.type === 'ability' && me?.ability_cooldowns?.[item.ability_id] && (
                                             (() => {
                                                 const now = gameState?.server_time || (Date.now() / 1000);
-                                                const lastUsed = me.ability_cooldowns[item.ability_id];
-                                                const cd = 60; 
-                                                const rem = Math.max(0, Math.ceil(cd - (now - lastUsed)));
+                                                const readyTime = me.ability_cooldowns[item.ability_id];
+                                                const rem = Math.max(0, Math.ceil(readyTime - now));
                                                 if (rem > 0) {
                                                     return (
                                                         <div className="cooldown-overlay" style={{

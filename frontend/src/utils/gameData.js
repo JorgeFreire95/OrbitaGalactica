@@ -88,8 +88,8 @@ export const SHIPS = [
     slots: { lasers: 10, shields: 7, engines: 8, utility: 3 },
     cargo_capacity: 2000,
     abilities: [
-      { name: "Reparación de Vida", desc: "Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los PV de todas tus naves amigas cercanas." },
-      { name: "Reparación de Escudo", desc: "Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los Escudos de todas tus naves amigas cercanas." }
+      { name: "Reparación de Vida", desc: "Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los PV de todas tus naves amigas cercanas.", icon: '🔧' },
+      { name: "Reparación de Escudo", desc: "Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los Escudos de todas tus naves amigas cercanas.", icon: '🛡️' }
     ],
     cost: 200000,
     currency: 'paladio'
@@ -122,7 +122,11 @@ export const SHIPS = [
     cost: 45000,
     currency: 'paladio',
     hp: 200000, shld: 120, spd: 370, cargo_capacity: 500,
-    slots: { lasers: 5, shields: 6, engines: 6, utility: 2 }
+    slots: { lasers: 5, shields: 6, engines: 6, utility: 2 },
+    abilities: [
+      { id: 'invulnerability', name: "Invulnerabilidad", desc: "Te hace completamente invulnerable a todo daño durante 7 segundos. Enfriamiento: 60s.", icon: '✨', duration: 7, cooldown: 60 },
+      { id: 'advanced_invisibility', name: "Invisibilidad Avanzada", desc: "Te hace invisible por 7 segundos y no se revela al disparar. Enfriamiento: 60s.", icon: '👻', duration: 7, cooldown: 60 }
+    ]
   },
   {
     id: 'bastion',
@@ -132,7 +136,11 @@ export const SHIPS = [
     cost: 160000,
     currency: 'paladio',
     hp: 650000, shld: 400, spd: 240, cargo_capacity: 4000,
-    slots: { lasers: 7, shields: 15, engines: 5, utility: 5 }
+    slots: { lasers: 7, shields: 15, engines: 5, utility: 5 },
+    abilities: [
+      { id: 'provocation', name: "Provocación", desc: "Redirige los ataques de todos los enemigos hacia ti durante 10 segundos. Enfriamiento: 90s.", icon: '📣', duration: 10, cooldown: 90 },
+      { id: 'shield_reinforcement', name: "Refuerzo de Escudo", desc: "Aumenta tu escudo máximo en un 15% durante 10 segundos. Enfriamiento: 60s.", icon: '🛡️', duration: 10, cooldown: 60 }
+    ]
   }
 ];
 

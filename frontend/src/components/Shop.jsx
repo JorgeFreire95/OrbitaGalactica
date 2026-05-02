@@ -500,14 +500,22 @@ export default function Shop({
                           <span>Bodega</span>
                           <span style={{ color: '#88aaff' }}>{currentItem.cargo_capacity?.toLocaleString()} unidades</span>
                         </div>
-                        {currentItem.abilities && currentItem.abilities.map((abil, i) => (
-                          <div key={i} className="preview-stat-row" style={{ height: 'auto', minHeight: '30px', flexDirection: 'column', alignItems: 'flex-start', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                            <span style={{ color: '#00ffcc', fontSize: '0.75rem', marginBottom: '4px' }}>{abil.name}</span>
-                            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', lineHeight: '1.4', fontStyle: 'italic' }}>
-                              {abil.desc}
-                            </span>
+                        {currentItem.abilities && (
+                          <div style={{ marginTop: '15px', borderTop: '1px solid rgba(0, 255, 204, 0.3)', paddingTop: '10px' }}>
+                            <div style={{ color: '#00ffcc', fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '10px', letterSpacing: '1px' }}>HABILIDADES ESPECIALES</div>
+                            {currentItem.abilities.map((abil, i) => (
+                              <div key={i} style={{ marginBottom: '12px', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '4px', borderLeft: '2px solid #00ffcc' }}>
+                                <div style={{ color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  {abil.icon && <span>{abil.icon}</span>}
+                                  {abil.name.toUpperCase()}
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.75rem', lineHeight: '1.4', marginTop: '4px' }}>
+                                  {abil.desc}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </>
                     )}
                     {activeCategory === 'eco' && currentItem.id === 'eco' && (

@@ -1720,6 +1720,38 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
     // --- DIBUJAR WIPS Y ECO (SISTEMA DE APOYO) ---
     drawWips(ctx, player.wips || [], size, heading);
     drawEco(ctx, player.eco || {}, size, heading, player.x, player.y);
+
+    // --- EFECTO DE AURA DE INVULNERABILIDAD ---
+    if (player.active_abilities && player.active_abilities.invulnerability) {
+        ctx.save();
+        const time = Date.now() / 1000;
+        const pulse = 1.0 + Math.sin(time * 5) * 0.1;
+        
+        // Aura exterior brillante (Halo Dorado/Blanco)
+        ctx.beginPath();
+        ctx.arc(0, 0, 70 * pulse, 0, Math.PI * 2);
+        const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 75 * pulse);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        grad.addColorStop(0.5, 'rgba(255, 215, 0, 0.2)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Anillos giratorios
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([15, 10]);
+        ctx.lineDashOffset = -time * 100;
+        ctx.beginPath();
+        ctx.arc(0, 0, 60, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.lineDashOffset = time * 100;
+        ctx.beginPath();
+        ctx.arc(0, 0, 50, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
     
     // Name
     ctx.fillStyle = '#fff';

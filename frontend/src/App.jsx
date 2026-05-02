@@ -1271,7 +1271,7 @@ function App() {
       [stat]: [...prev[stat], newEntry]
     }));
     
-    alert(`¡Mejora aplicada! +${amount} a ${stat.toUpperCase()} (Duración: 2 Horas).`);
+    alert(`¡Mejora aplicada! +${amount}% a ${stat.toUpperCase()} (Duración: 2 Horas).`);
   };
 
   const handleSellMinerals = (mineralId, amount, totalCredits) => {

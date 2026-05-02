@@ -1296,6 +1296,18 @@ canvas {
 .leaderboard-rank { color: #00ffcc; font-weight: bold; }
 .leaderboard-level { color: #888; }
 
+.inventory-item-card:hover {
+  border-color: #00ffcc !important;
+  background: #111e2f !important;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+  z-index: 5;
+}
+
+.inventory-item-card {
+  transition: all 0.2s ease-in-out;
+}
+
 /* Centerpiece */
 .dashboard-center {
   display: flex;

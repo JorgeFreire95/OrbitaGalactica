@@ -6,10 +6,10 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
   const maxCargo = selectedShip?.cargo_capacity || 50;
 
   const mineralTypes = [
-    { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', color: '#ff3333', amount: 50, bonus: 5, desc: 'Aumenta el daño base de todos tus láseres' },
-    { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', color: '#00c8ff', amount: 50, bonus: 10, desc: 'Refuerza la capacidad máxima de tus escudos' },
-    { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', color: '#00ffcc', amount: 50, bonus: 8, desc: 'Mejora la propulsión y velocidad de maniobra' },
-    { id: 'iridium',   name: 'Iridio',    stat: 'hp',   icon: '🧲', color: '#ff4466', amount: 50, bonus: 15, desc: 'Aumenta la vida estructural de tu casco (Vida)' },
+    { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', color: '#ff3333', amount: 50, bonus: 5, desc: 'Aumenta el daño total de tus láseres en un 5%' },
+    { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', color: '#00c8ff', amount: 50, bonus: 10, desc: 'Refuerza la capacidad máxima de tus escudos en un 10%' },
+    { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', color: '#00ffcc', amount: 50, bonus: 8, desc: 'Mejora la velocidad de propulsión en un 8%' },
+    { id: 'iridium',   name: 'Iridio',    stat: 'hp',   icon: '🧲', color: '#ff4466', amount: 50, bonus: 15, desc: 'Aumenta la vida estructural de tu casco (PV) en un 15%' },
   ];
 
   return (
@@ -79,7 +79,7 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
                       <div style={{ fontSize: '1.2rem' }}>Disponibles: <b>{minerals[min.id] || 0}</b></div>
                       {totalBonus > 0 && (
                         <div style={{ color: min.color, fontSize: '0.8rem', fontWeight: 'bold' }}>
-                          BONO TOTAL ACUMULADO: +{totalBonus}
+                          BONO TOTAL ACUMULADO: +{totalBonus}%
                         </div>
                       )}
                     </div>
@@ -105,14 +105,14 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
                         minWidth: '200px'
                       }}
                     >
-                      REFINAR {min.amount} (+{min.bonus} {min.stat.toUpperCase()})
+                      REFINAR {min.amount} (+{min.bonus}% {min.stat.toUpperCase()})
                     </button>
                   </div>
                 </div>
 
                 <div style={{ textAlign: 'center', minWidth: '120px' }}>
                   <div style={{ fontSize: '0.7rem', color: '#888' }}>BONUS ACTIVO</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: min.color }}>+{totalBonus}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: min.color }}>+{totalBonus}%</div>
                   {minutesLeft > 0 && (
                     <div style={{ fontSize: '0.65rem', color: '#ffcc00', marginTop: '5px' }}>
                       EXPIRA EN: {minutesLeft} min
