@@ -36,18 +36,25 @@ export default function Shop({
   const [buyQty, setBuyQty] = useState(1);
   const [tempEcoName, setTempEcoName] = useState('E.C.O.');
 
-  const handleBuyModule = (module) => {
+  const handleBuyModule = (module, qty = 1) => {
     const currency = module.currency || 'credits';
+    const totalCost = module.cost * qty;
+    
     if (currency === 'paladio') {
-      if (paladio < module.cost) return alert('No tienes suficiente paladio');
-      if (setPaladio) setPaladio(p => p - module.cost);
+      if (paladio < totalCost) return alert('No tienes suficiente paladio');
+      if (setPaladio) setPaladio(p => p - totalCost);
     } else {
-      if (credits < module.cost) return alert('No tienes suficientes créditos');
-      setCredits(c => c - module.cost);
+      if (credits < totalCost) return alert('No tienes suficientes créditos');
+      setCredits(c => c - totalCost);
     }
     
-    setInventory(prev => [...prev, { ...module, instanceId: Date.now() }]);
-    triggerSuccess('Ítem adquirido con éxito');
+    const newItems = [];
+    for (let i = 0; i < qty; i++) {
+        newItems.push({ ...module, instanceId: Date.now() + i });
+    }
+    
+    setInventory(prev => [...prev, ...newItems]);
+    triggerSuccess(`${qty} ${qty > 1 ? 'Ítems adquiridos' : 'Ítem adquirido'} con éxito`);
   };
 
   const triggerSuccess = (msg) => {
@@ -172,10 +179,11 @@ export default function Shop({
       return;
     }
 
-    handleBuyModule(targetItem);
+    handleBuyModule(targetItem, buyQty);
+    setBuyQty(1);
   };
 
-  const currentQty = currentItem?.isStackable ? buyQty : 1;
+  const currentQty = (currentItem && !['naves', 'disenos', 'wips'].includes(activeCategory) && currentItem.id !== 'eco') ? buyQty : 1;
   
   const getDynamicCost = () => {
     if (!currentItem) return 0;
@@ -492,6 +500,14 @@ export default function Shop({
                           <span>Bodega</span>
                           <span style={{ color: '#88aaff' }}>{currentItem.cargo_capacity?.toLocaleString()} unidades</span>
                         </div>
+                        {currentItem.abilities && currentItem.abilities.map((abil, i) => (
+                          <div key={i} className="preview-stat-row" style={{ height: 'auto', minHeight: '30px', flexDirection: 'column', alignItems: 'flex-start', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span style={{ color: '#00ffcc', fontSize: '0.75rem', marginBottom: '4px' }}>{abil.name}</span>
+                            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', lineHeight: '1.4', fontStyle: 'italic' }}>
+                              {abil.desc}
+                            </span>
+                          </div>
+                        ))}
                       </>
                     )}
                     {activeCategory === 'eco' && currentItem.id === 'eco' && (
@@ -524,7 +540,8 @@ export default function Shop({
                     )}
                   </div>
 
-                  {currentItem.isStackable && (
+                  {/* Selector de cantidad: Habilitado para todo excepto naves, diseños y drones que no son acumulables */}
+                  {currentItem && !['naves', 'disenos', 'wips'].includes(activeCategory) && (currentItem.id !== 'eco') && (
                     <div className="quantity-selector-container" style={{ margin: '15px 0', padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid #333' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.75rem', color: '#888' }}>CANTIDAD:</span>
@@ -552,15 +569,15 @@ export default function Shop({
                         <button 
                           onClick={() => {
                             const affordable = currentItem.currency === 'paladio' ? paladio : credits;
-                            let max = Math.floor(affordable / currentItem.cost);
+                            const maxAffordable = Math.floor(affordable / currentItem.cost);
+                            let finalMax = maxAffordable;
                             
-                            // Si es combustible, limitar por el espacio disponible en el ECO
-                            if (currentItem.type === 'fuel') {
-                               const spaceLeft = (eco.max_fuel || 100000) - (eco.fuel || 0);
-                               max = Math.min(max, Math.max(0, spaceLeft));
+                            // Si NO es acumulable (equipamiento), el máximo es el espacio en ranuras (limitado a 50 para no saturar inventario)
+                            if (!currentItem.isStackable && currentItem.type) {
+                               finalMax = Math.min(finalMax, 50); 
                             }
-                            
-                            setBuyQty(Math.max(1, Math.floor(max)));
+
+                            setBuyQty(Math.max(1, finalMax));
                           }}
                           style={{ 
                             background: '#333',

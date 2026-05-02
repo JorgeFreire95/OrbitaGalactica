@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ChatBox.css';
 
-const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
+const ChatBox = ({ socket, user, playerFaction, clanTag, pos, onDragStart, isUiLocked }) => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [activeChannel, setActiveChannel] = useState('global'); // 'global', 'company', 'clan', or 'private_USER'
@@ -157,8 +157,20 @@ const ChatBox = ({ socket, user, playerFaction, clanTag }) => {
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
+      style={{
+        position: 'fixed',
+        left: pos?.x ? `${pos.x}px` : '20px',
+        top: pos?.y ? `${pos.y}px` : 'auto',
+        bottom: pos?.y ? 'auto' : '20px',
+        zIndex: 1000,
+        pointerEvents: 'auto'
+      }}
     >
-      <div className="chat-header">
+      <div 
+        className="chat-header" 
+        onMouseDown={onDragStart}
+        style={{ cursor: isUiLocked ? 'default' : 'move' }}
+      >
         <div className="chat-tabs">
           <button 
             className={activeChannel === 'global' ? 'active' : ''} 

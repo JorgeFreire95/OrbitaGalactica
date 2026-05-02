@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { drawGame } from '../utils/renderer';
-import { getRank } from '../utils/gameData';
+import { getRank, MODULES_CATALOG, getItemById } from '../utils/gameData';
 import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
@@ -22,43 +22,107 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const [activeMissions, setActiveMissions] = useState([]);
   const [missionTrackerExpanded, setMissionTrackerExpanded] = useState(false);
   
-  // Estados para la ventana arrastrable del ECO
-  const [ecoPos, setEcoPos] = useState({ x: window.innerWidth - 620, y: 20 });
   const [isEcoMinimized, setIsEcoMinimized] = useState(false);
-  const [isDraggingEco, setIsDraggingEco] = useState(false);
-  const ecoDragOffset = useRef({ x: 0, y: 0 });
   const isNavigatingRef = useRef(false);
   const lastFrameTimeRef = useRef(performance.now());
   const lastReactRenderRef = useRef(0);
-  const isDraggingEcoRef = useRef(false);
   const isDraggingRef = useRef(false);
 
   // --- DRAGGABLE HUD STATE ---
+  const [isUiLocked, setIsUiLocked] = useState(() => localStorage.getItem('og_ui_locked') === 'true');
   const [hotbarPos, setHotbarPos] = useState(() => {
     const saved = localStorage.getItem('og_hotbar_pos');
-    return saved ? JSON.parse(saved) : { x: window.innerWidth / 2 - 275, y: window.innerHeight - 100 };
+    return saved ? JSON.parse(saved) : { x: window.innerWidth / 2 - 300, y: window.innerHeight - 120 };
   });
-  const [isUiLocked, setIsUiLocked] = useState(() => {
-    return localStorage.getItem('og_ui_locked') === 'true';
+  const [ecoPos, setEcoPos] = useState(() => {
+    const saved = localStorage.getItem('og_eco_pos');
+    return saved ? JSON.parse(saved) : { x: window.innerWidth - 620, y: 20 };
   });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
-  
-  // --- MISSION TRACKER DRAGGABLE STATE ---
   const [missionPos, setMissionPos] = useState(() => {
     const saved = localStorage.getItem('og_mission_pos');
     return saved ? JSON.parse(saved) : { x: window.innerWidth - 320, y: 150 };
   });
-  const [isDraggingMission, setIsDraggingMission] = useState(false);
-  const isDraggingMissionRef = useRef(false);
+  const [statusPos, setStatusPos] = useState(() => JSON.parse(localStorage.getItem('og_status_pos')) || { x: 20, y: 20 });
+  const [partyPos, setPartyPos] = useState(() => JSON.parse(localStorage.getItem('og_party_pos')) || { x: 20, y: 80 });
+  const [chatPos, setChatPos] = useState(() => JSON.parse(localStorage.getItem('og_chat_pos')) || { x: 20, y: window.innerHeight - 320 });
+  const [minimapPos, setMinimapPos] = useState(() => JSON.parse(localStorage.getItem('og_minimap_pos')) || { x: window.innerWidth - 220, y: window.innerHeight - 170 });
+  const [safeZonePos, setSafeZonePos] = useState(() => JSON.parse(localStorage.getItem('og_safe_zone_pos')) || { x: window.innerWidth / 2, y: window.innerHeight - 180 });
+
+  const [isDragging, setIsDragging] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
   const missionDragOffset = useRef({ x: 0, y: 0 });
-  
   const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', ammo: '', wips: '', eco: '', is_invisible: null });
-  
   const [inviteIdText, setInviteIdText] = useState('');
   const [showPartyMenu, setShowPartyMenu] = useState(false);
   const [missionNotification, setMissionNotification] = useState(null);
   const [eco, setEco] = useState(initialEco || { active: false, deployed: false, mode: 'passive', level: 1, integrity: 100, shield: 100, max_shield: 100, fuel: 5000, speed: 0, equipped: { lasers: [], generators: [], protocols: [], utility: [] } });
+  const [activeCategory, setActiveCategory] = useState('lasers');
+  const [showCategoryBar, setShowCategoryBar] = useState(false);
+  const [hotbarSlots, setHotbarSlots] = useState(() => {
+    const saved = localStorage.getItem('og_hotbar_slots');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'standard', type: 'laser', icon: '⚪', image: '/std_ammo.jpg', key: '1' },
+      { id: 'thermal', type: 'laser', icon: '🔥', image: '/thermal_ammo.jpg', key: '2' },
+      { id: 'plasma', type: 'laser', icon: '🔷', image: '/plasma_ammo.jpg', key: '3' },
+      { id: 'siphon', type: 'laser', icon: '🔋', image: '/siphon_ammo.png', key: '4' },
+      { id: 'missile_1', type: 'missile', icon: '🚀', key: '5' },
+      { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
+      { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
+      { id: 'blank_8', key: '8', disabled: true },
+      { id: 'repair_bot', type: 'utility', icon: '🔧', key: '9' },
+      { id: 'blank_0', key: '0', disabled: true },
+    ];
+  });
+  const [draggedItem, setDraggedItem] = useState(null); // { item, sourceIndex, sourceType }
+  
+  const minimapPosRef = useRef(minimapPos);
+  const isUiLockedRef = useRef(isUiLocked);
+
+  useEffect(() => { minimapPosRef.current = minimapPos; }, [minimapPos]);
+  useEffect(() => { isUiLockedRef.current = isUiLocked; }, [isUiLocked]);
+
+  const draggingElementRef = useRef(null); // { type, offset: {x, y} }
+
+  const resetHudPositions = () => {
+    const defaults = {
+      hotbar: { x: window.innerWidth / 2 - 300, y: window.innerHeight - 120 },
+      status: { x: 20, y: 20 },
+      eco: { x: window.innerWidth - 200, y: 20 },
+      mission: { x: window.innerWidth - 220, y: window.innerHeight - 400 },
+      party: { x: 20, y: 80 },
+      chat: { x: 20, y: window.innerHeight - 320 },
+      minimap: { x: window.innerWidth - 220, y: window.innerHeight - 170 },
+      safezone: { x: window.innerWidth / 2, y: window.innerHeight - 180 }
+    };
+    setHotbarPos(defaults.hotbar);
+    setEcoPos(defaults.eco);
+    setMissionPos(defaults.mission);
+    setStatusPos(defaults.status);
+    setPartyPos(defaults.party);
+    setChatPos(defaults.chat);
+    setMinimapPos(defaults.minimap);
+    setSafeZonePos(defaults.safezone);
+    
+    const defaultSlots = [
+      { id: 'standard', type: 'laser', icon: '⚪', image: '/std_ammo.jpg', key: '1' },
+      { id: 'thermal', type: 'laser', icon: '🔥', image: '/thermal_ammo.jpg', key: '2' },
+      { id: 'plasma', type: 'laser', icon: '🔷', image: '/plasma_ammo.jpg', key: '3' },
+      { id: 'siphon', type: 'laser', icon: '🔋', image: '/siphon_ammo.png', key: '4' },
+      { id: 'missile_1', type: 'missile', icon: '🚀', key: '5' },
+      { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
+      { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
+      { id: 'blank_8', key: '8', disabled: true },
+      { id: 'repair_bot', type: 'utility', icon: '🔧', key: '9' },
+      { id: 'blank_0', key: '0', disabled: true },
+    ];
+    setHotbarSlots(defaultSlots);
+    localStorage.setItem('og_hotbar_slots', JSON.stringify(defaultSlots));
+
+    Object.keys(defaults).forEach(key => {
+      localStorage.setItem(`og_${key}_pos`, JSON.stringify(defaults[key]));
+    });
+  };
 
   // Keyboard state
   const keys = useRef({
@@ -118,41 +182,6 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     }
   }, []);
 
-  // Handlers para arrastrar la ventana del ECO
-  const handleEcoMouseDown = (e) => {
-    e.stopPropagation(); // Evitar que el clic mueva la nave
-    setIsDraggingEco(true);
-    isDraggingEcoRef.current = true;
-    ecoDragOffset.current = {
-      x: e.clientX - ecoPos.x,
-      y: e.clientY - ecoPos.y
-    };
-  };
-
-  const handleEcoMouseMove = useCallback((e) => {
-    if (isDraggingEco) {
-      setEcoPos({
-        x: e.clientX - ecoDragOffset.current.x,
-        y: e.clientY - ecoDragOffset.current.y
-      });
-    }
-  }, [isDraggingEco]);
-
-  const handleEcoMouseUp = useCallback(() => {
-    setIsDraggingEco(false);
-    isDraggingEcoRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    if (isDraggingEco) {
-      window.addEventListener('mousemove', handleEcoMouseMove);
-      window.addEventListener('mouseup', handleEcoMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleEcoMouseMove);
-      window.removeEventListener('mouseup', handleEcoMouseUp);
-    };
-  }, [isDraggingEco, handleEcoMouseMove, handleEcoMouseUp]);
 
   // --- INPUT HANDLERS ---
   const handleKeyDown = useCallback((e) => {
@@ -171,26 +200,16 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     }
     */
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const hotbarConfig = [
-        { id: 'standard', type: 'laser' },
-        { id: 'thermal', type: 'laser' },
-        { id: 'plasma', type: 'laser' },
-        { id: 'siphon', type: 'laser' },
-        { id: 'missile_1', type: 'missile' },
-        { id: 'missile_2', type: 'missile' },
-        { id: 'missile_3', type: 'missile' },
-        { id: 'blank_8', type: 'blank' },
-        { id: 'repair_bot', type: 'utility' },
-        { id: 'blank_0', type: 'blank' }
-      ];
-
       const slotMap = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, '8': 7, '9': 8, '0': 9 };
+      
       if (slotMap[k] !== undefined) {
-          const slot = hotbarConfig[slotMap[k]];
-          if (slot.type === 'utility' && slot.id === 'repair_bot') {
-              wsRef.current.send(JSON.stringify({ type: 'toggle_repair' }));
-          } else if (slot.type === 'laser' || slot.type === 'missile') {
-              wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }));
+          const slot = hotbarSlots[slotMap[k]];
+          if (slot && !slot.disabled) {
+              if (slot.type === 'utility' && slot.id === 'repair_bot') {
+                  wsRef.current.send(JSON.stringify({ type: 'toggle_repair' }));
+              } else if (slot.type === 'laser' || slot.type === 'missile') {
+                  wsRef.current.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }));
+              }
           }
       }
     }
@@ -233,11 +252,15 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     const rect = canvasRef.current.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
-    const width = canvasRef.current.width, height = canvasRef.current.height;
-    const mmW = 200, mmH = 150, margin = 20;
-    const mmX_start = width - mmW - margin, mmY_start = height - mmH - margin;
 
-    if (screenX >= mmX_start && screenX <= width - margin && screenY >= mmY_start && screenY <= height - margin) {
+    const mmW = 200, mmH = 150;
+    const mmX_start = minimapPos.x, mmY_start = minimapPos.y;
+
+    // Si clicamos en el minimapa
+    if (screenX >= mmX_start && screenX <= mmX_start + mmW && screenY >= mmY_start && screenY <= mmY_start + mmH) {
+      // MODO JUEGO: Navegar (Modo edición minimapa desactivado por petición de usuario)
+      // MODO JUEGO: Navegar
+      isNavigatingRef.current = true;
       const m_width = gameStateRef.current?.map_width || 10000;
       const m_height = gameStateRef.current?.map_height || 8000;
       keys.current.target_x = ((screenX - mmX_start) / mmW) * m_width;
@@ -278,38 +301,39 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   }, []);
 
   const handleMouseUp = useCallback(() => { 
-    if (isDraggingRef.current) {
-      localStorage.setItem('og_hotbar_pos', JSON.stringify(hotbarPos));
-    }
-    if (isDraggingMissionRef.current) {
-      localStorage.setItem('og_mission_pos', JSON.stringify(missionPos));
+    if (draggingElementRef.current) {
+      const { type } = draggingElementRef.current;
+      if (type === 'hotbar') localStorage.setItem('og_hotbar_pos', JSON.stringify(hotbarPos));
+      if (type === 'eco') localStorage.setItem('og_eco_pos', JSON.stringify(ecoPos));
+      if (type === 'mission') localStorage.setItem('og_mission_pos', JSON.stringify(missionPos));
+      if (type === 'status') localStorage.setItem('og_status_pos', JSON.stringify(statusPos));
+      if (type === 'party') localStorage.setItem('og_party_pos', JSON.stringify(partyPos));
+      if (type === 'chat') localStorage.setItem('og_chat_pos', JSON.stringify(chatPos));
+      if (type === 'minimap') localStorage.setItem('og_minimap_pos', JSON.stringify(minimapPos));
+      if (type === 'safezone') localStorage.setItem('og_safe_zone_pos', JSON.stringify(safeZonePos));
+      
+      draggingElementRef.current = null;
     }
     setIsDragging(false);
-    isDraggingRef.current = false;
-    setIsDraggingMission(false);
-    isDraggingMissionRef.current = false;
     isNavigatingRef.current = false;
-  }, [hotbarPos, missionPos]);
+  }, [hotbarPos, missionPos, ecoPos, statusPos, partyPos, chatPos, minimapPos, safeZonePos]);
 
   const handleMouseMove = useCallback((e) => {
-    if (isDraggingRef.current || isDraggingEcoRef.current || isDraggingMissionRef.current) {
-      if (isDraggingRef.current) {
-        setHotbarPos({
-          x: e.clientX - dragOffset.current.x,
-          y: e.clientY - dragOffset.current.y
-        });
-      }
-      if (isDraggingEcoRef.current) {
-          setEcoPos({
-            x: e.clientX - ecoDragOffset.current.x,
-            y: e.clientY - ecoDragOffset.current.y
-          });
-      }
-      if (isDraggingMissionRef.current) {
-          setMissionPos({
-            x: e.clientX - missionDragOffset.current.x,
-            y: e.clientY - missionDragOffset.current.y
-          });
+    if (draggingElementRef.current) {
+      const { type, offset } = draggingElementRef.current;
+      const newX = e.clientX - offset.x;
+      const newY = e.clientY - offset.y;
+
+      switch (type) {
+        case 'hotbar': setHotbarPos({ x: newX, y: newY }); break;
+        case 'eco': setEcoPos({ x: newX, y: newY }); break;
+        case 'mission': setMissionPos({ x: newX, y: newY }); break;
+        case 'status': setStatusPos({ x: newX, y: newY }); break;
+        case 'party': setPartyPos({ x: newX, y: newY }); break;
+        case 'chat': setChatPos({ x: newX, y: newY }); break;
+        case 'minimap': setMinimapPos({ x: newX, y: newY }); break;
+        case 'safezone': setSafeZonePos({ x: newX, y: newY }); break;
+        default: break;
       }
       return;
     }
@@ -320,12 +344,11 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
         
-        const width = canvasRef.current.width, height = canvasRef.current.height;
-        const mmW = 200, mmH = 150, margin = 20;
-        const mmX_start = width - mmW - margin, mmY_start = height - mmH - margin;
+        const mmW = 200, mmH = 150;
+        const mmX_start = minimapPos.x, mmY_start = minimapPos.y;
 
         // Si estamos interactuando con el minimapa (arrastrando en el minimapa)
-        if (screenX >= mmX_start && screenX <= width - margin && screenY >= mmY_start && screenY <= height - margin) {
+        if (screenX >= mmX_start && screenX <= mmX_start + mmW && screenY >= mmY_start && screenY <= mmY_start + mmH) {
           const m_width = gameStateRef.current?.map_width || 10000;
           const m_height = gameStateRef.current?.map_height || 8000;
           keys.current.target_x = ((screenX - mmX_start) / mmW) * m_width;
@@ -337,22 +360,60 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           keys.current.target_y = screenY + cameraRef.current.y;
         }
     }
-  }, [isDragging, isDraggingEco]);
+  }, []);
 
   const handleHotbarMouseDown = useCallback((e) => {
     if (isUiLocked) return;
+    draggingElementRef.current = { type: 'hotbar', offset: { x: e.clientX - hotbarPos.x, y: e.clientY - hotbarPos.y } };
     setIsDragging(true);
-    isDraggingRef.current = true;
-    dragOffset.current = { x: e.clientX - hotbarPos.x, y: e.clientY - hotbarPos.y };
     e.stopPropagation();
   }, [isUiLocked, hotbarPos]);
 
-  const handleMissionMouseDown = useCallback((e) => {
-    setIsDraggingMission(true);
-    isDraggingMissionRef.current = true;
-    missionDragOffset.current = { x: e.clientX - missionPos.x, y: e.clientY - missionPos.y };
+  const handleMissionMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleEcoMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleStatusMouseDown = (e) => { /* Disabled as per user request */ };
+  const handlePartyMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleChatMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleMinimapMouseDown = (e) => { /* Disabled as per user request */ };
+
+  const handleSafeZoneMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'safezone', offset: { x: e.clientX - safeZonePos.x, y: e.clientY - safeZonePos.y } };
+    setIsDragging(true);
     e.stopPropagation();
-  }, [missionPos]);
+  }, [isUiLocked, safeZonePos]);
+
+  // --- ITEM DRAG & DROP LOGIC ---
+  const handleItemDragStart = (e, index, type, item) => {
+    if (isUiLocked) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedItem({ item, index, type });
+    e.dataTransfer.setData('text/plain', item.id);
+  };
+
+  const handleItemDrop = (e, targetIndex) => {
+    e.preventDefault();
+    if (isUiLocked || !draggedItem) return;
+
+    const newSlots = [...hotbarSlots];
+    const sourceItem = draggedItem.item;
+
+    if (draggedItem.type === 'hotbar') {
+      // Intercambiar si viene de la hotbar
+      const targetItem = newSlots[targetIndex];
+      newSlots[targetIndex] = { ...sourceItem, key: (targetIndex + 1) % 10 + "" };
+      newSlots[draggedItem.index] = { ...targetItem, key: (draggedItem.index + 1) % 10 + "" };
+    } else {
+      // Reemplazar si viene de la preview
+      newSlots[targetIndex] = { ...sourceItem, key: (targetIndex + 1) % 10 + "" };
+    }
+
+    setHotbarSlots(newSlots);
+    localStorage.setItem('og_hotbar_slots', JSON.stringify(newSlots));
+    setDraggedItem(null);
+  };
 
   const toggleUiLock = useCallback(() => {
     setIsUiLocked(prev => {
@@ -708,7 +769,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             cameraRef.current.y = Math.max(0, Math.min(m_height - canvas.height, safeMeY - canvas.height / 2)) || 0;
           }
           try {
-            drawGame(ctx, { ...gameStateRef.current, selectedTargetId: keys.current.locked_target_id }, cameraRef.current.x, cameraRef.current.y);
+            drawGame(ctx, { ...gameStateRef.current, selectedTargetId: keys.current.locked_target_id }, cameraRef.current.x, cameraRef.current.y, minimapPosRef.current, isUiLockedRef.current);
           } catch (e) {
             console.error("Rendering error:", e);
             setError(e.stack || e.toString());
@@ -879,16 +940,28 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       <canvas ref={canvasRef} onMouseDown={handleMouseDown} onContextMenu={handleContextMenu} style={{ display: 'block' }} />
       
       {me?.in_safe_zone && (
-        <div style={{
-          position: 'absolute', bottom: '100px', left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', alignItems: 'center', gap: '8px',
-          background: 'rgba(0, 255, 255, 0.07)', backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(0, 255, 255, 0.3)', borderBottom: '3px solid #00ffff',
-          padding: '6px 12px', borderRadius: '4px', color: '#00ffff',
-          fontFamily: 'Orbitron', fontSize: '12px', fontWeight: 'bold',
-          letterSpacing: '1px', pointerEvents: 'none', zIndex: 100,
-          animation: 'pulse-safe 2s infinite ease-in-out'
-        }}>
+        <div 
+          onMouseDown={handleSafeZoneMouseDown}
+          style={{
+            position: 'fixed', 
+            left: `${safeZonePos.x}px`, 
+            top: `${safeZonePos.y}px`,
+            transform: 'translateX(-50%)',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: 'rgba(0, 255, 255, 0.07)', backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(0, 255, 255, 0.3)', borderBottom: '3px solid #00ffff',
+            padding: '6px 12px', borderRadius: '4px', color: '#00ffff',
+            fontFamily: 'Orbitron', fontSize: '12px', fontWeight: 'bold',
+            letterSpacing: '1px', pointerEvents: 'auto', zIndex: 100,
+            cursor: isUiLocked ? 'default' : 'move',
+            animation: 'pulse-safe 2s infinite ease-in-out',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px' }}>🛡️</span>
+            <span>ZONA SEGURA</span>
+          </div>
           <style>{`
             @keyframes pulse-safe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
             @keyframes pulse-repair {
@@ -905,8 +978,6 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
               100% { opacity: 1; transform: translateX(-50%) scale(1.05); }
             }
           `}</style>
-          <span>🛡️</span>
-          <span>ZONA SEGURA</span>
         </div>
       )}
 
@@ -981,7 +1052,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       <div className="ui-overlay">
         {(me || hudState) && (
           <>
-            <div className="status-display-container hud-mode">
+            <div className="status-display-container hud-mode" style={{ position: 'fixed', left: `${statusPos.x}px`, top: `${statusPos.y}px`, cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handleStatusMouseDown}>
+                {!isUiLocked && <div style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', color: '#00ffcc', background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: '4px' }}>ARRÁSTRAME</div>}
                 <div className="status-block hud-variant">
                     <div className="status-item"><span>✪</span><span className="status-value">{Math.floor(hudState?.xp ?? 0).toLocaleString()} XP</span></div>
                     <div className="status-item"><span style={{ color: '#ffcc00' }}>🔋</span><span className="status-value">{(hudState?.credits ?? 0).toLocaleString()} CR</span></div>
@@ -1144,7 +1216,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 <div 
                     onMouseDown={handleEcoMouseDown}
                     style={{ 
-                        cursor: isDraggingEco ? 'grabbing' : 'grab',
+                        cursor: (isDragging && draggingElementRef.current?.type === 'eco') ? 'grabbing' : 'grab',
                         padding: '5px',
                         marginBottom: isEcoMinimized ? '0' : '10px',
                         borderBottom: isEcoMinimized ? 'none' : '1px solid rgba(255,255,255,0.1)',
@@ -1385,14 +1457,14 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                   top: `${missionPos.y}px`,
                   zIndex: 900,
                   pointerEvents: 'auto',
-                  cursor: isDraggingMission ? 'grabbing' : 'default'
+                  cursor: (isDragging && draggingElementRef.current?.type === 'mission') ? 'grabbing' : 'default'
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   setMissionTrackerExpanded(!missionTrackerExpanded);
                 }}
               >
-                <div className="mission-hud-header" onMouseDown={handleMissionMouseDown} style={{ cursor: isDraggingMission ? 'grabbing' : 'grab' }}>
+                <div className="mission-hud-header" onMouseDown={handleMissionMouseDown} style={{ cursor: (isDragging && draggingElementRef.current?.type === 'mission') ? 'grabbing' : 'grab' }}>
                   <div className="mission-hud-title">
                     {missionTrackerExpanded ? '📜 BITÁCORA DE MISIONES' : '🎯 OBJETIVOS'}
                   </div>
@@ -1446,7 +1518,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             )}
 
             {/* PARTY HUD IN-GAME */}
-            <div className="party-hud-overlay" style={{ position: 'fixed', top: '80px', left: '20px', zIndex: 1000, pointerEvents: 'auto' }}>
+            <div className="party-hud-overlay" style={{ position: 'fixed', top: `${partyPos.y}px`, left: `${partyPos.x}px`, zIndex: 1000, pointerEvents: 'auto', cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handlePartyMouseDown}>
                 <button onClick={() => setShowPartyMenu(!showPartyMenu)} style={{ background: 'rgba(0, 255, 204, 0.2)', border: '1px solid #00ffcc', color: '#00ffcc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontFamily: 'Orbitron', fontWeight: 'bold' }}>
                    👥 GRUPO TÁCTICO {Object.keys(partyInvites).length > 0 ? `(${Object.keys(partyInvites).length})` : ''}
                 </button>
@@ -1541,48 +1613,215 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
               })()
             )}
 
-            <div className="weapon-hotbar-container" style={{ position: 'fixed', left: hotbarPos.x, top: hotbarPos.y, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', pointerEvents: 'auto', userSelect: 'none', cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handleHotbarMouseDown}>
-                <div className="weapon-hotbar" style={{ display: 'flex', alignItems: 'center' }}>
-                    <div onClick={(e) => { e.stopPropagation(); toggleUiLock(); }} style={{ width: '30px', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isUiLocked ? 'rgba(255,204,0,0.1)' : 'rgba(0,0,0,0.3)', border: '1px solid ' + (isUiLocked ? '#ffcc0044' : '#333'), marginRight: '5px', borderRadius: '4px', cursor: 'pointer' }}>
+            <div className="weapon-hotbar-container" style={{ 
+              position: 'fixed', 
+              left: hotbarPos.x, 
+              top: hotbarPos.y, 
+              zIndex: 1000, 
+              display: 'flex', 
+              flexDirection: 'column-reverse', 
+              alignItems: 'flex-start', 
+              gap: '0px', 
+              pointerEvents: 'auto', 
+              userSelect: 'none',
+              transform: 'translateY(-100%)'
+            }}>
+                {/* LA BARRA PRINCIPAL SIEMPRE ESTÁ ABAJO EN EL CONTENEDOR REVERSO */}
+                {/* LA BARRA PRINCIPAL SIEMPRE ESTÁ EN LA BASE (PRIMER HIJO EN REVERSE) */}
+                <div className="weapon-hotbar" 
+                    onMouseDown={handleHotbarMouseDown}
+                    style={{ 
+                        border: isUiLocked ? '1px solid rgba(255, 204, 0, 0.1)' : '2px solid #ffcc00',
+                        boxShadow: isUiLocked ? 'none' : '0 0 20px rgba(255, 204, 0, 0.5)',
+                        cursor: isUiLocked ? 'pointer' : 'move',
+                        borderRadius: showCategoryBar ? '0 0 4px 4px' : '4px'
+                    }}
+                >
+                    <div className="category-toggle-btn" onClick={(e) => { e.stopPropagation(); setShowCategoryBar(!showCategoryBar); }} title="Categorías">
+                        {showCategoryBar ? '▼' : '▲'}
+                    </div>
+                    
+                    <div onClick={(e) => { e.stopPropagation(); toggleUiLock(); }} style={{ width: '24px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isUiLocked ? 'rgba(255,204,0,0.1)' : 'rgba(0,0,0,0.3)', border: '1px solid ' + (isUiLocked ? '#ffcc0044' : '#333'), marginRight: '4px', borderRadius: '4px', cursor: 'pointer' }}>
                       {isUiLocked ? '🔒' : '🔓'}
                     </div>
-                    {[
-                        { id: 'standard', type: 'laser', icon: '⚪', image: '/std_ammo.jpg', key: '1' },
-                        { id: 'thermal', type: 'laser', icon: '🔥', image: '/thermal_ammo.jpg', key: '2' },
-                        { id: 'plasma', type: 'laser', icon: '🔷', image: '/plasma_ammo.jpg', key: '3' },
-                        { id: 'siphon', type: 'laser', icon: '🔋', image: '/siphon_ammo.png', key: '4' },
-                        { id: 'missile_1', type: 'missile', icon: '🚀', key: '5' },
-                        { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
-                        { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
-                        { id: 'blank_8', key: '8', disabled: true },
-                        hudState?.repair_rate > 0 
-                            ? { id: 'repair_bot', type: 'utility', icon: '🔧', key: '9', repairing: hudState.is_repairing }
-                            : { id: 'blank_9', key: '9', disabled: true },
-                        { id: 'blank_0', key: '0', disabled: true },
-                    ].map((slot) => {
+
+                    {!isUiLocked && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); resetHudPositions(); }}
+                        style={{ width: '24px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,0,0,0.1)', border: '1px solid #ff336644', marginRight: '4px', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', color: '#ff3366' }}
+                        title="Reiniciar Posiciones"
+                      >
+                        🔄
+                      </button>
+                    )}
+
+                    {hotbarSlots.map((slot, index) => {
                         const isActive = (slot.type === 'laser' && me?.ammo_type === slot.id) || (slot.type === 'missile' && me?.missile_type === slot.id);
                         const count = slot.type === 'laser' ? me?.ammo?.[slot.id] : slot.type === 'missile' ? (me?.missiles?.[slot.id] || 0) : null;
+                        const isRepairing = slot.id === 'repair_bot' && hudState?.is_repairing;
+
                         return (
-                            <div key={slot.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${slot.repairing ? 'repairing-active' : ''} ${slot.disabled ? 'disabled' : ''}`} onMouseDown={(e) => e.stopPropagation()} 
+                            <div 
+                                key={index} 
+                                className={`hotbar-slot ${isActive ? 'active' : ''} ${isRepairing ? 'repairing-active' : ''} ${slot.disabled ? 'disabled' : ''}`} 
+                                onMouseDown={(e) => e.stopPropagation()} 
+                                draggable={!isUiLocked}
+                                onDragStart={(e) => handleItemDragStart(e, index, 'hotbar', slot)}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => handleItemDrop(e, index)}
                                 onClick={() => {
                                     if (slot.disabled) return;
-                                    if (slot.type === 'utility') {
+                                    if (slot.type === 'utility' && slot.id === 'repair_bot') {
                                         wsRef.current?.send(JSON.stringify({ type: 'toggle_repair' }));
-                                    } else {
+                                    } else if (slot.type === 'laser' || slot.type === 'missile') {
                                         wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }));
+                                    } else if (slot.type === 'ability') {
+                                        wsRef.current?.send(JSON.stringify({ type: 'use_ability', ability_id: slot.ability_id }));
                                     }
                                 }}
+                                style={{ position: 'relative' }}
+                                title={slot.desc || slot.name}
                             >
-                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || slot.repairing) ? '100%' : '20%', opacity: (isActive || slot.repairing) ? 1 : 0.3, background: slot.repairing ? '#00ff66' : '' }} /></div>
-                                <div className="slot-icon" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                    {slot.image ? <img src={slot.image} alt="ammo icon" style={{ width: '80%', height: '80%', objectFit: 'contain' }} /> : slot.icon}
-                                </div>
-                                {count !== null && <div className="slot-count">{count}</div>}
-                                <div className="slot-key">{slot.key}</div>
+                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || isRepairing) ? '100%' : '20%', opacity: (isActive || isRepairing) ? 1 : 0.3, background: isRepairing ? '#00ff66' : '' }} /></div>
+                                 <div className="slot-icon">
+                                     {slot.image ? <img src={slot.image} alt="icon" /> : (slot.icon || '')}
+                                 </div>
+                                 {slot.type === 'ability' && me?.ability_cooldowns?.[slot.ability_id] && (
+                                     (() => {
+                                         const now = gameState?.server_time || (Date.now() / 1000);
+                                         const lastUsed = me.ability_cooldowns[slot.ability_id];
+                                         const cd = 60; 
+                                         const rem = Math.max(0, Math.ceil(cd - (now - lastUsed)));
+                                         if (rem > 0) {
+                                             return (
+                                                 <div className="cooldown-overlay" style={{
+                                                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                                     background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center',
+                                                     justifyContent: 'center', color: '#ffcc00', fontWeight: 'bold',
+                                                     fontSize: '1rem', pointerEvents: 'none', borderRadius: '4px',
+                                                     border: '1px solid #ffcc00'
+                                                 }}>
+                                                     {rem}s
+                                                 </div>
+                                             );
+                                         }
+                                         return null;
+                                     })()
+                                 )}
+                                 {count !== null && <div className="slot-count">{count}</div>}
+                                <div className="slot-key">{(index + 1) % 10}</div>
                             </div>
                         );
                     })}
                 </div>
+
+                {/* FILA 2: SELECTOR DE CATEGORÍAS */}
+                {showCategoryBar && (
+                    <div className="category-bar">
+                        <div className={`category-slot ${activeCategory === 'lasers' ? 'active' : ''}`} onClick={() => setActiveCategory('lasers')} title="Láseres">🔫</div>
+                        <div className={`category-slot ${activeCategory === 'missiles' ? 'active' : ''}`} onClick={() => setActiveCategory('missiles')} title="Misiles">🚀</div>
+                        <div className={`category-slot ${activeCategory === 'extras' ? 'active' : ''}`} onClick={() => setActiveCategory('extras')} title="Extras">🛠️</div>
+                        <div className={`category-slot ${activeCategory === 'abilities' ? 'active' : ''}`} onClick={() => setActiveCategory('abilities')} title="Habilidades">⭐</div>
+                    </div>
+                )}
+
+                {/* FILA 3: ITEMS DE LA CATEGORÍA */}
+                {showCategoryBar && (
+                    <div className="items-preview-bar">
+                        {(() => {
+                            const categoryItems = {
+                                lasers: [
+                                    { id: 'standard', type: 'laser', icon: '⚪', image: '/std_ammo.jpg' },
+                                    { id: 'thermal', type: 'laser', icon: '🔥', image: '/thermal_ammo.jpg' },
+                                    { id: 'plasma', type: 'laser', icon: '🔷', image: '/plasma_ammo.jpg' },
+                                    { id: 'siphon', type: 'laser', icon: '🔋', image: '/siphon_ammo.png' },
+                                ],
+                                missiles: [
+                                    { id: 'missile_1', type: 'missile', icon: '🚀' },
+                                    { id: 'missile_2', type: 'missile', icon: '🚀' },
+                                    { id: 'missile_3', type: 'missile', icon: '☢️' },
+                                ],
+                                extras: (propsRef.current.initialModules || [])
+                                    .map(moduleId => {
+                                        // moduleId podría ser un string o un objeto {id, ...}
+                                        const id = typeof moduleId === 'string' ? moduleId : moduleId.id;
+                                        const itemData = MODULES_CATALOG.find(m => m.id === id);
+                                        if (!itemData || itemData.type !== 'utility') return null;
+                                        
+                                        // Solo mostrar extras activables/relevantes para la hotbar
+                                        const activatableIds = [
+                                            'util_repair_1', 'util_repair_2', 
+                                            'util_cloak', 'util_auto_repair_cpu', 
+                                            'util_auto_missile', 'util_turbo_missile'
+                                        ];
+                                        
+                                        if (!activatableIds.includes(id) && !itemData.repair_rate) return null;
+
+                                        return {
+                                            id: id,
+                                            type: 'utility',
+                                            icon: itemData.icon,
+                                            image: itemData.image,
+                                            repairing: (id.startsWith('util_repair') || itemData.repair_rate) && hudState?.is_repairing
+                                        };
+                                    })
+                                    .filter(Boolean),
+                                abilities: (me?.ship_type === 'support') ? [
+                                    { id: 'ability_beacon_heal', type: 'ability', name: 'Reparación de Vida', icon: '🔧', ability_id: 'beacon_heal', desc: 'Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los PV de todas tus naves amigas cercanas.' },
+                                    { id: 'ability_beacon_shield', type: 'ability', name: 'Reparación de Escudo', icon: '🛡️', ability_id: 'beacon_shield', desc: 'Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los Escudos de todas tus naves amigas cercanas.' }
+                                ] : [],
+                            };
+
+                            const items = categoryItems[activeCategory] || [];
+                            return items.map((item, idx) => {
+                                const isActive = (item.type === 'laser' && me?.ammo_type === item.id) || (item.type === 'missile' && me?.missile_type === item.id);
+                                const count = item.type === 'laser' ? me?.ammo?.[item.id] : item.type === 'missile' ? (me?.missiles?.[item.id] || 0) : null;
+                                const isRepairing = item.repairing;
+                                return (
+                                    <div key={item.id} className={`hotbar-slot ${isActive ? 'active' : ''} ${isRepairing ? 'repairing-active' : ''}`}
+                                        title={item.desc || item.name}
+                                        draggable={!isUiLocked}
+                                        onDragStart={(e) => handleItemDragStart(e, idx, 'preview', item)}
+                                        onClick={() => {
+                                            if (item.type === 'utility' && (item.id.startsWith('util_repair') || item.id === 'repair_bot')) {
+                                                wsRef.current?.send(JSON.stringify({ type: 'toggle_repair' }));
+                                            } else if (item.type === 'laser' || item.type === 'missile') {
+                                                wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: item.id }));
+                                            }
+                                        }}
+                                    >
+                                        <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || isRepairing) ? '100%' : '20%', opacity: (isActive || isRepairing) ? 1 : 0.3, background: isRepairing ? '#00ff66' : '' }} /></div>
+                                        <div className="slot-icon">
+                                            {item.image ? <img src={item.image} alt="icon" /> : item.icon}
+                                        </div>
+                                        {item.type === 'ability' && me?.ability_cooldowns?.[item.ability_id] && (
+                                            (() => {
+                                                const now = gameState?.server_time || (Date.now() / 1000);
+                                                const lastUsed = me.ability_cooldowns[item.ability_id];
+                                                const cd = 60; 
+                                                const rem = Math.max(0, Math.ceil(cd - (now - lastUsed)));
+                                                if (rem > 0) {
+                                                    return (
+                                                        <div className="cooldown-overlay" style={{
+                                                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                                            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center',
+                                                            justifyContent: 'center', color: '#ffcc00', fontWeight: 'bold',
+                                                            fontSize: '0.8rem', pointerEvents: 'none', borderRadius: '4px'
+                                                        }}>
+                                                            {rem}s
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()
+                                        )}
+                                        {count !== null && <div className="slot-count">{count}</div>}
+                                    </div>
+                                );
+                            });
+                        })()}
+                    </div>
+                )}
             </div>
           </>
         )}
@@ -1639,6 +1878,9 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         user={user} 
         playerFaction={initialClan} 
         clanTag={initialClanTag} 
+        pos={chatPos}
+        onDragStart={handleChatMouseDown}
+        isUiLocked={isUiLocked}
       />
     </>
   );

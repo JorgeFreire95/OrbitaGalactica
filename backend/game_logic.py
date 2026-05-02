@@ -18,6 +18,8 @@ class GameState:
         self.damage_events = []
         self.mission_events = []
         self.destruction_events = []
+        self.beacons = [] # client_id: {id, x, y, type, radius, power, expiry, map_id, owner_id}
+        self.last_beacon_update = time.time()
         self.last_special_spawn = time.time()
         self.special_spawn_rate = 30.0 # Más constante: cada 30 segundos
         
@@ -599,8 +601,11 @@ class GameState:
         target_enemy = None
 
         if locked_id:
-            # Si hay un objetivo fijado, buscarlo (EN EL MISMO MAPA)
+            # Si hay un objetivo fijado, buscarlo (EN EL MISMO MAPA) - Incluye Enemigos y Jugadores (PVP)
             target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
+            if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
+                target_enemy = self.players[locked_id]
+            
             if target_enemy:
                 # Calcular distancia al objetivo
                 dist = math.hypot(target_enemy["x"] - player["x"], target_enemy["y"] - player["y"])
@@ -622,7 +627,11 @@ class GameState:
         
         # Override: si el target murió o está FUERA DE RANGO, obligar a que shoot_active sea False
         if locked_id:
+            # Buscar objetivo en enemigos o jugadores (PVP)
             target_exists = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
+            if not target_exists and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
+                target_exists = self.players[locked_id]
+
             if not target_exists or not player.get("in_range", True):
                 player["shoot_active"] = False
 
@@ -697,9 +706,12 @@ class GameState:
         if player["powerup"] == "rapid_fire":
             fire_rate *= 0.4
             
+        # Trigger si presiona E O si tiene el CPU automático y tiene un objetivo fijado
+        should_fire_missile = keys.get("missile_shoot") or (player.get("has_auto_missile") and player.get("locked_target_id"))
+
         # --- LÓGICA DE REVELACIÓN (Invisibilidad) ---
         # Si el jugador está intentando disparar (Láser o Misil), se revela inmediatamente
-        if (player.get("shoot_active") or keys.get("missile_shoot")):
+        if (player.get("shoot_active") or should_fire_missile):
             if player.get("is_invisible"):
                 player["is_invisible"] = False
                 print(f"REVELADO: {player.get('user_id')} ha iniciado un ataque.")
@@ -787,9 +799,6 @@ class GameState:
         # Missile Firing (Tecla E o Automático)
         missile_cooldown = 0.75 if player.get("has_turbo_missile") else 1.5
         
-        # Trigger si presiona E O si tiene el CPU automático y está disparando láseres
-        should_fire_missile = keys.get("missile_shoot") or (player.get("has_auto_missile") and player.get("shoot_active") and player.get("locked_target_id"))
-        
         if should_fire_missile and (now - player["last_missile_shot"] > missile_cooldown):
             m_type = player.get("missile_type", "missile_1")
             if player["missiles"].get(m_type, 0) > 0:
@@ -805,8 +814,11 @@ class GameState:
                 }
                 conf = m_config.get(m_type)
                 # Determinar dirección del misil: al objetivo o al frente (SOLO SI EL OBJETIVO ESTÁ EN EL MISMO MAPA)
+                # Determinar dirección del misil: al objetivo o al frente
                 locked_id = player.get("locked_target_id")
                 target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None) if locked_id else None
+                if not target_enemy and locked_id and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
+                    target_enemy = self.players[locked_id]
                 
                 if target_enemy:
                     dx = target_enemy["x"] - player["x"]
@@ -853,8 +865,8 @@ class GameState:
             # --- GENERADORES (Por Paladio) ---
             {"id": "shield_2", "name": "Escudo Reforzado", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
             {"id": "shield_3", "name": "Escudo Hiper", "type": "module", "value": "50.000 Paladio", "start_bid": 10000},
-            {"id": "engine_2", "name": "Turbo Motor", "type": "module", "value": "1.000 Paladio", "start_bid": 10000},
-            {"id": "engine_3", "name": "Hiper Motor", "type": "module", "value": "2.000 Paladio", "start_bid": 10000},
+            {"id": "engine_2", "name": "Turbo Motor", "type": "module", "value": "3.000 Paladio", "start_bid": 10000},
+            {"id": "engine_3", "name": "Hiper Motor", "type": "module", "value": "6.000 Paladio", "start_bid": 10000},
             
             # --- LÁSERES Y OTROS (Por Paladio) ---
             {"id": "laser_2", "name": "Láser Plus", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
@@ -1200,8 +1212,8 @@ class GameState:
                     p["repair_accumulated"] += healed
                     p["is_repairing"] = True
                     
-                    # Lanzar evento visual cada 25 HP o cada 2 segundos mientras repara
-                    if p["repair_accumulated"] >= 25 or (now - p["last_repair_msg_time"] > 2.0 and p["repair_accumulated"] > 0):
+                    # Lanzar evento visual cada 2 segundos mientras repara para evitar spam de +42 HP
+                    if now - p.get("last_repair_msg_time", 0) >= 2.0:
                         self.loot_events.append({
                             "type": "heal",
                             "amount": round(p["repair_accumulated"]),
@@ -1324,7 +1336,8 @@ class GameState:
             #         })
                 
             if p.get("locked_target_id"):
-                target_exists = any(en["id"] == p["locked_target_id"] for en in self.enemies)
+                target_id = p["locked_target_id"]
+                target_exists = any(en["id"] == target_id for en in self.enemies) or (target_id in self.players)
                 if not target_exists:
                     p["locked_target_id"] = None
                     p["shoot_active"] = False # Detener disparo al morir el blanco
@@ -1964,6 +1977,51 @@ class GameState:
                                         self._update_mission_progress(m, e["name"])
         self.enemies = [e for e in self.enemies if e["hp"] > 0]
 
+        # 8. Update Beacons (Habilidades Helix Support)
+        alive_beacons = []
+        do_tick = (now - self.last_beacon_update >= 2.0)
+        if do_tick:
+            self.last_beacon_update = now
+
+        for b in self.beacons:
+            if now > b["expiry"]:
+                continue
+            
+            if do_tick:
+                # Aplicar efecto a jugadores cercanos en el mismo mapa
+                for pid, p in self.players.items():
+                    if p["hp"] <= 0: continue
+                    if p["current_map"] != b["map_id"]: continue
+                    
+                    # Solo curar aliados (Misma facción o misma Party)
+                    is_ally = (p.get("faction") == b.get("faction")) or \
+                              (p.get("party_id") and p.get("party_id") == self.players.get(b["owner_id"], {}).get("party_id"))
+
+                    if not is_ally: continue
+
+                    dist = math.hypot(p["x"] - b["x"], p["y"] - b["y"])
+                    if dist <= b["radius"]:
+                        if b["type"] == "heal":
+                            if p["hp"] < p["max_hp"]:
+                                heal_amt = min(b["power"], p["max_hp"] - p["hp"])
+                                p["hp"] += heal_amt
+                                self.loot_events.append({
+                                    "type": "heal", "amount": int(heal_amt),
+                                    "x": p["x"], "y": p["y"], "time": now, "owner_id": pid
+                                })
+                        elif b["type"] == "shield":
+                            if p["shld"] < p["max_shld"]:
+                                shld_amt = min(b["power"], p["max_shld"] - p["shld"])
+                                p["shld"] += shld_amt
+                                self.damage_events.append({
+                                    "id": f"shld_{pid}_{now}",
+                                    "x": p["x"] + random.randint(-15, 15),
+                                    "y": p["y"] + random.randint(-15, 15),
+                                    "amount": int(shld_amt), "time": now, "owner_id": pid, "color": "#00ccff"
+                                })
+            alive_beacons.append(b)
+        self.beacons = alive_beacons
+
     def spawn_alien(self, map_id="mars_1"):
         if map_id == "neutral_1":
             return
@@ -2181,6 +2239,10 @@ class GameState:
                 if "spd" in mod: player["spd"] += mod["spd"]
                 if "hp" in mod: player["max_hp"] += mod["hp"]
                 if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
+                if mod.get("is_auto_repair"): player["has_auto_repair"] = True
+                if mod.get("is_turbo_missile"): player["has_turbo_missile"] = True
+                if mod.get("is_auto_missile"): player["has_auto_missile"] = True
+                if mod.get("is_cargo_compressor"): player["has_cargo_compressor"] = True
                 
                 # Recount for visuals (las drones incrementan el poder de fuego visual)
                 m_type = mod.get("type", "")
@@ -2570,6 +2632,60 @@ class GameState:
                 player["repair_bot_active"] = not player.get("repair_bot_active", False)
                 print(f"Repair bot toggled for {client_id}: {player['repair_bot_active']}")
 
+    def use_ability(self, client_id, ability_id):
+        if client_id not in self.players: return
+        player = self.players[client_id]
+        now = time.time()
+        
+        # 1. Validar Nave (Solo Helix Support por ahora)
+        if player.get("ship_type") != "support":
+            self._send_sys_msg(client_id, "⚠️ Tu nave no dispone de esta habilidad avanzada.")
+            return
+
+        # 2. Gestionar Cooldowns
+        cooldowns = player.setdefault("ability_cooldowns", {})
+        cd_time = 60.0 # 60 segundos de cooldown
+        
+        if now - cooldowns.get(ability_id, 0) < cd_time:
+            rem = int(cd_time - (now - cooldowns.get(ability_id, 0)))
+            self._send_sys_msg(client_id, f"⏳ Habilidad en recarga. Espera {rem}s.")
+            return
+
+        # 3. Ejecutar Habilidad
+        if ability_id == "beacon_heal":
+            beacon = {
+                "id": f"beacon_hp_{client_id}_{now}",
+                "x": player["x"], "y": player["y"],
+                "type": "heal",
+                "radius": 350,
+                "power": 10000, # 10.000 HP por tick (cada 2s)
+                "owner_id": client_id,
+                "owner_name": player.get("name", "Piloto"),
+                "faction": player.get("faction"),
+                "map_id": player["current_map"],
+                "expiry": now + 10.0 # Dura 10 segundos
+            }
+            self.beacons.append(beacon)
+            cooldowns[ability_id] = now
+            self._send_sys_msg(client_id, "🔧 Reparación de Vida desplegada.")
+            
+        elif ability_id == "beacon_shield":
+            beacon = {
+                "id": f"beacon_shld_{client_id}_{now}",
+                "x": player["x"], "y": player["y"],
+                "type": "shield",
+                "radius": 350,
+                "power": 10000, # 10.000 SHLD por tick
+                "owner_id": client_id,
+                "owner_name": player.get("name", "Piloto"),
+                "faction": player.get("faction"),
+                "map_id": player["current_map"],
+                "expiry": now + 10.0 # Dura 10 segundos
+            }
+            self.beacons.append(beacon)
+            cooldowns[ability_id] = now
+            self._send_sys_msg(client_id, "🛡️ Reparación de Escudo desplegada.")
+
     def use_cloak(self, client_id):
         if client_id not in self.players: return
         player = self.players[client_id]
@@ -2841,7 +2957,9 @@ class GameState:
                     for k in ["atk", "shld", "spd", "hp"]
                 },
                 "auctions": [{**auc, "your_bid": auc["player_bids"].get(client_id, 0)} for auc in self.auctions],
-                "auction_reset_in": max(0, int(self.auction_duration - (time.time() - self.last_auction_reset)))
+                "auction_reset_in": max(0, int(self.auction_duration - (time.time() - self.last_auction_reset))),
+                "beacons": [b for b in self.beacons if b.get("map_id") == m_id],
+                "server_time": time.time()
             }
         # Resetear flag tras incluirlo en el estado
             if me.get("needs_mission_sync"):

@@ -82,11 +82,15 @@ export const SHIPS = [
     atk: 60,
     spd: 300,
     color: '#33ff99',
-    desc: 'Una nave de apoyo táctico con sistemas avanzados de reparación y una bodega masiva.',
+    desc: 'Nave de apoyo táctico avanzada. Habilidades: Reparación de Vida y Reparación de Escudo (estacas de área para aliados).',
     image: '/helix_support_v2.png?v=2',
     ui_image: '/helix_support_v2.png?v=2',
     slots: { lasers: 10, shields: 7, engines: 8, utility: 3 },
     cargo_capacity: 2000,
+    abilities: [
+      { name: "Reparación de Vida", desc: "Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los PV de todas tus naves amigas cercanas." },
+      { name: "Reparación de Escudo", desc: "Con esta habilidad, tu nave arrojará una unidad que restablecerá poco a poco los Escudos de todas tus naves amigas cercanas." }
+    ],
     cost: 200000,
     currency: 'paladio'
   },
@@ -137,15 +141,15 @@ export const MODULES_CATALOG = [
   { id: 'laser_2', type: 'lasers', lvl: 2, name: 'Láser Plus',      cost: 5000,  currency: 'paladio', atk: 100,  icon: '🔫', desc: 'Versión mejorada con mayor estabilidad de haz y daño concentrado.', image: '/plus_laser.png' },
   { id: 'laser_3', type: 'lasers', lvl: 3, name: 'Cañón Pesado',    cost: 10000, currency: 'paladio', atk: 180,  icon: '🔫', desc: 'Tecnología de última generación que dispara ráfagas de plasma altamente destructivas.', image: '/heavy_laser.jpg' },
   
-  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5, desc: 'Generador de campo defensivo básico con absorción del 50%.' },
-  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6, desc: 'Estructura molecular optimizada para una mayor capacidad de energía y absorción del 60%.' },
-  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper',    cost: 50000, currency: 'paladio', shld: 10000, icon: '🛡️', absorption: 0.8, desc: 'Defensa de grado militar. Absorción masiva del 80% y altísima capacidad de carga.' },
+  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5, desc: 'Generador de campo defensivo básico con absorción del 50%.', image: '/light_shield.png' },
+  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6, desc: 'Estructura molecular optimizada para una mayor capacidad de energía y absorción del 60%.', image: '/reinforced_shield.png' },
+  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper',    cost: 50000, currency: 'paladio', shld: 10000, icon: '🛡️', absorption: 0.8, desc: 'Defensa de grado militar. Absorción masiva del 80% y altísima capacidad de carga.', image: '/hyper_shield.png' },
   
-  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor',     cost: 16000, spd: 5,  icon: '🚀', desc: 'Propulsor estándar de bajo consumo para naves ligeras.' },
-  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 1000, currency: 'paladio', spd: 7,  icon: '🚀', desc: 'Inyectores de paladio que permiten una aceleración significativamente mayor.' },
-  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 2000, currency: 'paladio', spd: 10,  icon: '🚀', desc: 'Núcleo de energía inestable que impulsa la nave a velocidades extremas.' },
+  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor',     cost: 16000, spd: 5,  icon: '🚀', desc: 'Propulsor estándar de bajo consumo para naves ligeras.', image: '/micro_motor.png' },
+  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 3000, currency: 'paladio', spd: 7,  icon: '🚀', desc: 'Inyectores de paladio que permiten una aceleración significativamente mayor.', image: '/turbo_motor.png' },
+  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 6000, currency: 'paladio', spd: 10,  icon: '🚀', desc: 'Núcleo de energía inestable que impulsa la nave a velocidades extremas.', image: '/hyper_motor.png' },
   
-  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 630, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.' },
+  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 315, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.' },
   { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️', desc: 'Robot de nanotecnología avanzada capaz de reparar daños estructurales a gran velocidad.' },
   { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 500, currency: 'paladio', desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
   { id: 'util_auto_repair_cpu', type: 'utility', lvl: 2, name: 'AUTO-CPU de roboreparación', cost: 10000, currency: 'paladio', desc: 'Inicia automáticamente a un robot de reparación disponible cuando no estás en combate.', icon: '🤖', is_auto_repair: true },

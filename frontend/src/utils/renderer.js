@@ -639,7 +639,7 @@ const drawSpaceStation = (ctx, x, y, radius, style) => {
     ctx.restore();
 };
 
-export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
+export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, isUiLocked = true) => {
   const { width, height } = ctx.canvas;
   
   // 1. Determinar Estilo de Mapa
@@ -967,6 +967,80 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
     ctx.fillStyle = '#000000';
     ctx.fill();
     ctx.restore();
+  }
+
+  // --- DIBUJAR ESTACAS (BEACONS) ---
+  if (gameState.beacons && gameState.beacons.length > 0) {
+    gameState.beacons.forEach(b => {
+        const marginBeacon = b.radius || 350;
+        if (b.x < camX - marginBeacon || b.x > camX + width + marginBeacon || 
+            b.y < camY - marginBeacon || b.y > camY + height + marginBeacon) return;
+
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        
+        const time = Date.now() / 1000;
+        const pulse = Math.sin(time * 5) * 5;
+        const isHeal = b.type === 'heal';
+        const mainColor = isHeal ? '#00ff66' : '#00ccff';
+        
+        // 1. Dibujar área de efecto (Círculo tenue)
+        ctx.beginPath();
+        ctx.arc(0, 0, b.radius || 350, 0, Math.PI * 2);
+        ctx.strokeStyle = mainColor;
+        ctx.setLineDash([10, 10]);
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.15 + Math.sin(time * 2) * 0.05;
+        ctx.stroke();
+        ctx.fillStyle = mainColor;
+        ctx.fill();
+        ctx.setLineDash([]);
+        
+        // 2. Dibujar la "Estaca" (Estructura central)
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = mainColor;
+        
+        // Base tecnológica
+        ctx.fillStyle = '#222222';
+        ctx.beginPath();
+        ctx.moveTo(-20, 10);
+        ctx.lineTo(20, 10);
+        ctx.lineTo(10, -10);
+        ctx.lineTo(-10, -10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#666666';
+        ctx.stroke();
+
+        // Núcleo flotante y pulsante
+        ctx.beginPath();
+        ctx.moveTo(0, -45 - pulse);
+        ctx.lineTo(12, -15 - pulse);
+        ctx.lineTo(-12, -15 - pulse);
+        ctx.closePath();
+        ctx.fillStyle = mainColor;
+        ctx.fill();
+        
+        // Destello central
+        ctx.beginPath();
+        ctx.arc(0, -25 - pulse, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        
+        // Etiqueta informativa
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = '10px Orbitron';
+        ctx.textAlign = 'center';
+        const owner = (b.owner_name || 'PILOTO').toUpperCase();
+        ctx.fillText(`${owner}`, 0, 35);
+        ctx.fillStyle = mainColor;
+        ctx.font = 'bold 11px Orbitron';
+        ctx.fillText(isHeal ? "REPARACIÓN DE VIDA" : "REPARACIÓN DE ESCUDO", 0, 50);
+
+        ctx.restore();
+    });
   }
 
   // Draw loot boxes
@@ -1977,201 +2051,101 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0) => {
 
   ctx.restore(); // FIN DE RENDERIZADO DEL MUNDO
 
-  // 4. DIBUJAR MINIMAPA (Fijo en la UI)
-  const drawMinimap = () => {
-    ctx.beginPath(); // Ensure minimap starts with clean path
-    const mmW = 200;
+  // --- 4. DIBUJAR MINIMAPA (Fijo en la UI / Arrastrable) ---
+  const mmW = 200;
+  const mmH = 150;
+  
+  // Si no se pasa minimapPos, usar default (bottom-right)
+  const mmX = minimapPos ? minimapPos.x : (width - mmW - 20);
+  const mmY = minimapPos ? minimapPos.y : (height - mmH - 20);
 
-    const mmH = 150;
-    const margin = 20;
-    const mmX = width - mmW - margin;
-    const mmY = height - mmH - margin;
+  // Fondo del Minimapa
+  ctx.save();
+  ctx.fillStyle = 'rgba(13, 13, 26, 0.85)';
+  ctx.fillRect(mmX, mmY, mmW, mmH);
+  
+  // Borde dinámico
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(mmX, mmY, mmW, mmH);
 
-    // Fondo del Minimapa
-    ctx.fillStyle = 'rgba(13, 13, 26, 0.85)';
-    ctx.fillRect(mmX, mmY, mmW, mmH);
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(mmX, mmY, mmW, mmH);
+  // Escala del Minimapa
+  const scaleX = mmW / m_width;
+  const scaleY = mmH / m_height;
 
-    // Escala del Minimapa (Mundo Dinámico)
-    const m_width = gameState.map_width || 10000;
-    const m_height = gameState.map_height || 8000;
-    const scaleX = mmW / m_width;
-    const scaleY = mmH / m_height;
+  // --- GRID DEL MINIMAPA ---
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+  ctx.lineWidth = 1;
+  for (let gx = 5000; gx < m_width; gx += 5000) {
+    ctx.moveTo(mmX + gx * scaleX, mmY);
+    ctx.lineTo(mmX + gx * scaleX, mmY + mmH);
+  }
+  for (let gy = 4000; gy < m_height; gy += 4000) {
+    ctx.moveTo(mmX, mmY + gy * scaleY);
+    ctx.lineTo(mmX + mmW, mmY + gy * scaleY);
+  }
+  ctx.stroke();
 
-    // --- GRID DEL MINIMAPA ---
+  // --- ELEMENTOS DEL MINIMAPA ---
+  // 1. Base
+  if (gameState.base) {
+    ctx.fillStyle = '#00ffff';
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
-    ctx.lineWidth = 1;
-    // Líneas verticales (cada 5000 unidades)
-    for (let gx = 5000; gx < m_width; gx += 5000) {
-      ctx.moveTo(mmX + gx * scaleX, mmY);
-      ctx.lineTo(mmX + gx * scaleX, mmY + mmH);
-    }
-    // Líneas horizontales (cada 4000 unidades)
-    for (let gy = 4000; gy < m_height; gy += 4000) {
-      ctx.moveTo(mmX, mmY + gy * scaleY);
-      ctx.lineTo(mmX + mmW, mmY + gy * scaleY);
-    }
-    ctx.stroke();
+    ctx.arc(mmX + gameState.base.x * scaleX, mmY + gameState.base.y * scaleY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-    // --- COORDENADAS (TEXTO) ---
+  // 2. Enemigos (Solo si están en rango de rastreo)
+  const trackerRange = me?.eco?.tracker_range || 3500;
+  gameState.enemies?.forEach(en => {
     if (me) {
-      ctx.fillStyle = 'rgba(0, 255, 255, 0.9)';
-      ctx.font = 'bold 11px Orbitron';
-      ctx.textAlign = 'right';
-      ctx.fillText(`X: ${Math.round(me.x)}`, mmX + mmW - 8, mmY + 18);
-      ctx.fillText(`Y: ${Math.round(me.y)}`, mmX + mmW - 8, mmY + 32);
-    }
-
-    // Dibujar Base en Minimapa
-    if (gameState.base) {
-      ctx.fillStyle = '#00ffff';
-      ctx.beginPath();
-      ctx.arc(mmX + gameState.base.x * scaleX, mmY + gameState.base.y * scaleY, 4, 0, Math.PI * 2);
-      ctx.fill();
-      // Anillo de la base
-      ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-      ctx.strokeRect(
-        mmX + (gameState.base.x - gameState.base.radius) * scaleX,
-        mmY + (gameState.base.y - gameState.base.radius) * scaleY,
-        (gameState.base.radius * 2) * scaleX,
-        (gameState.base.radius * 2) * scaleY
-      );
-    }
-
-    // Dibujar Enemigos (Radar con Rastreador ECO)
-    const trackerRange = me?.eco?.tracker_range || 3500;
-    gameState.enemies?.forEach(en => {
-      if (me) {
-        const dist = Math.hypot(me.x - en.x, me.y - en.y);
-        
-        // 1. Mostrar en Minimapa
-        if (dist < trackerRange) {
-          ctx.fillStyle = '#ff3333';
-          ctx.beginPath();
-          ctx.arc(mmX + en.x * scaleX, mmY + en.y * scaleY, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        // 2. NUEVO: Indicadores en los bordes de la pantalla (Rastreador Activo)
-        if (me.eco?.tracker_range > 0 && dist < me.eco.tracker_range && dist > 1000) {
-           // Calcular posición relativa a la cámara
-           const relX = en.x - camX;
-           const relY = en.y - camY;
-           
-           // Si está fuera de la pantalla, dibujar indicador
-           if (relX < 0 || relX > width || relY < 0 || relY > height) {
-              const centerX = width / 2;
-              const centerY = height / 2;
-              const dx = relX - centerX;
-              const dy = relY - centerY;
-              const angle = Math.atan2(dy, dx);
-              
-              const margin = 40;
-              const ix = Math.max(margin, Math.min(width - margin, centerX + Math.cos(angle) * (width / 2 - margin)));
-              const iy = Math.max(margin, Math.min(height - margin, centerY + Math.sin(angle) * (height / 2 - margin)));
-              
-              ctx.save();
-              ctx.translate(ix, iy);
-              ctx.rotate(angle);
-              
-              // Triángulo indicador
-              ctx.fillStyle = 'rgba(255, 0, 0, 0.6)';
-              ctx.beginPath();
-              ctx.moveTo(10, 0);
-              ctx.lineTo(-5, -7);
-              ctx.lineTo(-5, 7);
-              ctx.closePath();
-              ctx.fill();
-              
-              // Texto de distancia
-              ctx.rotate(-angle);
-              ctx.fillStyle = '#ff3333';
-              ctx.font = 'bold 10px Orbitron';
-              ctx.textAlign = 'center';
-              ctx.fillText(`${Math.floor(dist)}m`, 0, 20);
-              ctx.restore();
-           }
-        }
-      }
-    });
-
-    // Dibujar Jugadores
-    gameState.players?.forEach(p => {
-      ctx.fillStyle = p.is_self ? '#00ffff' : '#fff';
-      if (p.is_self) {
-        ctx.globalAlpha = 0.7 + Math.sin(Date.now()/100) * 0.3;
-      }
-      ctx.beginPath();
-      ctx.arc(mmX + p.x * scaleX, mmY + p.y * scaleY, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-    });
-
-    // Dibujar Portales en Minimapa
-    if (gameState.portals) {
-      gameState.portals.forEach(portal => {
-        const isMarsPortal = portal.target.startsWith('mars');
-        ctx.strokeStyle = isMarsPortal ? '#ff6600' : '#00ffff';
-        ctx.lineWidth = 1;
+      const dist = Math.hypot(me.x - en.x, me.y - en.y);
+      if (dist < trackerRange) {
+        ctx.fillStyle = '#ff3333';
         ctx.beginPath();
-        ctx.arc(mmX + portal.x * scaleX, mmY + portal.y * scaleY, 6, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = (isMarsPortal ? '#ff6600' : '#00ffff') + '22';
+        ctx.arc(mmX + en.x * scaleX, mmY + en.y * scaleY, 2, 0, Math.PI * 2);
         ctx.fill();
-      });
+      }
     }
+  });
 
-    // --- NUEVO: DIBUJAR COFRES ESPECIALES EN MINIMAPA (CON RANGO) ---
-    if (gameState.loot_boxes && me) {
-      gameState.loot_boxes.forEach(box => {
-        if (box.type === 'special_coin') {
-          const dist = Math.hypot(me.x - box.x, me.y - box.y);
-          if (dist < 2500) { // Rango de detección de 2500 unidades
-            const bx = mmX + (box.x * scaleX);
-            const by = mmY + (box.y * scaleY);
-            
-            // Efecto de pulso en el minimapa
-            const pulse = (Math.sin(Date.now() / 200) + 1) / 2;
-            ctx.fillStyle = `rgba(255, 0, 255, ${0.5 + pulse * 0.5})`;
-            ctx.beginPath();
-            ctx.arc(bx, by, 3 + pulse * 2, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Brillo
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
-        }
-      });
-    }
+  // 3. Otros Jugadores
+  gameState.players?.forEach(p => {
+    if (p.hp <= 0) return;
+    ctx.fillStyle = p.is_self ? '#00ffff' : '#fff';
+    ctx.beginPath();
+    ctx.arc(mmX + p.x * scaleX, mmY + p.y * scaleY, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
 
-    // 5. DIBUJAR NOMBRE DEL MAPA SOBRE EL MINIMAPA
-    if (gameState.current_map_name) {
-      ctx.save();
-      ctx.font = 'bold 13px Orbitron';
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#00ffff';
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = '#00ffff';
-      ctx.fillText(gameState.current_map_name.toUpperCase(), mmX + mmW, mmY - 8);
-      
-      // Subrayado decorativo
-      ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(mmX + mmW - 100, mmY - 4);
-      ctx.lineTo(mmX + mmW, mmY - 4);
-      ctx.stroke();
-      ctx.restore();
-    }
-  };
+  // 4. Portales
+  gameState.portals?.forEach(portal => {
+    const isMarsPortal = portal.target.startsWith('mars');
+    ctx.strokeStyle = isMarsPortal ? '#ff6600' : '#00ffff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(mmX + portal.x * scaleX, mmY + portal.y * scaleY, 6, 0, Math.PI * 2);
+    ctx.stroke();
+  });
 
+  // --- TEXTO: NOMBRE DEL MAPA Y COORDENADAS ---
+  ctx.fillStyle = 'rgba(0, 255, 255, 0.9)';
+  ctx.font = 'bold 11px Orbitron';
+  ctx.textAlign = 'right';
+  if (me) {
+    ctx.fillText(`X: ${Math.round(me.x)}`, mmX + mmW - 8, mmY + 18);
+    ctx.fillText(`Y: ${Math.round(me.y)}`, mmX + mmW - 8, mmY + 32);
+  }
 
+  if (gameState.current_map_name) {
+    ctx.font = 'bold 13px Orbitron';
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#00ffff';
+    ctx.fillText(gameState.current_map_name.toUpperCase(), mmX + mmW, mmY - 8);
+  }
 
-  drawMinimap();
-  ctx.beginPath(); // Clear path buffer at the end of frame
+  ctx.restore();
+  ctx.beginPath(); // Final cleanup
 };

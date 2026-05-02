@@ -357,6 +357,10 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "use_cloak" and player_added:
                 game_state.use_cloak(client_id)
 
+            elif data.get("type") == "use_ability" and player_added:
+                ability_id = data.get("ability_id")
+                game_state.use_ability(client_id, ability_id)
+
             elif data.get("type") == "chat" and player_added:
                 text = data.get("text")
                 channel = data.get("channel", "global")
