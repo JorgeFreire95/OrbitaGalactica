@@ -55,11 +55,12 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ## 📈 4. Sprint Status (Estado Actual del Desarrollo)
 
 ### ✅ Done (Terminado en el último incremento)
-- **Habilidades de Solar Wind**: Implementación de Invulnerabilidad e Invisibilidad Avanzada (sin revelación al disparar).
-- **Habilidades de Obsidian Bastion**: Sistema de Provocación (Aggro) y Refuerzo de Escudo dinámico.
-- **Modular HUD**: ChatBox movible condicionado al bloqueo de UI y hotbar de habilidades adaptativa.
-- **Balance de Minerales**: Actualización de bonos de refinado a valores porcentuales para escalado de late-game.
-- **Fixes de Subasta**: Corrección en la entrega de items ganados (Nave Sparks) y sincronización de créditos.
+- **Localización de Misiones**: Sistema dinámico que adapta el "Sector de Operaciones" a la facción del usuario (Marte, Luna o Plutón).
+- **Seguridad Reforzada**: Validación obligatoria de contraseñas con mayúsculas y caracteres especiales en el registro.
+- **Balance Estratégico**: Incremento de la capacidad de bodega de la nave Phoenix (500t) y ajuste de la curva de nivel (fija a 100k XP/nivel).
+- **Actualización Visual**: Nuevos iconos premium para Misiles (M1-M3) y Robots de Reparación en el inventario y tienda.
+- **Optimización de Rutas**: Rediseño de conexiones espaciales, incluyendo la eliminación del portal hacia Cantera Olympus desde Phobos.
+- **Accesibilidad UI**: Mejora de contraste y legibilidad en selectores de formularios y buzón de mensajes.
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.
