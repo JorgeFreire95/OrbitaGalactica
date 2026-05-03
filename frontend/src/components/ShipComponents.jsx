@@ -1,5 +1,16 @@
 import React from 'react';
 
+const getItemSigla = (name) => {
+  if (!name) return "";
+  const parts = name.split(" ");
+  if (parts.length <= 1) return name;
+  const last = parts[parts.length - 1];
+  if (["I", "II", "III"].includes(last) && parts.length > 1) {
+    return parts[parts.length - 2] + " " + last;
+  }
+  return last;
+};
+
 export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequip, isBlocked = false, unlockedCount = 999, onUnlock }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 'bold', fontFamily: 'Orbitron', letterSpacing: '1px' }}>
@@ -67,7 +78,7 @@ export const SlotDisplay = ({ label, count, icon, color, equipped = [], onUnequi
                   fontWeight: 'bold',
                   textShadow: '1px 1px 2px rgba(0,0,0,0.8)'
                 }}>
-                  {item.name}
+                  {getItemSigla(item.name)}
                 </div>
                 {!isBlocked && <div style={{ position: 'absolute', top: '2px', right: '4px', fontSize: '0.5rem', color: '#ff3366', opacity: 0.4 }}>✕</div>}
               </>

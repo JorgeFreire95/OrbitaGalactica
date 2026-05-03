@@ -145,30 +145,30 @@ export const SHIPS = [
 ];
 
 export const MODULES_CATALOG = [
-  { id: 'laser_1', type: 'lasers', lvl: 1, name: 'Láser LF-1',      cost: 10000, atk: 40,   icon: '🔫', desc: 'Emisor de partículas básico para combate de corto alcance.', image: '/basic_laser.png' },
-  { id: 'laser_2', type: 'lasers', lvl: 2, name: 'Láser Plus',      cost: 5000,  currency: 'paladio', atk: 100,  icon: '🔫', desc: 'Versión mejorada con mayor estabilidad de haz y daño concentrado.', image: '/plus_laser.png' },
-  { id: 'laser_3', type: 'lasers', lvl: 3, name: 'Cañón Pesado',    cost: 10000, currency: 'paladio', atk: 180,  icon: '🔫', desc: 'Tecnología de última generación que dispara ráfagas de plasma altamente destructivas.', image: '/heavy_laser.jpg' },
+  { id: 'laser_1', type: 'lasers', lvl: 1, name: 'Laser Basico LSB',      cost: 10000, atk: 40,   icon: '🔫', desc: 'Emisor de partículas básico para combate de corto alcance.', image: '/basic_laser.png' },
+  { id: 'laser_2', type: 'lasers', lvl: 2, name: 'Laser Plus LSP',      cost: 5000,  currency: 'paladio', atk: 100,  icon: '🔫', desc: 'Versión mejorada con mayor estabilidad de haz y daño concentrado.', image: '/plus_laser.png' },
+  { id: 'laser_3', type: 'lasers', lvl: 3, name: 'Cañon Pesado CP',    cost: 10000, currency: 'paladio', atk: 180,  icon: '🔫', desc: 'Tecnología de última generación que dispara ráfagas de plasma altamente destructivas.', image: '/heavy_laser.jpg' },
   
-  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5, desc: 'Generador de campo defensivo básico con absorción del 50%.', image: '/light_shield.png' },
-  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6, desc: 'Estructura molecular optimizada para una mayor capacidad de energía y absorción del 60%.', image: '/reinforced_shield.png' },
-  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper',    cost: 50000, currency: 'paladio', shld: 10000, icon: '🛡️', absorption: 0.8, desc: 'Defensa de grado militar. Absorción masiva del 80% y altísima capacidad de carga.', image: '/hyper_shield.png' },
+  { id: 'shield_1', type: 'shields', lvl: 1, name: 'Escudo Liviano S-LIV',   cost: 16000, shld: 2000, icon: '🛡️', absorption: 0.5, desc: 'Generador de campo defensivo básico con absorción del 50%.', image: '/light_shield.png' },
+  { id: 'shield_2', type: 'shields', lvl: 2, name: 'Escudo Reforzado S-RFZ', cost: 25000, currency: 'paladio', shld: 5000, icon: '🛡️', absorption: 0.6, desc: 'Estructura molecular optimizada para una mayor capacidad de energía y absorción del 60%.', image: '/reinforced_shield.png' },
+  { id: 'shield_3', type: 'shields', lvl: 3, name: 'Escudo Hiper S-HPR',    cost: 50000, currency: 'paladio', shld: 10000, icon: '🛡️', absorption: 0.8, desc: 'Defensa de grado militar. Absorción masiva del 80% y altísima capacidad de carga.', image: '/hyper_shield.png' },
   
-  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor',     cost: 16000, spd: 5,  icon: '🚀', desc: 'Propulsor estándar de bajo consumo para naves ligeras.', image: '/micro_motor.png' },
-  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor',     cost: 3000, currency: 'paladio', spd: 7,  icon: '🚀', desc: 'Inyectores de paladio que permiten una aceleración significativamente mayor.', image: '/turbo_motor.png' },
-  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor',     cost: 6000, currency: 'paladio', spd: 10,  icon: '🚀', desc: 'Núcleo de energía inestable que impulsa la nave a velocidades extremas.', image: '/hyper_motor.png' },
+  { id: 'engine_1', type: 'engines', lvl: 1, name: 'Micro Motor MM-01',     cost: 16000, spd: 5,  icon: '🚀', desc: 'Propulsor estándar de bajo consumo para naves ligeras.', image: '/micro_motor.png' },
+  { id: 'engine_2', type: 'engines', lvl: 2, name: 'Turbo Motor TM-05',     cost: 3000, currency: 'paladio', spd: 7,  icon: '🚀', desc: 'Inyectores de paladio que permiten una aceleración significativamente mayor.', image: '/turbo_motor.png' },
+  { id: 'engine_3', type: 'engines', lvl: 3, name: 'Hiper Motor HM-10',     cost: 6000, currency: 'paladio', spd: 10,  icon: '🚀', desc: 'Núcleo de energía inestable que impulsa la nave a velocidades extremas.', image: '/hyper_motor.png' },
   
-  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot Reparación I', cost: 10000, repair_rate: 315, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.', image: '/repair_robot_1.jpg' },
-  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot Reparación II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️', desc: 'Robot de nanotecnología avanzada capaz de reparar daños estructurales a gran velocidad.', image: '/repair_robot_2.jpg' },
+  { id: 'util_repair_1', type: 'utility', lvl: 1, name: 'Robot de Reparación I RB-RP I', cost: 10000, repair_rate: 315, icon: '🔧', desc: 'Unidad de mantenimiento automatizada básica para reparaciones en el casco.', image: '/repair_robot_1.jpg' },
+  { id: 'util_repair_2', type: 'utility', lvl: 2, name: 'Robot de Reparación II RB-RP II', cost: 15000, currency: 'paladio', repair_rate: 1155, icon: '🛠️', desc: 'Robot de nanotecnología avanzada capaz de reparar daños estructurales a gran velocidad.', image: '/repair_robot_2.jpg' },
   { id: 'util_cloak', type: 'utility', lvl: 2, name: 'Camuflaje Sigiloso', cost: 500, currency: 'paladio', desc: 'Activa invisibilidad inmediata. Se desactiva al atacar.', icon: '👻', image: '/cloak_extra.png' },
-  { id: 'util_auto_repair_cpu', type: 'utility', lvl: 2, name: 'AUTO-CPU de roboreparación', cost: 10000, currency: 'paladio', desc: 'Inicia automáticamente a un robot de reparación disponible cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
-  { id: 'util_turbo_missile', type: 'utility', lvl: 2, name: 'Misil Turbo', cost: 10000, currency: 'paladio', desc: 'Duplica la velocidad de lanzamiento de los misiles.', icon: '☄️', is_turbo_missile: true },
-  { id: 'util_auto_missile', type: 'utility', lvl: 2, name: 'CPU Misil Automático', cost: 25000, currency: 'paladio', desc: 'Dispara misiles automáticamente lo más rápido posible durante un ataque.', icon: '🛰️', is_auto_missile: true },
-  { id: 'util_cloak_l', type: 'utility', lvl: 2, name: 'CPU de camuflaje L', cost: 5000, currency: 'paladio', desc: 'Proporciona 10 camuflajes para hacer tu nave invisible.', icon: '🎭', charges: 10, is_cloak_cpu: true },
-  { id: 'util_cloak_xl', type: 'utility', lvl: 2, name: 'CPU de camuflaje XL', cost: 22500, currency: 'paladio', desc: 'Proporciona 50 camuflajes para hacer tu nave invisible.', icon: '👺', charges: 50, is_cloak_cpu: true },
-  { id: 'util_cargo_compressor', type: 'utility', lvl: 2, name: 'Compresor de Carga', cost: 10000, currency: 'paladio', desc: 'Duplica el tonelaje disponible con compresión molecular.', icon: '🎒', is_cargo_compressor: true },
-  { id: 'util_slot_cpu_1', type: 'utility', lvl: 1, name: 'CPU 1 de ranura', cost: 600000, currency: 'credits', desc: 'Añade 2 nuevas ranuras libres para extras en la nave.', icon: '🎛️', extraSlots: 2 },
-  { id: 'util_slot_cpu_2', type: 'utility', lvl: 2, name: 'CPU 2 de ranura', cost: 150000, currency: 'paladio', desc: 'Proporciona 6 nuevas ranuras para extras para tu nave.', icon: '📟', extraSlots: 6 },
-  { id: 'util_slot_cpu_3', type: 'utility', lvl: 3, name: 'CPU 3 de ranura', cost: 250000, currency: 'paladio', desc: 'Proporciona 10 ranuras nuevas para extras en la nave.', icon: '📼', extraSlots: 10 },
+  { id: 'util_auto_repair_cpu', type: 'utility', lvl: 2, name: 'CPU de AutoReparación CPU-AR', cost: 10000, currency: 'paladio', desc: 'Inicia automáticamente a un robot de reparación disponible cuando no estás en combate.', icon: '🤖', is_auto_repair: true },
+  { id: 'util_turbo_missile', type: 'utility', lvl: 2, name: 'Misil Turbo M-TRB', cost: 10000, currency: 'paladio', desc: 'Duplica la velocidad de lanzamiento de los misiles.', icon: '☄️', is_turbo_missile: true },
+  { id: 'util_auto_missile', type: 'utility', lvl: 2, name: 'CPU de Misil Automático CPU-MA', cost: 25000, currency: 'paladio', desc: 'Dispara misiles automáticamente lo más rápido posible durante un ataque.', icon: '🛰️', is_auto_missile: true },
+  { id: 'util_cloak_l', type: 'utility', lvl: 2, name: 'CPU de Camuflaje L CPU-CL', cost: 5000, currency: 'paladio', desc: 'Proporciona 10 camuflajes para hacer tu nave invisible.', icon: '🎭', charges: 10, is_cloak_cpu: true },
+  { id: 'util_cloak_xl', type: 'utility', lvl: 2, name: 'CPU de Camuflaje XL CPU-CXL', cost: 22500, currency: 'paladio', desc: 'Proporciona 50 camuflajes para hacer tu nave invisible.', icon: '👺', charges: 50, is_cloak_cpu: true },
+  { id: 'util_cargo_compressor', type: 'utility', lvl: 2, name: 'Compresor de Carga CMP-C', cost: 10000, currency: 'paladio', desc: 'Duplica el tonelaje disponible con compresión molecular.', icon: '🎒', is_cargo_compressor: true },
+  { id: 'util_slot_cpu_1', type: 'utility', lvl: 1, name: 'CPU 1 de Ranuras CPU-R1', cost: 600000, currency: 'credits', desc: 'Añade 2 nuevas ranuras libres para extras en la nave.', icon: '🎛️', extraSlots: 2 },
+  { id: 'util_slot_cpu_2', type: 'utility', lvl: 2, name: 'CPU 2 de Ranuras CPU-R2', cost: 150000, currency: 'paladio', desc: 'Proporciona 6 nuevas ranuras para extras para tu nave.', icon: '📟', extraSlots: 6 },
+  { id: 'util_slot_cpu_3', type: 'utility', lvl: 3, name: 'CPU 3 de Ranuras CPU-R3', cost: 250000, currency: 'paladio', desc: 'Proporciona 10 ranuras nuevas para extras en la nave.', icon: '📼', extraSlots: 10 },
 ];
 
 export const WIPS_CATALOG = [
@@ -177,16 +177,16 @@ export const WIPS_CATALOG = [
 ];
 
 export const AMMO_CATALOG = [
-  { id: 'standard', name: 'Estándar',  damage: 1.0, cost: 10,      count: 1, icon: '⚪', color: '#ff0000', image: '/std_ammo.jpg', isStackable: true },
-  { id: 'thermal',  name: 'Térmica',   damage: 1.5, cost: 0.5,     currency: 'paladio', count: 1, icon: '🔥', color: '#ff0000', image: '/thermal_ammo.jpg', isStackable: true },
-  { id: 'plasma',   name: 'Plasma',    damage: 2.5, cost: 1,       currency: 'paladio', count: 1, icon: '🔷', color: '#ff0000', image: '/plasma_ammo.jpg', isStackable: true },
-  { id: 'siphon',   name: 'Sifón',     damage: 1.0, cost: 1,       currency: 'paladio', count: 1, icon: '🔋', color: '#33ff33', effect: 'shield_steal', image: '/siphon_ammo.png', isStackable: true },
+  { id: 'standard', name: 'Estandar STD',  damage: 1.0, cost: 10,      count: 1, icon: '⚪', color: '#ff0000', image: '/std_ammo.jpg', isStackable: true },
+  { id: 'thermal',  name: 'Termica TRM',   damage: 1.5, cost: 0.5,     currency: 'paladio', count: 1, icon: '🔥', color: '#ff0000', image: '/thermal_ammo.jpg', isStackable: true },
+  { id: 'plasma',   name: 'Plasma PLZ',    damage: 2.5, cost: 1,       currency: 'paladio', count: 1, icon: '🔷', color: '#ff0000', image: '/plasma_ammo.jpg', isStackable: true },
+  { id: 'siphon',   name: 'Sifón SFN',     damage: 1.0, cost: 1,       currency: 'paladio', count: 1, icon: '🔋', color: '#33ff33', effect: 'shield_steal', image: '/siphon_ammo.png', isStackable: true },
 ];
 
 export const MISSILE_CATALOG = [
-  { id: 'missile_1', name: 'M-1 "Seta"',    damage: 1000,  cost: 100,   count: 1, icon: '🚀', image: '/m1_seta.jpg', color: '#ffcc00', isStackable: true },
-  { id: 'missile_2', name: 'M-2 "Ciclón"',  damage: 2000, cost: 500,  count: 1, icon: '🚀', image: '/m2_ciclon.jpg', color: '#ff6600', isStackable: true },
-  { id: 'missile_3', name: 'M-3 "Giga-Nuke"', damage: 4000, cost: 5, currency: 'paladio', count: 1, icon: '☢️', image: '/m3_giganuke.jpg', color: '#ff0000', isStackable: true },
+  { id: 'missile_1', name: 'Seta M-1',    damage: 1000,  cost: 100,   count: 1, icon: '🚀', image: '/m1_seta.jpg', color: '#ffcc00', isStackable: true },
+  { id: 'missile_2', name: 'Ciclon M-2',  damage: 2000, cost: 500,  count: 1, icon: '🚀', image: '/m2_ciclon.jpg', color: '#ff6600', isStackable: true },
+  { id: 'missile_3', name: 'Giga-Nuke M-3', damage: 4000, cost: 5, currency: 'paladio', count: 1, icon: '☢️', image: '/m3_giganuke.jpg', color: '#ff0000', isStackable: true },
 ];
 
 export const ECO_CONFIG = {

@@ -348,6 +348,13 @@ async def websocket_endpoint(websocket: WebSocket):
             elif data.get("type") == "toggle_repair" and player_added:
                 game_state.toggle_repair(client_id)
                 
+            elif data.get("type") == "set_auto_missile" and player_added:
+                missile_id = data.get("missile_id")
+                game_state.set_auto_missile(client_id, missile_id)
+                
+            elif data.get("type") == "toggle_auto_missile" and player_added:
+                game_state.toggle_auto_missile(client_id)
+                
             elif data.get("type") == "jump_portal" and player_added:
                 game_state.jump_portal(client_id)
                 

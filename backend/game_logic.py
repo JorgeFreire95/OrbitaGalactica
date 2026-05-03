@@ -373,6 +373,7 @@ class GameState:
             "ammo": {"standard": 2000, "thermal": 0, "plasma": 0, "siphon": 0},
             "missiles": {"missile_1": 0, "missile_2": 0, "missile_3": 0},
             "missile_type": "missile_1",
+            "auto_missile_on": False,
             "last_missile_shot": 0,
             "ammo_type": "standard",
             "level": initial_level,
@@ -404,7 +405,8 @@ class GameState:
                 "xp": 0, "xp_next": 100000
             },
             "active_abilities": {}, # {id: expiry_time}
-            "ability_cooldowns": {}  # {id: ready_time}
+            "ability_cooldowns": {}, # {id: ready_time}
+            "_force_full_shield": 10 # Flag/Contador para asegurar escudo al máximo los primeros ticks
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -465,6 +467,10 @@ class GameState:
 
         # Primera actualización de stats
         self.recalculate_player_stats(player)
+        
+        # El flag _force_full_shield se encargará de mantenerlo al máximo 
+        # incluso si llegan mensajes redundantes de equipamiento al inicio.
+        player["shld"] = player["max_shld"]
  
         if initial_ammo and not user_id:
             # Separar munición de láseres vs misiles (Solo si no hay datos persistentes en DB)
@@ -598,67 +604,31 @@ class GameState:
         if "locked_target_id" in keys:
             player["locked_target_id"] = keys["locked_target_id"]
         
-        locked_id = player.get("locked_target_id")
-        MAX_COMBAT_RANGE = 700
-        player["in_range"] = True
-        target_enemy = None
-
-        if locked_id:
-            # Si hay un objetivo fijado, buscarlo (EN EL MISMO MAPA) - Incluye Enemigos y Jugadores (PVP)
-            target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
-            if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
-                target_enemy = self.players[locked_id]
-            
-            if target_enemy:
-                # Calcular distancia al objetivo
-                dist = math.hypot(target_enemy["x"] - player["x"], target_enemy["y"] - player["y"])
-                if dist > MAX_COMBAT_RANGE:
-                    player["in_range"] = False
-            else:
-                # El objetivo murió o desapareció
-                player["locked_target_id"] = None
-        
-        # Shooting Toggle / Logic
-        is_shooting = keys.get("shoot", False)
-        
-        # El disparo automático solo persiste si hay un objetivo y está en rango
-        player["shoot_active"] = is_shooting
-        
-        # BLOQUEO: No disparar si no hay un objetivo seleccionado
-        if not locked_id:
-            player["shoot_active"] = False
-        
-        # Override: si el target murió o está FUERA DE RANGO, obligar a que shoot_active sea False
-        if locked_id:
-            # Buscar objetivo en enemigos o jugadores (PVP)
-            target_exists = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
-            if not target_exists and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
-                target_exists = self.players[locked_id]
-
-            if not target_exists or not player.get("in_range", True):
-                player["shoot_active"] = False
+        # Guardar flags de disparo manual para procesar en el loop de update
+        # (Esto asegura que el auto-fuego funcione aunque el cliente no envíe inputs)
+        player["manual_shoot_request"] = keys.get("shoot", False)
+        player["manual_missile_request"] = keys.get("missile_shoot", False)
 
         # --- LÓGICA DE ORIENTACIÓN (HEADING) ---
         new_heading = None
 
-        # Prioridad 1: Mirar al Objetivo si disparo activamente (SOLO SI HAY TARGET Y ESTÁ EN RANGO)
-        # IMPORTANTE: Usar el estado de disparo actualizado para este frame (Sincronización Crítica)
-        if player.get("shoot_active") and target_enemy:
-            dx = target_enemy["x"] - player["x"]
-            dy = target_enemy["y"] - player["y"]
-            new_heading = math.atan2(dy, dx)
-        
-        # Prioridad 2: Mirar hacia donde me muevo (Mouse o WASD)
-        elif nav_x is not None and nav_y is not None:
+        # Prioridad: Mirar hacia donde me muevo (Mouse o WASD)
+        if nav_x is not None and nav_y is not None:
             dx = nav_x - player["x"]
             dy = nav_y - player["y"]
-            if dx*dx + dy*dy > 25:
+            dist = math.hypot(dx, dy)
+            if dist > 5:
                 new_heading = math.atan2(dy, dx)
-            else:
-                # Llegamos al destino: limpiar navegación
-                player["target_x"] = None
-                player["target_y"] = None
-        
+        elif keys.get("up") or keys.get("down") or keys.get("left") or keys.get("right"):
+            dx = 0
+            dy = 0
+            if keys.get("up"): dy -= 1
+            if keys.get("down"): dy += 1
+            if keys.get("left"): dx -= 1
+            if keys.get("right"): dx += 1
+            if dx != 0 or dy != 0:
+                new_heading = math.atan2(dy, dx)
+
         if new_heading is not None:
             player["heading"] = new_heading
 
@@ -703,30 +673,10 @@ class GameState:
         player["vx"] = vx
         player["vy"] = vy
         
-        # Shooting
-        now = time.time()
-        fire_rate = player["fire_rate"]
-        if player["powerup"] == "rapid_fire":
-            fire_rate *= 0.4
-            
-        # Trigger si presiona E O si tiene el CPU automático, un objetivo fijado y la nave está atacando (shoot_active)
-        # Esto cumple con el requisito de "una vez empiece el ataque, empiece a tirar misiles de forma automática"
-        has_auto = player.get("has_auto_missile", False)
-        locked = player.get("locked_target_id")
-        is_attacking = player.get("shoot_active", False)
-        
-        should_fire_missile = keys.get("missile_shoot") or (has_auto and locked and is_attacking)
-
-        # --- LÓGICA DE REVELACIÓN (Invisibilidad) ---
-        # Si el jugador está intentando disparar (Láser o Misil), se revela inmediatamente
-        # EXCEPCIÓN: Si tiene activa la habilidad de Invisibilidad Avanzada, no se revela al disparar
-        if (player.get("shoot_active") or should_fire_missile):
-            if player.get("is_invisible") and "advanced_invisibility" not in player.get("active_abilities", {}):
-                player["is_invisible"] = False
-                print(f"REVELADO: {player.get('user_id')} ha iniciado un ataque.")
+        # Revealed logic moved to update loop
 
         # Laser Firing
-        if player.get("shoot_active", False) and (now - player["last_shot"] > fire_rate):
+        if False: # Disabled legacy logic
             player["last_shot"] = now
             
             # Apply Ammo Multipliers
@@ -751,65 +701,72 @@ class GameState:
                     # Pero si la estándar también está en 0, no disparar
                     if player["ammo"].get("standard", 0) <= 0:
                          player["shoot_active"] = False
-                         return
                 else:
                     # Se acabó la estándar
                     player["shoot_active"] = False
-                    return
-
-            # Un solo Rayo Láser potente (el daño ahora escala con num_lasers en un solo disparo)
-            num_lasers = player.get("lasers", 1)
-            actual_damage = (player["atk"] * 0.25 * config["dmg"]) * max(1, num_lasers)
             
-            projectile_speed = 1400 # Velocidad de rayo láser
-            locked_id = player.get("locked_target_id")
-            
-            target_enemy = None
-            if locked_id:
-                target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
-                if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
-                    target_enemy = self.players[locked_id]
-                    
-            if target_enemy:
-                dx = target_enemy["x"] - player["x"]
-                dy = target_enemy["y"] - player["y"]
-                angle = math.atan2(dy, dx)
-                target_id_for_proj = locked_id
-            else:
-                angle = player.get("heading", -1.57)
-                target_id_for_proj = None
-            
-            # --- DETERMINAR COLOR DEL LÁSER ---
-            proj_color = None
-            if ammo_type in ["standard", "thermal", "plasma"]:
-                if player.get("all_heavy_cannons"):
-                    proj_color = "#00ff00" # Verde (Todas las ranuras con Cañón Pesado)
+            # Solo disparar láser si shoot_active sigue siendo True tras el check de munición
+            if player.get("shoot_active"):
+                # Un solo Rayo Láser potente (el daño ahora escala con num_lasers en un solo disparo)
+                num_lasers = player.get("lasers", 1)
+                actual_damage = (player["atk"] * 0.25 * config["dmg"]) * max(1, num_lasers)
+                
+                projectile_speed = 1400 # Velocidad de rayo láser
+                locked_id = player.get("locked_target_id")
+                
+                target_enemy = None
+                if locked_id:
+                    target_enemy = next((e for e in self.enemies if e["id"] == locked_id and e.get("map_id") == player["current_map"]), None)
+                    if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == player["current_map"]:
+                        target_enemy = self.players[locked_id]
+                        
+                if target_enemy:
+                    dx = target_enemy["x"] - player["x"]
+                    dy = target_enemy["y"] - player["y"]
+                    angle = math.atan2(dy, dx)
+                    target_id_for_proj = locked_id
                 else:
-                    proj_color = "#ff0000" # Rojo (Default para estas municiones)
+                    angle = player.get("heading", -1.57)
+                    target_id_for_proj = None
+                
+                # --- DETERMINAR COLOR DEL LÁSER ---
+                proj_color = None
+                if ammo_type in ["standard", "thermal", "plasma"]:
+                    if player.get("all_heavy_cannons"):
+                        proj_color = "#00ff00" # Verde (Todas las ranuras con Cañón Pesado)
+                    else:
+                        proj_color = "#ff0000" # Rojo (Default para estas municiones)
 
-            self.projectiles.append({
-                "id": str(random.random()),
-                "owner_id": client_id,
-                "is_player": True,
-                "x": player["x"],
-                "y": player["y"],
-                "vx": math.cos(angle) * projectile_speed,
-                "vy": math.sin(angle) * projectile_speed,
-                "speed": projectile_speed,
-                "damage": actual_damage,
-                "ammo_type": ammo_type,
-                "color": proj_color,
-                "life": 1.2, # segundos de vida del rayo
-                "map_id": player["current_map"],
-                "is_homing": True if target_id_for_proj else False,
-                "target_id": target_id_for_proj
-            })
+                self.projectiles.append({
+                    "id": str(random.random()),
+                    "owner_id": client_id,
+                    "is_player": True,
+                    "x": player["x"],
+                    "y": player["y"],
+                    "vx": math.cos(angle) * projectile_speed,
+                    "vy": math.sin(angle) * projectile_speed,
+                    "speed": projectile_speed,
+                    "damage": actual_damage,
+                    "ammo_type": ammo_type,
+                    "color": proj_color,
+                    "life": 1.2, # segundos de vida del rayo
+                    "map_id": player["current_map"],
+                    "is_homing": True if target_id_for_proj else False,
+                    "target_id": target_id_for_proj
+                })
 
         # Missile Firing (Tecla E o Automático)
         missile_cooldown = 0.75 if player.get("has_turbo_missile") else 1.5
         
-        if should_fire_missile and (now - player["last_missile_shot"] > missile_cooldown):
-            m_type = player.get("missile_type", "missile_1")
+        if False: # Disabled legacy logic
+            # Determinamos qué misil disparar
+            if is_auto_firing and not keys.get("missile_shoot"):
+                # Disparo automático: usar preferencia del CPU si existe
+                m_type = player.get("auto_missile_type", player.get("missile_type", "missile_1"))
+            else:
+                # Disparo manual: usar el seleccionado actualmente
+                m_type = player.get("missile_type", "missile_1")
+
             if player["missiles"].get(m_type, 0) > 0:
                 player["missiles"][m_type] -= 1
                 player["last_missile_shot"] = now
@@ -866,30 +823,30 @@ class GameState:
             {"id": "bastion", "name": "Obsidian Bastion", "type": "ship", "value": "160.000 Paladio", "start_bid": 10000},
             
             # --- MUNICIÓN (Por Paladio) ---
-            {"id": "thermal", "name": "10.000 x Munición Térmica", "type": "ammo", "value": "5.000 Paladio", "start_bid": 10000},
-            {"id": "plasma", "name": "10.000 x Munición Plasma", "type": "ammo", "value": "10.000 Paladio", "start_bid": 10000},
-            {"id": "siphon", "name": "10.000 x Munición Sifón", "type": "ammo", "value": "10.000 Paladio", "start_bid": 10000},
-            {"id": "missile_3", "name": "1.000 x Misiles Giga-Nuke", "type": "ammo", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "thermal", "name": "10.000 x Municion Termica TRM", "type": "ammo", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "plasma", "name": "10.000 x Municion Plasma PLZ", "type": "ammo", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "siphon", "name": "10.000 x Municion Sifon SFN", "type": "ammo", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "missile_3", "name": "1.000 x Misiles Giga-Nuke M-3", "type": "ammo", "value": "5.000 Paladio", "start_bid": 10000},
             
             # --- GENERADORES (Por Paladio) ---
-            {"id": "shield_2", "name": "Escudo Reforzado", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
-            {"id": "shield_3", "name": "Escudo Hiper", "type": "module", "value": "50.000 Paladio", "start_bid": 10000},
-            {"id": "engine_2", "name": "Turbo Motor", "type": "module", "value": "3.000 Paladio", "start_bid": 10000},
-            {"id": "engine_3", "name": "Hiper Motor", "type": "module", "value": "6.000 Paladio", "start_bid": 10000},
+            {"id": "shield_2", "name": "Escudo Reforzado S-RFZ", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
+            {"id": "shield_3", "name": "Escudo Hiper S-HPR", "type": "module", "value": "50.000 Paladio", "start_bid": 10000},
+            {"id": "engine_2", "name": "Turbo Motor TM-05", "type": "module", "value": "3.000 Paladio", "start_bid": 10000},
+            {"id": "engine_3", "name": "Hiper Motor HM-10", "type": "module", "value": "6.000 Paladio", "start_bid": 10000},
             
             # --- LÁSERES Y OTROS (Por Paladio) ---
-            {"id": "laser_2", "name": "Láser Plus", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
-            {"id": "laser_3", "name": "Cañón Pesado", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
-            {"id": "util_repair_2", "name": "Robot Reparación II", "type": "module", "value": "15.000 Paladio", "start_bid": 10000},
+            {"id": "laser_2", "name": "Laser Plus LSP", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "laser_3", "name": "Cañon Pesado CP", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_repair_2", "name": "Robot de Reparación II RB-RP II", "type": "module", "value": "15.000 Paladio", "start_bid": 10000},
             {"id": "sparks", "name": "WIP Sparks", "type": "wip", "value": "15.000 Paladio", "start_bid": 10000},
             {"id": "util_cloak", "name": "Camuflaje Sigiloso", "type": "module", "value": "500 Paladio", "start_bid": 10000},
-            {"id": "util_auto_repair_cpu", "name": "Robo-reparación", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
-            {"id": "util_turbo_missile", "name": "Misil Turbo CPU", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
-            {"id": "util_auto_missile", "name": "CPU Misil Auto", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
-            {"id": "util_cloak_l", "name": "CPU Camuflaje L", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
-            {"id": "util_cloak_xl", "name": "CPU Camuflaje XL", "type": "module", "value": "22.500 Paladio", "start_bid": 10000},
-            {"id": "util_cargo_compressor", "name": "Compresor de Carga", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
-            {"id": "util_slot_cpu_2", "name": "Ranuras Extra II", "type": "module", "value": "150.000 Paladio", "start_bid": 10000},
+            {"id": "util_auto_repair_cpu", "name": "CPU de AutoReparación CPU-AR", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_turbo_missile", "name": "Misil Turbo M-TRB", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_auto_missile", "name": "CPU de Misil Automático CPU-MA", "type": "module", "value": "25.000 Paladio", "start_bid": 10000},
+            {"id": "util_cloak_l", "name": "CPU de Camuflaje L CPU-CL", "type": "module", "value": "5.000 Paladio", "start_bid": 10000},
+            {"id": "util_cloak_xl", "name": "CPU de Camuflaje XL CPU-CXL", "type": "module", "value": "22.500 Paladio", "start_bid": 10000},
+            {"id": "util_cargo_compressor", "name": "Compresor de Carga CMP-C", "type": "module", "value": "10.000 Paladio", "start_bid": 10000},
+            {"id": "util_slot_cpu_2", "name": "CPU 2 de Ranuras CPU-R2", "type": "module", "value": "150.000 Paladio", "start_bid": 10000},
             {"id": "util_slot_cpu_3", "name": "Ranuras Extra III", "type": "module", "value": "250.000 Paladio", "start_bid": 10000},
         ]
         
@@ -1366,12 +1323,158 @@ class GameState:
             #             "amount": int(dmg), "time": now, "owner_id": pid
             #         })
                 
-            if p.get("locked_target_id"):
-                target_id = p["locked_target_id"]
-                target_exists = any(en["id"] == target_id for en in self.enemies) or (target_id in self.players)
-                if not target_exists:
+            # --- CONTADOR DE ESCUDO INICIAL ---
+            if p.get("_force_full_shield", 0) > 0:
+                p["_force_full_shield"] -= 1
+                p["shld"] = p["max_shld"]
+
+            # --- GESTIÓN DE COMBATE AUTÓNOMO (LÁSER Y MISILES) ---
+            locked_id = p.get("locked_target_id")
+            target_enemy = None
+            if locked_id:
+                # Buscar objetivo (Enemigo o Jugador)
+                target_enemy = next((en for en in self.enemies if en["id"] == locked_id and en.get("map_id") == p["current_map"]), None)
+                if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == p["current_map"]:
+                    target_enemy = self.players[locked_id]
+                
+                # Si el objetivo no existe (murió o cambió mapa), limpiar
+                if not target_enemy:
                     p["locked_target_id"] = None
-                    p["shoot_active"] = False # Detener disparo al morir el blanco
+            
+            # A. Lógica de Láseres
+            MAX_LASER_RANGE = 700
+            p["in_range"] = True
+            if target_enemy:
+                dx = target_enemy["x"] - p["x"]
+                dy = target_enemy["y"] - p["y"]
+                dist = math.hypot(dx, dy)
+                if dist > MAX_LASER_RANGE:
+                    p["in_range"] = False
+            
+            # El disparo de láser se activa si el usuario pulsa y hay un blanco en rango
+            # (O si dispara al aire sin blanco, pero aquí forzamos blanco para auto-fuego visual)
+            if p.get("manual_shoot_request") and locked_id and target_enemy and p.get("in_range"):
+                p["shoot_active"] = True
+                p["heading"] = math.atan2(dy, dx)
+                
+                # REVELACIÓN: Si dispara láser, pierde invisibilidad (salvo habilidad especial)
+                if p.get("is_invisible") and "advanced_invisibility" not in p.get("active_abilities", {}):
+                    p["is_invisible"] = False
+                
+                # EJECUCIÓN DE DISPARO LÁSER
+                if now - p.get("last_shot", 0) > p.get("fire_rate", 0.5):
+                    p["last_shot"] = now
+                    ammo_type = p.get("ammo_type", "standard")
+                    ammo_config = {
+                        "standard": {"dmg": 1.0},
+                        "thermal":  {"dmg": 1.5},
+                        "plasma":   {"dmg": 2.5},
+                        "siphon":   {"dmg": 1.0, "effect": "shield_steal"}
+                    }
+                    config = ammo_config.get(ammo_type, ammo_config["standard"])
+                    
+                    # Consumo de munición
+                    if p["ammo"].get(ammo_type, 0) > 0:
+                        p["ammo"][ammo_type] -= 1
+                    elif ammo_type != "standard" and p["ammo"].get("standard", 0) > 0:
+                        p["ammo_type"] = "standard"
+                        p["ammo"]["standard"] -= 1
+                        config = ammo_config["standard"]
+                    else:
+                        p["shoot_active"] = False
+
+                    if p["shoot_active"]:
+                        num_lasers = p.get("lasers", 1)
+                        actual_damage = (p["atk"] * 0.25 * config["dmg"]) * max(1, num_lasers)
+                        
+                        proj_color = "#ff0000"
+                        if p.get("all_heavy_cannons"): proj_color = "#00ff00"
+                        
+                        angle = p["heading"]
+                        self.projectiles.append({
+                            "id": str(random.random()),
+                            "owner_id": pid,
+                            "is_player": True,
+                            "x": p["x"], "y": p["y"],
+                            "vx": math.cos(angle) * 1400,
+                            "vy": math.sin(angle) * 1400,
+                            "speed": 1400,
+                            "damage": actual_damage,
+                            "ammo_type": ammo_type,
+                            "color": proj_color,
+                            "life": 1.2,
+                            "map_id": p["current_map"],
+                            "target_id": locked_id,
+                            "is_homing": True
+                        })
+            else:
+                p["shoot_active"] = False
+
+            # B. Lógica de Misiles (Manual o CPU Automática)
+            MISSILE_RANGE = 1000
+            in_missile_range = False
+            if target_enemy:
+                dist = math.hypot(target_enemy["x"] - p["x"], target_enemy["y"] - p["y"])
+                if dist <= MISSILE_RANGE:
+                    in_missile_range = True
+            
+            has_auto = p.get("has_auto_missile", False)
+            is_auto_on = p.get("auto_missile_on", False)
+            auto_m_type = p.get("auto_missile_type", p.get("missile_type", "missile_1"))
+            has_stock = p["missiles"].get(auto_m_type, 0) > 0
+            
+            is_auto_firing = (has_auto and is_auto_on and locked_id and in_missile_range and has_stock and not p.get("in_safe_zone", False))
+            
+            # Depuración si el CPU está activo pero no dispara
+            if has_auto and is_auto_on and not is_auto_firing:
+                if random.random() < 0.05:
+                    print(f"DEBUG CPU-MA [pid={pid}]: locked={bool(locked_id)}, in_range={in_missile_range}, stock={has_stock} ({auto_m_type}), safe={p.get('in_safe_zone')}, on={is_auto_on}, has_cpu={has_auto}")
+            
+            should_fire_missile = p.get("manual_missile_request", False) or is_auto_firing
+            
+            missile_cooldown = 0.75 if p.get("has_turbo_missile") else 1.5
+            if should_fire_missile and (now - p.get("last_missile_shot", 0) > missile_cooldown):
+                # Determinar qué misil disparar
+                m_type = auto_m_type if is_auto_firing else p.get("missile_type", "missile_1")
+                
+                if p["missiles"].get(m_type, 0) > 0:
+                    p["missiles"][m_type] -= 1
+                    p["last_missile_shot"] = now
+                    
+                    m_config = {
+                        "missile_1": {"dmg": 1000, "spd": 800},
+                        "missile_2": {"dmg": 2000, "spd": 700},
+                        "missile_3": {"dmg": 4000, "spd": 500}
+                    }
+                    conf = m_config.get(m_type)
+                    
+                    angle = p["heading"]
+                    if target_enemy:
+                        dx = target_enemy["x"] - p["x"]
+                        dy = target_enemy["y"] - p["y"]
+                        angle = math.atan2(dy, dx)
+
+                    # REVELACIÓN: Al disparar misil, pierde invisibilidad (salvo habilidad especial)
+                    if p.get("is_invisible") and "advanced_invisibility" not in p.get("active_abilities", {}):
+                        p["is_invisible"] = False
+                    
+                    self.projectiles.append({
+                        "id": "missile_" + str(random.random()),
+                        "owner_id": pid,
+                        "is_player": True,
+                        "is_missile": True,
+                        "is_homing": True,
+                        "target_id": locked_id,
+                        "angle": angle,
+                        "speed": conf["spd"],
+                        "x": p["x"], "y": p["y"],
+                        "vx": math.cos(angle) * conf["spd"],
+                        "vy": math.sin(angle) * conf["spd"],
+                        "damage": conf["dmg"],
+                        "m_type": m_type,
+                        "life": 4.0,
+                        "map_id": p["current_map"]
+                    })
 
         # --- UPDATE E.C.O. SYSTEMS ---
         for pid, p in self.players.items():
@@ -2474,6 +2577,10 @@ class GameState:
         player["shld"] = min(player["shld"], player["max_shld"])
         player["hp"] = min(player["hp"], player["max_hp"])
 
+        # Forzar escudo al máximo si el flag está activo (solo al inicio)
+        if player.get("_force_full_shield", 0) > 0:
+            player["shld"] = player["max_shld"]
+
     def trigger_eco_kamikaze(self, player_id):
         if player_id not in self.players:
             return
@@ -2592,6 +2699,9 @@ class GameState:
         had_auto = player.get("has_auto_missile", False)
         player["equipped"] = modules if isinstance(modules, list) else []
         self.recalculate_player_stats(player)
+        
+        # Restauramos el escudo al máximo al cambiar módulos para evitar desajustes visuales
+        player["shld"] = player["max_shld"]
         
         if not had_auto and player.get("has_auto_missile"):
             self._send_sys_msg(client_id, "🛰️ CPU DE MISIL AUTOMÁTICO EQUIPADA. Selecciona un misil para comenzar el fuego automático al atacar.")
@@ -2794,6 +2904,23 @@ class GameState:
                     player["missile_type"] = ammo_id
             elif ammo_id == "standard" or player["ammo"].get(ammo_id, 0) > 0:
                 player["ammo_type"] = ammo_id
+
+    def set_auto_missile(self, client_id, missile_id):
+        if client_id in self.players:
+            player = self.players[client_id]
+            # Solo permitir si es un misil válido
+            if missile_id in ["missile_1", "missile_2", "missile_3"]:
+                player["auto_missile_type"] = missile_id
+                # Al seleccionar un misil, lo activamos automáticamente por comodidad
+                player["auto_missile_on"] = True
+                print(f"Auto missile type set to {missile_id} and ACTIVATED for {client_id}")
+
+    def toggle_auto_missile(self, client_id):
+        if client_id in self.players:
+            player = self.players[client_id]
+            if player.get("has_auto_missile"):
+                player["auto_missile_on"] = not player.get("auto_missile_on", False)
+                print(f"Auto missile toggled for {client_id}: {player['auto_missile_on']}")
 
     def toggle_repair(self, client_id):
         if client_id in self.players:

@@ -58,6 +58,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const [eco, setEco] = useState(initialEco || { active: false, deployed: false, mode: 'passive', level: 1, integrity: 100, shield: 100, max_shield: 100, fuel: 5000, speed: 0, equipped: { lasers: [], generators: [], protocols: [], utility: [] } });
   const [activeCategory, setActiveCategory] = useState('lasers');
   const [showCategoryBar, setShowCategoryBar] = useState(false);
+  const [showAutoMissileMenu, setShowAutoMissileMenu] = useState(false);
+
   const [hotbarSlots, setHotbarSlots] = useState(() => {
     const saved = localStorage.getItem('og_hotbar_slots');
     if (saved) return JSON.parse(saved);
@@ -369,17 +371,45 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     e.stopPropagation();
   }, [isUiLocked, hotbarPos]);
 
-  const handleMissionMouseDown = (e) => { /* Disabled as per user request */ };
-  const handleEcoMouseDown = (e) => { /* Disabled as per user request */ };
-  const handleStatusMouseDown = (e) => { /* Disabled as per user request */ };
-  const handlePartyMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleMissionMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'mission', offset: { x: e.clientX - missionPos.x, y: e.clientY - missionPos.y } };
+    setIsDragging(true);
+    e.stopPropagation();
+  }, [isUiLocked, missionPos]);
+
+  const handleEcoMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'eco', offset: { x: e.clientX - ecoPos.x, y: e.clientY - ecoPos.y } };
+    setIsDragging(true);
+    e.stopPropagation();
+  }, [isUiLocked, ecoPos]);
+
+  const handleStatusMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'status', offset: { x: e.clientX - statusPos.x, y: e.clientY - statusPos.y } };
+    setIsDragging(true);
+    e.stopPropagation();
+  }, [isUiLocked, statusPos]);
+
+  const handlePartyMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'party', offset: { x: e.clientX - partyPos.x, y: e.clientY - partyPos.y } };
+    setIsDragging(true);
+    e.stopPropagation();
+  }, [isUiLocked, partyPos]);
   const handleChatMouseDown = useCallback((e) => {
     if (isUiLocked) return;
     draggingElementRef.current = { type: 'chat', offset: { x: e.clientX - chatPos.x, y: e.clientY - chatPos.y } };
     setIsDragging(true);
     e.stopPropagation();
   }, [isUiLocked, chatPos]);
-  const handleMinimapMouseDown = (e) => { /* Disabled as per user request */ };
+  const handleMinimapMouseDown = useCallback((e) => {
+    if (isUiLocked) return;
+    draggingElementRef.current = { type: 'minimap', offset: { x: e.clientX - minimapPos.x, y: e.clientY - minimapPos.y } };
+    setIsDragging(true);
+    e.stopPropagation();
+  }, [isUiLocked, minimapPos]);
 
   const handleSafeZoneMouseDown = useCallback((e) => {
     if (isUiLocked) return;
@@ -493,12 +523,17 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             keys.current.target_x = null; keys.current.target_y = null;
           }
 
-          // True Visual Interpolation Setup
+          // True Visual Interpolation Setup (Optimized with Maps to avoid O(N^2) performance issues)
           if (gameStateRef.current) {
             const oldState = gameStateRef.current;
             
+            // Map de entidades antiguas para búsqueda O(1)
+            const oldPlayersMap = new Map(oldState.players?.map(p => [p.id, p]) || []);
+            const oldEnemiesMap = new Map(oldState.enemies?.map(e => [e.id, e]) || []);
+            const oldProjectilesMap = new Map(oldState.projectiles?.map(p => [p.id, p]) || []);
+
             data.state.players?.forEach(p => {
-               const oldP = oldState.players?.find(op => op.id === p.id);
+               const oldP = oldPlayersMap.get(p.id);
                if (oldP && p.hp > 0) {
                    p.tx = p.x; p.ty = p.y; // Meta del servidor
                    p.x = oldP.x; p.y = oldP.y; // Conservar pos visual local actual
@@ -515,7 +550,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             });
 
             data.state.enemies?.forEach(e => {
-               const oldE = oldState.enemies?.find(op => op.id === e.id);
+               const oldE = oldEnemiesMap.get(e.id);
                if (oldE) {
                    e.tx = e.x; e.ty = e.y;
                    e.x = oldE.x; e.y = oldE.y;
@@ -525,7 +560,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             });
 
             data.state.projectiles?.forEach(pr => {
-               const oldPr = oldState.projectiles?.find(op => op.id === pr.id);
+               const oldPr = oldProjectilesMap.get(pr.id);
                if (oldPr) {
                    pr.tx = pr.x; pr.ty = pr.y;
                    pr.x = oldPr.x; pr.y = oldPr.y;
@@ -555,6 +590,8 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                   is_dead: me.hp <= 0,
                   repair_rate: me.repair_rate,
                   is_repairing: me.is_repairing,
+                  ammo: me.ammo,
+                  missiles: me.missiles,
                 });
               }
               lastReactRenderRef.current = nowMs;
@@ -977,6 +1014,15 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             .hotbar-slot.repairing-active {
               animation: pulse-repair 1.5s infinite ease-in-out;
               background: rgba(0, 255, 100, 0.2) !important;
+            }
+            @keyframes pulse-auto-missile {
+              0% { box-shadow: 0 0 5px #00ffcc; border-color: #00ffcc; }
+              50% { box-shadow: 0 0 15px #00ffcc; border-color: #ffffff; }
+              100% { box-shadow: 0 0 5px #00ffcc; border-color: #00ffcc; }
+            }
+            .hotbar-slot.auto-missile-active {
+              animation: pulse-auto-missile 2s infinite ease-in-out;
+              background: rgba(0, 255, 204, 0.15) !important;
             }
             @keyframes flash-oxygen {
               0% { opacity: 0.5; transform: translateX(-50%) scale(1); }
@@ -1664,30 +1710,42 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         const isActive = (slot.type === 'laser' && me?.ammo_type === slot.id) || (slot.type === 'missile' && me?.missile_type === slot.id);
                         const count = slot.type === 'laser' ? me?.ammo?.[slot.id] : slot.type === 'missile' ? (me?.missiles?.[slot.id] || 0) : null;
                         const isRepairing = slot.id === 'repair_bot' && hudState?.is_repairing;
+                        const isAutoMissile = slot.id === 'util_auto_missile' && me?.has_auto_missile;
+                        const isAutoMissileOn = isAutoMissile && me?.auto_missile_on;
+                        const slotActive = isActive || isRepairing || isAutoMissileOn;
 
                         return (
                             <div 
                                 key={index} 
-                                className={`hotbar-slot ${isActive ? 'active' : ''} ${isRepairing ? 'repairing-active' : ''} ${slot.disabled ? 'disabled' : ''}`} 
+                                className={`hotbar-slot ${isActive ? 'active' : ''} ${isRepairing ? 'repairing-active' : ''} ${isAutoMissileOn ? 'auto-missile-active' : ''} ${slot.disabled ? 'disabled' : ''}`} 
                                 onMouseDown={(e) => e.stopPropagation()} 
                                 draggable={!isUiLocked}
                                 onDragStart={(e) => handleItemDragStart(e, index, 'hotbar', slot)}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleItemDrop(e, index)}
                                 onClick={() => {
-                                    if (slot.disabled) return;
                                     if (slot.type === 'utility' && slot.id === 'repair_bot') {
                                         wsRef.current?.send(JSON.stringify({ type: 'toggle_repair' }));
+                                    } else if (slot.type === 'utility' && slot.id === 'util_auto_missile') {
+                                        // Click simple alterna encendido/apagado
+                                        wsRef.current?.send(JSON.stringify({ type: 'toggle_auto_missile' }));
                                     } else if (slot.type === 'laser' || slot.type === 'missile') {
+
                                         wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: slot.id }));
                                     } else if (slot.type === 'ability') {
                                         wsRef.current?.send(JSON.stringify({ type: 'use_ability', ability_id: slot.ability_id }));
                                     }
                                 }}
+                                onContextMenu={(e) => {
+                                    if (slot.id === 'util_auto_missile') {
+                                        e.preventDefault();
+                                        setShowAutoMissileMenu(true);
+                                    }
+                                }}
                                 style={{ position: 'relative' }}
                                 title={slot.desc || slot.name}
                             >
-                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: (isActive || isRepairing) ? '100%' : '20%', opacity: (isActive || isRepairing) ? 1 : 0.3, background: isRepairing ? '#00ff66' : '' }} /></div>
+                                <div className="slot-progress-bar"><div className="slot-progress-fill" style={{ width: slotActive ? '100%' : '20%', opacity: slotActive ? 1 : 0.3, background: isRepairing ? '#00ff66' : (isAutoMissile ? '#00ffcc' : '') }} /></div>
                                 <div className="slot-icon">
                                     {slot.image ? <img src={slot.image} alt="icon" /> : (slot.icon || '')}
                                 </div>
@@ -1793,7 +1851,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                         draggable={!isUiLocked}
                                         onDragStart={(e) => handleItemDragStart(e, idx, 'preview', item)}
                                         onClick={() => {
-                                            if (item.type === 'utility' && (item.id.startsWith('util_repair') || item.id === 'repair_bot')) {
+                                            if (item.type === 'utility' && item.id === 'util_auto_missile') {
+                                                setShowAutoMissileMenu(!showAutoMissileMenu);
+                                            } else if (item.type === 'utility' && (item.id.startsWith('util_repair') || item.id === 'repair_bot')) {
+
                                                 wsRef.current?.send(JSON.stringify({ type: 'toggle_repair' }));
                                             } else if (item.type === 'laser' || item.type === 'missile') {
                                                 wsRef.current?.send(JSON.stringify({ type: 'switch_ammo', ammo_id: item.id }));
@@ -1827,10 +1888,143 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                             })()
                                         )}
                                         {count !== null && <div className="slot-count">{count}</div>}
+                                  {item.type === 'missile' && me?.auto_missile_on && (
+                                      <div style={{ 
+                                          position: 'absolute', 
+                                          bottom: '14px', 
+                                          left: '2px', 
+                                          fontSize: '7px', 
+                                          color: '#00ffcc', 
+                                          fontWeight: 'bold', 
+                                          textShadow: '0 0 5px #00ffcc',
+                                          background: 'rgba(0,0,0,0.6)',
+                                          padding: '1px 3px',
+                                          borderRadius: '2px',
+                                          border: '1px solid rgba(0, 255, 204, 0.3)',
+                                          pointerEvents: 'none',
+                                          zIndex: 5
+                                      }}>AUTO</div>
+                                  )}
                                     </div>
                                 );
                             });
                         })()}
+                    </div>
+                )}
+
+                {/* MENÚ DE SELECCIÓN DE MISIL AUTOMÁTICO */}
+                {showAutoMissileMenu && (
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: '0',
+                        marginBottom: '10px',
+                        background: 'rgba(5, 8, 16, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid #00ffcc88',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        zIndex: 2000,
+                        boxShadow: '0 0 25px rgba(0, 255, 204, 0.2)',
+                        minWidth: '220px',
+                        userSelect: 'none'
+                    }} onMouseDown={(e) => e.stopPropagation()}>
+                        <div style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold', textAlign: 'center', marginBottom: '5px', borderBottom: '1px solid #00ffcc33', paddingBottom: '5px', fontFamily: 'Orbitron' }}>
+                            CPU MISIL AUTOMÁTICO
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: '#aaa', textAlign: 'center', marginBottom: '5px' }}>
+                            Selecciona el proyectil para disparo automático:
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            {[
+                                { id: 'missile_1', name: 'M-1 Seta', image: '/m1_seta.jpg', color: '#ffcc00' },
+                                { id: 'missile_2', name: 'M-2 Ciclón', image: '/m2_ciclon.jpg', color: '#ff6600' },
+                                { id: 'missile_3', name: 'M-3 Giga-Nuke', image: '/m3_giganuke.jpg', color: '#ff0000' }
+                            ].map(m => {
+                                const isSelected = (me?.auto_missile_type || 'missile_1') === m.id;
+                                const hasAmmo = (me?.missiles?.[m.id] || 0) > 0;
+                                
+                                return (
+                                    <div 
+                                        key={m.id}
+                                        onClick={() => {
+                                            wsRef.current?.send(JSON.stringify({ type: 'set_auto_missile', missile_id: m.id }));
+                                            setShowAutoMissileMenu(false);
+                                        }}
+                                        style={{
+                                            width: '55px',
+                                            height: '55px',
+                                            background: 'rgba(0,0,0,0.5)',
+                                            border: `2px solid ${isSelected ? m.color : 'rgba(255,255,255,0.1)'}`,
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s',
+                                            position: 'relative',
+                                            boxShadow: isSelected ? `0 0 15px ${m.color}88` : 'none',
+                                            opacity: hasAmmo ? 1 : 0.4
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.border = `2px solid ${m.color}`; e.currentTarget.style.transform = 'translateY(-5px)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.border = `2px solid ${isSelected ? m.color : 'rgba(255,255,255,0.1)'}`; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                    >
+                                        <img src={m.image} alt={m.name} style={{ width: '32px', height: '32px', objectFit: 'contain', marginBottom: '2px' }} />
+                                        <div style={{ fontSize: '0.5rem', color: isSelected ? m.color : '#fff', fontWeight: 'bold' }}>{m.name.split(' ')[0]}</div>
+                                        <div style={{ position: 'absolute', top: '-8px', right: '-8px', background: isSelected ? m.color : '#333', color: isSelected ? '#000' : '#fff', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.2)' }}>
+                                            {me?.missiles?.[m.id] || 0}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '5px', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px' }}>
+                            <div style={{ fontSize: '0.65rem', color: me?.auto_missile_on ? '#00ffcc' : '#ff3366', fontWeight: 'bold', marginBottom: '8px' }}>
+                                ESTADO: {me?.auto_missile_on ? 'ENCENDIDO' : 'APAGADO'}
+                            </div>
+                            <button 
+                                onClick={() => wsRef.current?.send(JSON.stringify({ type: 'toggle_auto_missile' }))}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    background: me?.auto_missile_on ? 'rgba(0, 255, 204, 0.2)' : 'rgba(255, 51, 102, 0.2)',
+                                    border: `1px solid ${me?.auto_missile_on ? '#00ffcc' : '#ff3366'}`,
+                                    color: me?.auto_missile_on ? '#00ffcc' : '#ff3366',
+                                    borderRadius: '4px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    fontFamily: 'Orbitron',
+                                    transition: 'all 0.2s',
+                                    textShadow: me?.auto_missile_on ? '0 0 10px #00ffcc' : 'none'
+                                }}
+                            >
+                                {me?.auto_missile_on ? '🔴 DESACTIVAR CPU' : '🟢 ACTIVAR CPU'}
+                            </button>
+                        </div>
+
+                        <button 
+                            onClick={() => setShowAutoMissileMenu(false)}
+                            style={{
+                                marginTop: '5px',
+                                padding: '8px',
+                                background: 'transparent',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: '#888',
+                                borderRadius: '4px',
+                                fontSize: '0.6rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                fontFamily: 'Orbitron'
+                            }}
+                        >
+                            CERRAR
+                        </button>
                     </div>
                 )}
             </div>

@@ -20,8 +20,8 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ### ⚔️ Épica: Combate y Personalización
 - **Flota Estelar**: 10 modelos de naves, incluyendo la nueva **Helix Support** especializada en soporte táctico.
 - **Diseños Legendarios (Premium Skins)**: Sistema de personalización con bonos de combate reales (HP, Escudo, Daño, Absorción).
-- **Arsenal Inteligente**: Láseres de 4 niveles y misiles teledirigidos.
-- **CPU de Misil Automático**: Sistema de fuego autónomo que prioriza objetivos fijados en PVP y PVE.
+- **Arsenal Inteligente**: Láseres de 4 niveles y misiles teledirigidos (**M-1 Seta, M-2 Ciclón, M-3 Giga-Nuke**).
+- **CPU de Misil Automático (CPU-MA)**: Sistema de fuego autónomo con seguimiento (Homing) y sincronización de stock.
 - **Módulos de Sigilo**: Tecnología de invisibilidad estándar y **Invisibilidad Avanzada** (ataque sin revelación).
 - **Habilidades de Clase**: Habilidades activas únicas (**Invulnerabilidad, Provocación, Refuerzo de Escudo**).
 - **Laboratorio de Minerales**: Refinado de recursos con bonos porcentuales (**+15% HP, +10% SHLD, +8% SPD, +5% ATK**).
@@ -55,12 +55,11 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ## 📈 4. Sprint Status (Estado Actual del Desarrollo)
 
 ### ✅ Done (Terminado en el último incremento)
-- **Localización de Misiones**: Sistema dinámico que adapta el "Sector de Operaciones" a la facción del usuario (Marte, Luna o Plutón).
-- **Seguridad Reforzada**: Validación obligatoria de contraseñas con mayúsculas y caracteres especiales en el registro.
-- **Balance Estratégico**: Incremento de la capacidad de bodega de la nave Phoenix (500t) y ajuste de la curva de nivel (fija a 100k XP/nivel).
-- **Actualización Visual**: Nuevos iconos premium para Misiles (M1-M3) y Robots de Reparación en el inventario y tienda.
-- **Optimización de Rutas**: Rediseño de conexiones espaciales, incluyendo la eliminación del portal hacia Cantera Olympus desde Phobos.
-- **Accesibilidad UI**: Mejora de contraste y legibilidad en selectores de formularios y buzón de mensajes.
+- **Estandarización de Munición**: Nombres y siglas definitivas para misiles: **Seta (M-1), Ciclón (M-2) y Giga-Nuke (M-3)**.
+- **Optimización de CPU-MA**: Restauración del sistema de fuego con algoritmos de seguimiento (**Homing**).
+- **HUD Táctico**: Visualización por siglas (**CPU-MA, M-1, RB-RP**, etc.) y sincronización de stock en tiempo real.
+- **Localización de Misiones**: Adaptación dinámica de sectores según la facción del usuario.
+- **Seguridad Reforzada**: Validación obligatoria de contraseñas complejas.
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.

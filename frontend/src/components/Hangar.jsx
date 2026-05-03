@@ -42,6 +42,19 @@ export default function Hangar({
   const [activeTab, setActiveTab] = useState('ship'); // 'ship', 'wips', or 'eco'
   const [selectedWipId, setSelectedWipId] = useState(null);
 
+  // Función para extraer solo la sigla del nombre (última palabra o últimas dos si es numeral romano)
+  const getItemSigla = (name) => {
+    if (!name) return "";
+    const parts = name.split(" ");
+    if (parts.length <= 1) return name;
+    const last = parts[parts.length - 1];
+    // Si termina en I, II o III, tomamos las dos últimas partes (ej: RB-RP I)
+    if (["I", "II", "III"].includes(last) && parts.length > 1) {
+      return parts[parts.length - 2] + " " + last;
+    }
+    return last;
+  };
+
   const isBlocked = isPlaying && !inSafeZone;
 
   const viewedShip = SHIPS.find(s => s.id === viewedShipId) || SHIPS[0];
@@ -577,7 +590,7 @@ export default function Hangar({
                             textOverflow: 'ellipsis',
                             maxWidth: '100%'
                           }}>
-                            {item.name}
+                            {getItemSigla(item.name)}
                           </div>
                         </div>
                        );

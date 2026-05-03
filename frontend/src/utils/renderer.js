@@ -1344,14 +1344,14 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
       
       // Cuerpo del rayo
       ctx.beginPath();
-      ctx.roundRect(-20, -2.5, 40, 5, 2);
+      ctx.rect(-20, -2.5, 40, 5);
       ctx.fill();
       
       // Núcleo brillante
       ctx.fillStyle = '#fff';
       ctx.globalAlpha = 0.8;
       ctx.beginPath();
-      ctx.roundRect(-18, -1, 36, 2, 1);
+      ctx.rect(-18, -1, 36, 2);
       ctx.fill();
       ctx.beginPath(); // Limpiar rastro del path
     }
