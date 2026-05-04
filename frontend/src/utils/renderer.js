@@ -1762,21 +1762,21 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
       displayName = `[${player.clan_tag}] ` + displayName;
       ctx.fillStyle = '#00ffcc'; // Resaltar el nombre con clan
     }
-    ctx.fillText(displayName, 0, 30);
+    ctx.fillText(displayName, 0, 65);
     
     // Shield Bar
     if (player.max_shld > 0) {
       ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
-      ctx.fillRect(-20, 35, 40, 4);
+      ctx.fillRect(-20, 72, 40, 4);
       ctx.fillStyle = '#00c8ff';
-      ctx.fillRect(-20, 35, 40 * Math.max(0, player.shld / player.max_shld), 4);
+      ctx.fillRect(-20, 72, 40 * Math.max(0, player.shld / player.max_shld), 4);
     }
     
     // HP Bar
     ctx.fillStyle = 'red';
-    ctx.fillRect(-20, 41, 40, 4);
+    ctx.fillRect(-20, 78, 40, 4);
     ctx.fillStyle = '#0f0';
-    ctx.fillRect(-20, 41, 40 * Math.max(0, player.hp / player.max_hp), 4);
+    ctx.fillRect(-20, 78, 40 * Math.max(0, player.hp / player.max_hp), 4);
     
     // Retícula de fijación (Lock-on) para jugadores
     if (gameState.selectedTargetId === player.id) {
@@ -1807,7 +1807,7 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
             ctx.fillStyle = color;
             ctx.font = 'bold 10px Orbitron';
             ctx.textAlign = 'center';
-            ctx.fillText(`${Math.floor(dist)}m`, 0, 55);
+            ctx.fillText(`${Math.floor(dist)}m`, 0, 95);
         }
 
         ctx.globalAlpha = 0.2;

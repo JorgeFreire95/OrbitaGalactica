@@ -14,8 +14,8 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ### 🛸 Épica: Navegación y Mundo Persistente
 - **Core Engine**: Motor de renderizado en Canvas API con WebSockets para latencia mínima.
 - **Atlas Galáctico**: Sistema de 24 sectores divididos por facciones (**MARS, MOON, PLUTO**) y una **Zona Neutral** de paz.
-- **Gateway Network**: Portales estelares y atajos de salto de emergencia (Tecla 'J').
-- **Persistencia Autoritativa**: Sincronización en tiempo real de XP, Créditos, Paladio y Equipamiento.
+- **Gateway Network**: Portales estelares reubicados dinámicamente para flujo táctico optimizado en sectores críticos (Cañón del Óxido).
+- **Persistencia Autoritativa**: Sincronización instantánea de estadísticas (HP, Carga, Escudo) con recalculación inmediata en el servidor.
 
 ### ⚔️ Épica: Combate y Personalización
 - **Flota Estelar**: 10 modelos de naves, incluyendo la nueva **Helix Support** especializada en soporte táctico.
@@ -36,7 +36,8 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Party System**: Grupos tácticos con HUD compartido y recompensas divididas.
 - **Sindicatos (Clanes)**: Fundación de alianzas, gestión de tesorería, rangos y diplomacia.
 - **Mercado Estelar**: Casa de subastas sincronizada para items exclusivos.
-- **HUD Táctico Modular**: Interfaz de combate con ChatBox movible y barra de habilidades dinámica.
+- **HUD Táctico Modular**: Interfaz de combate con ChatBox movible, barra de habilidades dinámica y **Reloj Local Persistente** (Fecha/Hora).
+- **Legibilidad Visual**: Sistema de siglas de alta visibilidad en hotbar con superposición inteligente de stock.
 
 ---
 
@@ -55,11 +56,11 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ## 📈 4. Sprint Status (Estado Actual del Desarrollo)
 
 ### ✅ Done (Terminado en el último incremento)
-- **Estandarización de Munición**: Nombres y siglas definitivas para misiles: **Seta (M-1), Ciclón (M-2) y Giga-Nuke (M-3)**.
-- **Optimización de CPU-MA**: Restauración del sistema de fuego con algoritmos de seguimiento (**Homing**).
-- **HUD Táctico**: Visualización por siglas (**CPU-MA, M-1, RB-RP**, etc.) y sincronización de stock en tiempo real.
-- **Localización de Misiones**: Adaptación dinámica de sectores según la facción del usuario.
-- **Seguridad Reforzada**: Validación obligatoria de contraseñas complejas.
+- **Sincronización de Carga (CMP-C)**: Sincronización instantánea de bodega tras equipar módulos de compresión.
+- **Reloj del Sistema Local**: Integración de tiempo real del usuario en el HUD para sesiones persistentes.
+- **Visuales de Vanguardia**: Eliminación de iconos genéricos (🔧) y uso de assets visuales de alta calidad para drones de reparación.
+- **Localización Temporal**: Formato de fecha y hora estandarizado a nivel local en correos y HUD.
+- **Red de Portales**: Reubicación estratégica de accesos en el sector Cañón del Óxido (mars_2).
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.

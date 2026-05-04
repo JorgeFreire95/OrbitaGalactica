@@ -128,11 +128,41 @@ const MessagesPage = ({ user, onBack, onRefreshUnread }) => {
     };
 
     const formatDate = (dateStr) => {
-        const d = new Date(dateStr);
+        if (!dateStr) return "";
+        // SQLite usa formato YYYY-MM-DD HH:MM:SS. Aseguramos que se trate como UTC
+        const normalized = dateStr.includes('Z') || dateStr.includes('UTC') ? dateStr : dateStr + " UTC";
+        const d = new Date(normalized);
+        
+        // Verificamos si la fecha es válida
+        if (isNaN(d.getTime())) return dateStr;
+
         return d.toLocaleString('es-ES', { 
             day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit' 
+            hour: '2-digit', minute: '2-digit',
+            hour12: false
         });
+    };
+
+    const handleClearTray = async () => {
+        const trayName = messageType === 'inbox' ? 'entrada' : 'enviados';
+        if (!window.confirm(`¿Estás seguro de que deseas vaciar toda tu bandeja de ${trayName}?`)) return;
+
+        try {
+            const resp = await fetch(`${API_URL}/mail/clear`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.username, tray_type: messageType })
+            });
+            if (resp.ok) {
+                fetchMessages();
+                setSelectedMessage(null);
+            } else {
+                alert('Error al limpiar la bandeja');
+            }
+        } catch (err) {
+            console.error("Clear tray error:", err);
+            alert('Error de conexión');
+        }
     };
 
     return (
@@ -171,6 +201,29 @@ const MessagesPage = ({ user, onBack, onRefreshUnread }) => {
                             REDACTAR
                         </button>
                     </div>
+
+                    {messageType !== 'compose' && messages.length > 0 && (
+                        <div style={{ padding: '10px 15px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={handleClearTray}
+                                style={{ 
+                                    background: 'rgba(255, 51, 102, 0.1)', 
+                                    color: '#ff3366', 
+                                    border: '1px solid #ff336644', 
+                                    padding: '5px 12px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.7rem', 
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseOver={e => e.target.style.background = 'rgba(255, 51, 102, 0.2)'}
+                                onMouseOut={e => e.target.style.background = 'rgba(255, 51, 102, 0.1)'}
+                            >
+                                🗑️ VACIAR BANDEJA
+                            </button>
+                        </div>
+                    )}
                     
                     {messageType !== 'compose' ? (
                         <div className="messages-scroll">

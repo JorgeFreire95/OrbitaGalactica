@@ -54,21 +54,21 @@ class GameState:
             "mars_1": {
                 "name": "Sector de Hierro", "level": 1, "style": "mars",
                 "portals": [
-                    {"x": 18716, "y": 14834, "target": "mars_2",   "tx": 1532 + 220, "ty": 1066 + 220, "label": "Cañón del Óxido"}
+                    {"x": 18716, "y": 14834, "target": "mars_2",   "tx": 2700 + 220, "ty": 2027 + 220, "label": "Cañón del Óxido"}
                 ],
                 "station": {"x": 1750, "y": 1150} # Base de Inicio
             },
             "mars_2": {
                 "name": "Cañón del Óxido", "level": 2, "style": "mars",
                 "portals": [
-                    {"x": 1532, "y": 1066, "target": "mars_1", "tx": 18716 - 220, "ty": 14834 - 220, "label": "Sector de Hierro"},
-                    {"x": 18849, "y": 14995, "target": "mars_3", "tx": 1134 + 220, "ty": 1134 + 220, "label": "Fundición Ares"}
+                    {"x": 2700, "y": 2027, "target": "mars_1", "tx": 18716 - 220, "ty": 14834 - 220, "label": "Sector de Hierro"},
+                    {"x": 17400, "y": 13653, "target": "mars_3", "tx": 1134 + 220, "ty": 1134 + 220, "label": "Fundición Ares"}
                 ]
             },
             "mars_3": {
                 "name": "Fundición Ares", "level": 3, "style": "mars",
                 "portals": [
-                    {"x": 1134, "y": 1134, "target": "mars_2", "tx": 18849 - 220, "ty": 14995 - 220, "label": "Cañón del Óxido"},
+                    {"x": 1134, "y": 1134, "target": "mars_2", "tx": 17400 - 220, "ty": 13653 - 220, "label": "Cañón del Óxido"},
                     {"x": 18774, "y": 15149, "target": "mars_4", "tx": 2051 + 220, "ty": 1585 + 220, "label": "Valles de Magma"}
                 ]
             },
@@ -1210,10 +1210,10 @@ class GameState:
                 p["is_repairing"] = False
                 p["repair_accumulated"] = 0 
                 
-            # Interrupción manual: Si el bot está activo pero recibe daño, se apaga
-            if p.get("repair_bot_active") and now - p["last_dmg_time"] < 0.1: # Recién dañado
-                 p["repair_bot_active"] = False
-                 p["is_repairing"] = False
+            # Cancelar reparación si recibe daño real (tolerancia de 0.2s para evitar micro-latencias)
+            if p.get("repair_bot_active") and (now - p["last_dmg_time"] < 0.2):
+                p["repair_bot_active"] = False
+                p["is_repairing"] = False
             
             # Quitar powerup si expiró
             if p["powerup"] and now > p["powerup_time"]:
@@ -1427,8 +1427,8 @@ class GameState:
             
             # Depuración si el CPU está activo pero no dispara
             if has_auto and is_auto_on and not is_auto_firing:
-                if random.random() < 0.05:
-                    print(f"DEBUG CPU-MA [pid={pid}]: locked={bool(locked_id)}, in_range={in_missile_range}, stock={has_stock} ({auto_m_type}), safe={p.get('in_safe_zone')}, on={is_auto_on}, has_cpu={has_auto}")
+                if random.random() < 0.01: # Reducido a 1% para no saturar logs
+                    print(f"DEBUG CPU-MA [pid={pid}]: locked={bool(locked_id)}, in_range={in_missile_range}, stock={has_stock} ({auto_m_type}), safe={p.get('in_safe_zone')}")
             
             should_fire_missile = p.get("manual_missile_request", False) or is_auto_firing
             
@@ -2358,13 +2358,23 @@ class GameState:
             if "spd" in mod: player["spd"] += mod["spd"]
             if "hp" in mod: player["max_hp"] += mod["hp"]
             if "repair_rate" in mod: player["repair_rate"] += mod["repair_rate"]
+            # Flags de CPUs y Extras
             if mod.get("is_auto_repair"): player["has_auto_repair"] = True
             if mod.get("is_turbo_missile"): player["has_turbo_missile"] = True
             if mod.get("is_auto_missile"): 
                 player["has_auto_missile"] = True
-                # Asegurar que tiene un tipo de misil seleccionado si no tiene ninguno o se acaba de equipar
-                if not player.get("missile_type"):
-                    player["missile_type"] = "missile_1"
+                
+            # Soporte para IDs (strings) por si el objeto viene incompleto
+            mod_id = str(mod.get("id", ""))
+            if "auto_repair" in mod_id: player["has_auto_repair"] = True
+            if "auto_missile" in mod_id: player["has_auto_missile"] = True
+            if "turbo_missile" in mod_id: player["has_turbo_missile"] = True
+            if "cargo_compressor" in mod_id: player["has_cargo_compressor"] = True
+            if "repair_1" in mod_id and player["repair_rate"] == 0: player["repair_rate"] = 315
+            if "repair_2" in mod_id and player["repair_rate"] <= 315: player["repair_rate"] = 1155
+            # Asegurar que tiene un tipo de misil seleccionado si no tiene ninguno o se acaba de equipar
+            if not player.get("missile_type"):
+                player["missile_type"] = "missile_1"
             if mod.get("is_cargo_compressor"): player["has_cargo_compressor"] = True
 
             # Recount for visuals

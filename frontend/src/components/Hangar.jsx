@@ -82,7 +82,8 @@ export default function Hangar({
     shieldSlots: viewedShip.slots.shields + currentEquipped.reduce((acc, m) => acc + (m.extraShieldSlots || 0), 0),
     engineSlots: viewedShip.slots.engines + currentEquipped.reduce((acc, m) => acc + (m.extraEngineSlots || 0), 0),
     utilitySlots: (viewedShip.slots.utility || 0) + currentEquipped.reduce((acc, m) => acc + (m.extraSlots || 0), 0),
-    xpBonus: currentDesign ? (currentDesign.bonus?.xp || 0) * 100 : 0
+    xpBonus: currentDesign ? (currentDesign.bonus?.xp || 0) * 100 : 0,
+    maxCargo: (viewedShip.cargo_capacity || 0) * (currentEquipped.some(m => m.is_cargo_compressor || (m.id && m.id.includes('cargo_compressor'))) ? 2 : 1)
   };
 
   return (
@@ -176,7 +177,10 @@ export default function Hangar({
               </div>
               <div className="fleet-stat-row">
                   <span className="fleet-stat-label">Bodega de Carga</span>
-                  <span className="fleet-stat-value">{viewedShip.cargo_capacity.toLocaleString()} t</span>
+                  <span className="fleet-stat-value">
+                    {stats.maxCargo.toLocaleString()} t
+                    {stats.maxCargo > viewedShip.cargo_capacity && <span style={{ color: '#00ffcc', fontSize: '0.7rem', marginLeft: '5px' }}>(Duplicada)</span>}
+                  </span>
               </div>
               
               <div className="active-status-label" style={{ color: isActive ? '#00ffcc' : '#333' }}>

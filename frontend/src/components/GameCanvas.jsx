@@ -4,6 +4,17 @@ import { getRank, MODULES_CATALOG, getItemById } from '../utils/gameData';
 import ChatBox from './ChatBox';
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
+const getItemSigla = (name) => {
+  if (!name) return "";
+  const parts = name.split(" ");
+  if (parts.length <= 1) return name;
+  const last = parts[parts.length - 1];
+  // Si termina en I, II o III, tomamos las dos últimas partes (ej: RB-RP I)
+  if (["I", "II", "III"].includes(last) && parts.length > 1) {
+    return parts[parts.length - 2] + " " + last;
+  }
+  return last;
+};
 
 export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, onUpdateOwnedShips, equippedDesign }) {
   const canvasRef = useRef(null);
@@ -49,6 +60,14 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   const [safeZonePos, setSafeZonePos] = useState(() => JSON.parse(localStorage.getItem('og_safe_zone_pos')) || { x: window.innerWidth / 2, y: window.innerHeight - 180 });
 
   const [isDragging, setIsDragging] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Actualizar reloj cada 10 segundos para precisión en minutos
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   const dragOffset = useRef({ x: 0, y: 0 });
   const missionDragOffset = useRef({ x: 0, y: 0 });
   const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', ammo: '', wips: '', eco: '', is_invisible: null });
@@ -72,7 +91,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
       { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
       { id: 'blank_8', key: '8', disabled: true },
-      { id: 'repair_bot', type: 'utility', icon: '🔧', key: '9' },
+      { id: 'repair_bot', type: 'utility', image: '/repair_robot_1.jpg', key: '9' },
       { id: 'blank_0', key: '0', disabled: true },
     ];
   });
@@ -115,7 +134,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       { id: 'missile_2', type: 'missile', icon: '🚀', key: '6' },
       { id: 'missile_3', type: 'missile', icon: '☢️', key: '7' },
       { id: 'blank_8', key: '8', disabled: true },
-      { id: 'repair_bot', type: 'utility', icon: '🔧', key: '9' },
+      { id: 'repair_bot', type: 'utility', image: '/repair_robot_1.jpg', key: '9' },
       { id: 'blank_0', key: '0', disabled: true },
     ];
     setHotbarSlots(defaultSlots);
@@ -890,9 +909,24 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
 
   useEffect(() => {
     if (gameStarted && wsRef.current?.readyState === WebSocket.OPEN && joinSentRef.current) {
+      // Separar munición láser de misiles para el backend
+      const laserAmmo = {};
+      const missileStock = {};
+      
+      Object.entries(initialAmmo || {}).forEach(([id, qty]) => {
+        if (id.startsWith('missile_')) {
+          missileStock[id] = qty;
+        } else {
+          laserAmmo[id] = qty;
+        }
+      });
+
       wsRef.current.send(JSON.stringify({ 
         type: 'update_resources', 
-        ammo_data: { ammo: initialAmmo, missiles: {} } 
+        ammo_data: { 
+          ammo: laserAmmo, 
+          missiles: missileStock 
+        } 
       }));
     }
   }, [initialAmmo, gameStarted]);
@@ -981,30 +1015,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
 
       <canvas ref={canvasRef} onMouseDown={handleMouseDown} onContextMenu={handleContextMenu} style={{ display: 'block' }} />
       
-      {me?.in_safe_zone && (
-        <div 
-          onMouseDown={handleSafeZoneMouseDown}
-          style={{
-            position: 'fixed', 
-            left: `${safeZonePos.x}px`, 
-            top: `${safeZonePos.y}px`,
-            transform: 'translateX(-50%)',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: 'rgba(0, 255, 255, 0.07)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(0, 255, 255, 0.3)', borderBottom: '3px solid #00ffff',
-            padding: '6px 12px', borderRadius: '4px', color: '#00ffff',
-            fontFamily: 'Orbitron', fontSize: '12px', fontWeight: 'bold',
-            letterSpacing: '1px', pointerEvents: 'auto', zIndex: 100,
-            cursor: isUiLocked ? 'default' : 'move',
-            animation: 'pulse-safe 2s infinite ease-in-out',
-            userSelect: 'none'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px' }}>🛡️</span>
-            <span>ZONA SEGURA</span>
-          </div>
-          <style>{`
+      <style>{`
             @keyframes pulse-safe { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
             @keyframes pulse-repair {
               0% { box-shadow: 0 0 5px #00ff66; border-color: #00ff66; }
@@ -1023,14 +1034,65 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
             .hotbar-slot.auto-missile-active {
               animation: pulse-auto-missile 2s infinite ease-in-out;
               background: rgba(0, 255, 204, 0.15) !important;
+              border: 2px solid #00ffcc !important;
+            }
+            .slot-sigla {
+                position: absolute;
+                top: 2px;
+                left: 0;
+                width: 100%;
+                font-size: 0.55rem;
+                color: rgba(255, 255, 255, 0.7);
+                text-shadow: 1px 1px 2px #000;
+                pointer-events: none;
+                font-weight: 800;
+                z-index: 5;
+                font-family: 'Orbitron';
+                letter-spacing: 0.5px;
+                text-align: center;
+                background: rgba(0,0,0,0.3);
+                padding: 1px 0;
+            }
+            .slot-count {
+                position: absolute;
+                bottom: 2px;
+                left: 2px;
+                font-size: 0.65rem;
+                color: #00ccff;
+                font-weight: 900;
+                text-shadow: 1px 1px 2px #000;
+                font-family: 'Orbitron';
+                z-index: 6;
+            }
+            .slot-key {
+                position: absolute;
+                bottom: 2px;
+                right: 4px;
+                font-size: 0.65rem;
+                color: rgba(255,255,255,0.4);
+                font-family: 'Orbitron';
+            }
+            .weapon-hotbar {
+                background: rgba(5, 8, 16, 0.9) !important;
+                border: 1px solid rgba(0, 170, 255, 0.3) !important;
+                padding: 4px !important;
+                border-radius: 4px !important;
+                box-shadow: 0 0 20px rgba(0,0,0,0.8) !important;
+            }
+            .hotbar-slot {
+                border: 1px solid rgba(0, 170, 255, 0.2) !important;
+                background: linear-gradient(180deg, #101828 0%, #050810 100%) !important;
+                margin: 0 2px !important;
+            }
+            .hotbar-slot.active {
+                border: 2px solid #ffcc00 !important;
+                box-shadow: 0 0 10px rgba(255, 204, 0, 0.3) !important;
             }
             @keyframes flash-oxygen {
               0% { opacity: 0.5; transform: translateX(-50%) scale(1); }
               100% { opacity: 1; transform: translateX(-50%) scale(1.05); }
             }
-          `}</style>
-        </div>
-      )}
+      `}</style>
 
       {me?.oxygen_warning && !me?.in_safe_zone && (
         <div style={{
@@ -1101,6 +1163,27 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
       )}
 
       <div className="ui-overlay">
+        {/* RELOJ PERSISTENTE (FECHA Y HORA LOCAL) */}
+        <div style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            background: 'rgba(5, 8, 16, 0.8)',
+            backdropFilter: 'blur(5px)',
+            border: '1px solid rgba(0, 255, 204, 0.3)',
+            padding: '5px 15px',
+            borderRadius: '4px',
+            color: '#00ffcc',
+            fontFamily: 'Orbitron',
+            fontSize: '0.8rem',
+            fontWeight: 'bold',
+            zIndex: 2000,
+            boxShadow: '0 0 10px rgba(0,0,0,0.5)',
+            letterSpacing: '1px'
+        }}>
+            FECHA: {currentTime.toLocaleDateString('es-ES')}, {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+
         {(me || hudState) && (
           <>
             <div className="status-display-container hud-mode" style={{ position: 'fixed', left: `${statusPos.x}px`, top: `${statusPos.y}px`, cursor: isUiLocked ? 'default' : 'move' }} onMouseDown={handleStatusMouseDown}>
@@ -1671,12 +1754,30 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
               zIndex: 1000, 
               display: 'flex', 
               flexDirection: 'column-reverse', 
-              alignItems: 'flex-start', 
-              gap: '0px', 
+              alignItems: 'center', 
+              gap: '10px', 
               pointerEvents: 'auto', 
               userSelect: 'none',
-              transform: 'translateY(-100%)'
+              transform: 'translate(-50%, -100%)'
             }}>
+                {/* INDICADOR DE ZONA SEGURA DENTRO DEL CONTENEDOR PARA ESTABILIDAD */}
+                {me?.in_safe_zone && (
+                    <div 
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            background: 'rgba(0, 255, 255, 0.1)', backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(0, 255, 255, 0.4)', borderBottom: '3px solid #00ffff',
+                            padding: '8px 20px', borderRadius: '6px', color: '#00ffff',
+                            fontFamily: 'Orbitron', fontSize: '14px', fontWeight: 'bold',
+                            letterSpacing: '1px', animation: 'pulse-safe 2s infinite ease-in-out',
+                            boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)', marginBottom: '5px'
+                        }}
+                    >
+                        <span style={{ fontSize: '18px' }}>🛡️</span>
+                        <span>ZONA SEGURA</span>
+                    </div>
+                )}
+                
                 {/* LA BARRA PRINCIPAL SIEMPRE ESTÁ ABAJO EN EL CONTENEDOR REVERSO */}
                 {/* LA BARRA PRINCIPAL SIEMPRE ESTÁ EN LA BASE (PRIMER HIJO EN REVERSE) */}
                 <div className="weapon-hotbar" 
@@ -1713,6 +1814,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                         const isAutoMissile = slot.id === 'util_auto_missile' && me?.has_auto_missile;
                         const isAutoMissileOn = isAutoMissile && me?.auto_missile_on;
                         const slotActive = isActive || isRepairing || isAutoMissileOn;
+                        
+                        // Extraer sigla del nombre del ítem
+                        const itemDef = getItemById(slot.id);
+                        const sigla = itemDef ? getItemSigla(itemDef.name) : (slot.name ? getItemSigla(slot.name) : "");
 
                         return (
                             <div 
@@ -1749,6 +1854,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                 <div className="slot-icon">
                                     {slot.image ? <img src={slot.image} alt="icon" /> : (slot.icon || '')}
                                 </div>
+                                {sigla && <div className="slot-sigla">{sigla}</div>}
                                 {slot.type === 'ability' && me?.ability_cooldowns?.[slot.ability_id] && (
                                      (() => {
                                          const now = gameState?.server_time || (Date.now() / 1000);
@@ -1867,6 +1973,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                                         <div className="slot-icon">
                                             {item.image ? <img src={item.image} alt="icon" /> : item.icon}
                                         </div>
+                                        <div className="slot-sigla">{getItemSigla(item.name)}</div>
                                         {item.type === 'ability' && me?.ability_cooldowns?.[item.ability_id] && (
                                             (() => {
                                                 const now = gameState?.server_time || (Date.now() / 1000);

@@ -133,6 +133,8 @@ function App() {
     return saved ? JSON.parse(saved) : {};
   });
 
+  const [logoutCountdown, setLogoutCountdown] = useState(null);
+
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'game_equipped_designs' && e.newValue) {
@@ -147,10 +149,55 @@ function App() {
       if (e.key === 'game_paladio' && e.newValue) {
         setPaladio(parseInt(e.newValue));
       }
+      if (e.key === 'og_logout_trigger') {
+        if (e.newValue && window.location.search.includes('play=true')) {
+          setLogoutCountdown(10);
+        } else if (!e.newValue) {
+          setLogoutCountdown(null);
+        }
+      }
+      if (e.key === 'og_game_running' && !e.newValue && !window.location.search.includes('play=true')) {
+        // Si el juego se cerró y estábamos esperando para logout
+        if (localStorage.getItem('og_logout_pending')) {
+          handleLogout();
+        }
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  useEffect(() => {
+    if (logoutCountdown === null) return;
+    if (logoutCountdown <= 0) {
+      if (window.location.search.includes('play=true')) {
+        window.close();
+      } else {
+        handleLogout();
+      }
+      return;
+    }
+    const timer = setTimeout(() => {
+      setLogoutCountdown(prev => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [logoutCountdown]);
+
+  const startLogoutFlow = () => {
+    const isGameRunning = localStorage.getItem('og_game_running') === 'true';
+    const isGameWindow = window.location.search.includes('play=true');
+
+    if (isGameWindow) {
+      setLogoutCountdown(10);
+    } else if (isGameRunning) {
+      localStorage.setItem('og_logout_trigger', Date.now().toString());
+      localStorage.setItem('og_logout_pending', 'true');
+      // No ponemos countdown aquí, solo esperamos
+      alert("Se ha solicitado el cierre de sesión. El juego se cerrará en 10 segundos.");
+    } else {
+      handleLogout();
+    }
+  };
 
   const [eco, setEco] = useState(() => {
     const saved = localStorage.getItem('game_eco');
@@ -386,7 +433,7 @@ function App() {
     
     window.syncTimer = setTimeout(async () => {
       try {
-        await fetch(`${API_URL}/user/sync`, {
+        const response = await fetch(`${API_URL}/user/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -405,6 +452,20 @@ function App() {
             ammo
           })
         });
+        const result = await response.json();
+        if (result.success && result.updated_stats && hudState) {
+          // Actualización instantánea del HUD local con los valores calculados por el servidor
+          setHudState(prev => ({
+            ...prev,
+            max_cargo: result.updated_stats.max_cargo,
+            hp: result.updated_stats.hp,
+            max_hp: result.updated_stats.max_hp,
+            shld: result.updated_stats.shld,
+            max_shld: result.updated_stats.max_shld,
+            atk: result.updated_stats.atk,
+            spd: result.updated_stats.spd
+          }));
+        }
       } catch (e) {
         console.log("Sync error:", e);
       }
@@ -909,6 +970,8 @@ function App() {
     localStorage.clear(); // Limpieza total para evitar fugas de datos
 
     
+    localStorage.removeItem('og_logout_trigger');
+    localStorage.removeItem('og_logout_pending');
     setUser(null);
     setCurrentView('auth');
     // Forzar recarga para resetear estados de React de forma limpia
@@ -1368,7 +1431,7 @@ function App() {
             level={level} 
             onlineCount={onlineCount}
             user={user} 
-            onLogout={handleLogout} 
+            onLogout={startLogoutFlow} 
             onNavigate={setCurrentView} 
           />
           <NavigationBar currentView={currentView} onNavigate={setCurrentView} unreadCount={unreadMessages} />
@@ -1421,7 +1484,7 @@ function App() {
         <MainMenu 
           user={user}
           onNavigate={(view) => setCurrentView(view)} 
-          onLogout={handleLogout}
+          onLogout={startLogoutFlow}
           credits={credits}
           paladio={paladio}
           xp={xp}
@@ -1631,6 +1694,60 @@ function App() {
             equippedDesign={equippedDesigns[selectedShipId]}
           />
         </>
+      )}
+      {logoutCountdown !== null && window.location.search.includes('play=true') && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(15px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000, color: 'white', fontFamily: 'Orbitron', textAlign: 'center',
+          padding: '20px'
+        }}>
+          <div style={{ 
+            fontSize: '3rem', 
+            marginBottom: '10px', 
+            color: '#ff3366', 
+            fontWeight: 'bold',
+            textShadow: '0 0 20px rgba(255, 51, 102, 0.5)',
+            letterSpacing: '4px'
+          }}>
+            DESCONEXIÓN
+          </div>
+          <div style={{ fontSize: '1.4rem', marginBottom: '40px', color: '#aaa' }}>
+            Cerrando sesión en <span style={{ 
+              color: '#00ffcc', 
+              fontSize: '3.5rem', 
+              display: 'block', 
+              marginTop: '10px',
+              fontWeight: '900',
+              textShadow: '0 0 15px #00ffcc'
+            }}>{logoutCountdown}</span> segundos
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#666', maxWidth: '400px', lineHeight: '1.5' }}>
+            Por favor, espera mientras los sistemas de navegación se estabilizan para una desconexión segura.
+          </div>
+          <button 
+            onClick={() => {
+              setLogoutCountdown(null);
+              localStorage.removeItem('og_logout_trigger');
+            }}
+            style={{
+              marginTop: '50px',
+              padding: '12px 30px', 
+              background: 'rgba(255, 255, 255, 0.05)', 
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#888', 
+              borderRadius: '5px', 
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              transition: 'all 0.3s'
+            }}
+            onMouseOver={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+            onMouseOut={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.05)'}
+          >
+            ABORTAR DESCONEXIÓN
+          </button>
+        </div>
       )}
     </div>
   )

@@ -4,7 +4,13 @@ import NavigationBar from './NavigationBar';
 const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, onBack, onNavigate }) => {
   const [tag, setTag] = useState('');
   const [name, setName] = useState('');
-  const [selectedFaction, setSelectedFaction] = useState(user?.faction || 'MARS');
+  const [selectedFaction, setSelectedFaction] = useState('MARS');
+
+  useEffect(() => {
+    if (user?.faction) {
+      setSelectedFaction(user.faction);
+    }
+  }, [user?.faction]);
   const [activeTab, setActiveTab] = useState('summary');
   const [editMode, setEditMode] = useState(null);
   const [editValues, setEditValues] = useState({});
@@ -15,6 +21,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   const [clanList, setClanList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [messages, setMessages] = useState([]);
+  const [sentMessages, setSentMessages] = useState([]);
   const [donationAmounts, setDonationAmounts] = useState({});
   const [clanLogs, setClanLogs] = useState([]);
   const [clanApplications, setClanApplications] = useState([]);
@@ -22,7 +29,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
   const [joinMessage, setJoinMessage] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(null); // { tag, name }
   const [loading, setLoading] = useState(!clan);
-  const CLAN_COST = 0;
+  const CLAN_COST = 100000;
   const API_URL = 'http://localhost:8000/api';
 
   const currentUserMember = clan?.members?.find(m => m.name === user.username);
@@ -66,10 +73,40 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
       const resp = await fetch(`${API_URL}/messages?username=${user.username}`);
       if (resp.ok) {
         const data = await resp.json();
-        setMessages(data.messages || []);
+        setMessages(data || []);
       }
     } catch (e) {
       console.error("Error fetching messages:", e);
+    }
+  };
+
+  const fetchSentMessages = async () => {
+    if (!user) return;
+    try {
+      const resp = await fetch(`${API_URL}/mail/sent/${user.username}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setSentMessages(data.messages || []);
+      }
+    } catch (e) {
+      console.error("Error fetching sent messages:", e);
+    }
+  };
+
+  const handleClearTray = async (trayType) => {
+    if (!window.confirm(`¿Estás seguro de que deseas vaciar toda la bandeja de ${trayType === 'inbox' ? 'entrada' : 'enviados'}?`)) return;
+    try {
+      const resp = await fetch(`${API_URL}/mail/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user.username, tray_type: trayType })
+      });
+      if (resp.ok) {
+        if (trayType === 'inbox') fetchMessages();
+        else fetchSentMessages();
+      }
+    } catch (e) {
+      console.error("Error clearing tray:", e);
     }
   };
 
@@ -141,9 +178,9 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
       alert("El nombre del clan debe tener al menos 4 caracteres.");
       return;
     }
-    const cost = 0; // CLAN_COST
+    const cost = CLAN_COST;
     if (credits < cost) {
-      alert(`No tienes suficientes créditos.`);
+      alert(`No tienes suficientes créditos. Se requieren ${cost.toLocaleString()} CR.`);
       return;
     }
 
@@ -953,13 +990,24 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                     
                     <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid #1a2a4a', paddingBottom: '10px' }}>
                        <button onClick={() => setMsgTab('inbox')} style={{ background: msgTab === 'inbox' ? '#1a253a' : 'transparent', color: msgTab === 'inbox' ? '#00ffcc' : '#88aaff', border: '1px solid #334466', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Bandeja de Entrada</button>
+                       <button onClick={() => { setMsgTab('sent'); fetchSentMessages(); }} style={{ background: msgTab === 'sent' ? '#1a253a' : 'transparent', color: msgTab === 'sent' ? '#00ffcc' : '#88aaff', border: '1px solid #334466', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Mensajes Enviados</button>
                        <button onClick={() => { setMsgTab('redactar'); setDraftTo('all'); }} style={{ background: msgTab === 'redactar' ? '#1a253a' : 'transparent', color: msgTab === 'redactar' ? '#00ffcc' : '#88aaff', border: '1px solid #334466', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Redactar</button>
                     </div>
 
                     <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '15px', border: '1px solid #1a2a4a', minHeight: '300px' }}>
                        {msgTab === 'inbox' && (
                            <div>
-                               <h4 style={{ color: '#88aaff', marginTop: 0 }}>Caja de Entrada</h4>
+                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                   <h4 style={{ color: '#88aaff', margin: 0 }}>Caja de Entrada</h4>
+                                   {messages.length > 0 && (
+                                       <button 
+                                           onClick={() => handleClearTray('inbox')}
+                                           style={{ background: 'rgba(255, 51, 102, 0.1)', color: '#ff3366', border: '1px solid #ff336644', padding: '5px 12px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                       >
+                                           🗑️ LIMPIAR BANDEJA
+                                       </button>
+                                   )}
+                               </div>
                                {messages.length === 0 ? (
                                    <div style={{ color: '#666', fontStyle: 'italic', textAlign: 'center', margin: '40px 0' }}>No tienes mensajes nuevos.</div>
                                ) : (
@@ -967,10 +1015,10 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                                        {messages.map((msg, idx) => (
                                            <div 
                                                key={idx} 
-                                               onClick={() => !msg.read && markMessageRead(msg.id)}
+                                               onClick={() => !msg.is_read && markMessageRead(msg.id)}
                                                style={{ 
-                                                   background: msg.read ? 'rgba(255,255,255,0.02)' : 'rgba(0,170,255,0.05)', 
-                                                   border: msg.read ? '1px solid #334466' : '1px solid #00aaff', 
+                                                   background: msg.is_read ? 'rgba(255,255,255,0.02)' : 'rgba(0,170,255,0.05)', 
+                                                   border: msg.is_read ? '1px solid #334466' : '1px solid #00aaff', 
                                                    borderRadius: '4px', 
                                                    padding: '10px',
                                                    cursor: 'pointer'
@@ -980,10 +1028,50 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                                                    <span style={{ color: msg.sender === 'SYSTEM' ? '#ff3366' : '#00ffcc', fontWeight: 'bold' }}>
                                                        De: {msg.sender} {msg.sender === 'SYSTEM' && '🛡️'}
                                                    </span>
-                                                   <span style={{ color: '#555', fontSize: '0.8rem' }}>{msg.date}</span>
+                                                   <span style={{ color: '#555', fontSize: '0.8rem' }}>{new Date(msg.sent_at + " UTC").toLocaleString()}</span>
                                                </div>
                                                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '5px' }}>Asunto: {msg.subject}</div>
-                                               <div style={{ color: msg.read ? '#aaa' : '#fff', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{msg.body}</div>
+                                               <div style={{ color: msg.is_read ? '#aaa' : '#fff', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{msg.body}</div>
+                                           </div>
+                                       ))}
+                                   </div>
+                               )}
+                           </div>
+                       )}
+
+                       {msgTab === 'sent' && (
+                           <div>
+                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                   <h4 style={{ color: '#88aaff', margin: 0 }}>Mensajes Enviados</h4>
+                                   {sentMessages.length > 0 && (
+                                       <button 
+                                           onClick={() => handleClearTray('sent')}
+                                           style={{ background: 'rgba(255, 51, 102, 0.1)', color: '#ff3366', border: '1px solid #ff336644', padding: '5px 12px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                                       >
+                                           🗑️ LIMPIAR ENVIADOS
+                                       </button>
+                                   )}
+                               </div>
+                               {sentMessages.length === 0 ? (
+                                   <div style={{ color: '#666', fontStyle: 'italic', textAlign: 'center', margin: '40px 0' }}>No has enviado mensajes todavía.</div>
+                               ) : (
+                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                       {sentMessages.map((msg, idx) => (
+                                           <div 
+                                               key={idx} 
+                                               style={{ 
+                                                   background: 'rgba(255,255,255,0.02)', 
+                                                   border: '1px solid #334466', 
+                                                   borderRadius: '4px', 
+                                                   padding: '10px'
+                                               }}
+                                           >
+                                               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1a2a4a', paddingBottom: '5px', marginBottom: '5px' }}>
+                                                   <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Para: {msg.receiver}</span>
+                                                   <span style={{ color: '#555', fontSize: '0.8rem' }}>{new Date(msg.sent_at + " UTC").toLocaleString()}</span>
+                                               </div>
+                                               <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '5px' }}>Asunto: {msg.subject}</div>
+                                               <div style={{ color: '#aaa', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{msg.body}</div>
                                            </div>
                                        ))}
                                    </div>
@@ -1155,7 +1243,7 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                                 <tbody>
                                     {clanLogs.length > 0 ? clanLogs.map((log, index) => (
                                         <tr key={index} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.85rem' }}>
-                                            <td style={{ padding: '8px', color: '#666' }}>{new Date(log.timestamp).toLocaleString()}</td>
+                                            <td style={{ padding: '8px', color: '#666' }}>{new Date(log.timestamp + " UTC").toLocaleString()}</td>
                                             <td style={{ padding: '8px' }}>
                                                 <span style={{ 
                                                     padding: '2px 6px', 
@@ -1294,13 +1382,15 @@ const Clan = ({ credits, paladio, level, xp, setCredits, clan, setClan, user, on
                     <select 
                       value={selectedFaction} 
                       onChange={e => setSelectedFaction(e.target.value)} 
-                      style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid #334466', color: 'white', borderRadius: '4px', outline: 'none', cursor: 'pointer' }}
+                      disabled={true}
+                      style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.5)', border: '1px solid #1a2a4a', color: '#00ffcc', borderRadius: '4px', outline: 'none', cursor: 'not-allowed', opacity: 0.9, fontWeight: 'bold' }}
                     >
                       <option value="MARS">M.A.R.S.</option>
                       <option value="MOON">M.O.O.N.</option>
                       <option value="PLUTO">P.L.U.T.O.</option>
                       <option value="ALL">Multifacción (Cualquiera puede unirse)</option>
                     </select>
+                    <p style={{ color: '#555', fontSize: '0.7rem', marginTop: '5px', fontStyle: 'italic' }}>* La afiliación se asigna automáticamente según tu empresa actual.</p>
                   </div>
 
                   <div style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '4px', border: '1px solid #1a2a4a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -840,11 +840,23 @@ def collect_all_taxes():
 def create_clan_db(tag, name, leader, faction=None):
     conn = get_connection()
     c = conn.cursor()
+    CLAN_COST = 100000
     try:
-        # 0. Obtener la facción del líder si no se especifica
+        # 0. Verificar si el usuario ya está en un clan
+        c.execute('SELECT clan_tag, credits FROM users WHERE username = ?', (leader,))
+        user_row = c.fetchone()
+        if not user_row:
+            return {"success": False, "error": "Usuario no encontrado."}
+        
+        current_clan, current_credits = user_row
+        if current_clan:
+            return {"success": False, "error": "Ya perteneces a un clan."}
+        
+        if current_credits < CLAN_COST:
+            return {"success": False, "error": f"Se requieren {CLAN_COST:,} créditos para fundar un clan."}
+
+        # 0.5. Obtener la facción del líder si no se especifica
         if not faction:
-            c.execute('SELECT faction FROM users WHERE username = ?', (leader,))
-            user_row = c.fetchone()
             faction = user_row[0] if user_row else "MARS"
 
         # 1. Crear el clan con la facción especificada
@@ -853,17 +865,18 @@ def create_clan_db(tag, name, leader, faction=None):
             VALUES (?, ?, ?, ?)
         ''', (tag.upper(), name, leader, faction))
         
-        # 2. Asignar el clan al usuario líder con su rol
+        # 2. Asignar el clan al usuario líder con su rol y restar créditos
         c.execute('''
             UPDATE users 
-            SET clan_tag = ?, clan_role = ?, clan_joined_at = CURRENT_TIMESTAMP 
+            SET clan_tag = ?, clan_role = ?, clan_joined_at = CURRENT_TIMESTAMP,
+                credits = credits - ?
             WHERE username = ?
-        ''', (tag.upper(), "Líder", leader))
+        ''', (tag.upper(), "Líder", CLAN_COST, leader))
         
         conn.commit()
         return {"success": True}
     except sqlite3.IntegrityError:
-        return {"success": False, "error": "La sigla del clan ya está registrada."}
+        return {"success": False, "error": "La sigla del clan o el nombre ya están registrados."}
     finally:
         conn.close()
 
@@ -1391,6 +1404,22 @@ def mark_message_read_db(message_id):
         conn.commit()
         return True
     except Exception:
+        return False
+    finally:
+        conn.close()
+
+def clear_user_messages_db(username, tray_type='inbox'):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        if tray_type == 'inbox':
+            c.execute('DELETE FROM messages WHERE receiver = ?', (username,))
+        else:
+            c.execute('DELETE FROM messages WHERE sender = ?', (username,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error clearing messages: {e}")
         return False
     finally:
         conn.close()

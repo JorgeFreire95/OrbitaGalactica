@@ -804,6 +804,15 @@ async def api_mark_read(data: dict = Body(...)):
         return {"success": True}
     return {"success": False}
 
+@app.post("/api/mail/clear")
+async def api_clear_mail(data: dict = Body(...)):
+    from database import clear_user_messages_db
+    username = data.get("username")
+    tray_type = data.get("tray_type", "inbox")
+    if clear_user_messages_db(username, tray_type):
+        return {"success": True}
+    return {"success": False}
+
 @app.get("/api/user/stats")
 async def api_get_user_stats(username: str):
     stats = get_user_stats_db(username)
@@ -886,6 +895,14 @@ async def api_sync_stats(req: SyncRequest):
                 game_state.recalculate_player_stats(p)
                 print(f"Stats de refinamiento recalculados en tiempo real para {req.username}")
             
+            if req.equipped is not None:
+                # Update equipped modules for the active ship in memory
+                current_ship_id = p.get("ship_id", "starter")
+                if current_ship_id in req.equipped:
+                    p["equipped"] = req.equipped[current_ship_id]
+                    game_state.recalculate_player_stats(p)
+                    print(f"Equipamiento sincronizado en tiempo real para {req.username} (Nave: {current_ship_id})")
+
             if req.wips is not None:
                 p["wips"] = req.wips
                 game_state.recalculate_player_stats(p) # Drones may contribute stats
@@ -917,7 +934,26 @@ async def api_sync_stats(req: SyncRequest):
                 game_state.recalculate_player_stats(p)
             break
             
-    return {"success": True, "message": "Sincronización exitosa."}
+    # Devolvemos las estadísticas actualizadas para que el frontend pueda refrescarse instantáneamente
+    player_data = None
+    for p in game_state.players:
+        if p["id"] == req.username:
+            player_data = p
+            break
+            
+    return {
+        "success": True, 
+        "message": "Sincronización exitosa.",
+        "updated_stats": {
+            "max_cargo": player_data["max_cargo"] if player_data else 1500,
+            "hp": player_data["hp"] if player_data else 0,
+            "max_hp": player_data["max_hp"] if player_data else 0,
+            "shld": player_data["shield"] if player_data else 0,
+            "max_shld": player_data["max_shield"] if player_data else 0,
+            "atk": player_data["atk"] if player_data else 0,
+            "spd": player_data["speed"] if player_data else 0
+        }
+    }
 
 @app.post("/api/user/repair")
 async def api_repair_ship(req: RepairRequest):
