@@ -108,10 +108,17 @@ const MainMenu = ({ user, onNavigate, onLogout, credits, paladio, xp, level, min
               </div>
               <div style={{ fontSize: '0.8rem', color: '#888', display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                 <span>Progreso de Nivel</span>
-                <span style={{ color: '#00ffcc' }}>{xp} XP</span>
+                <span style={{ color: '#00ffcc' }}>{xp.toLocaleString()} XP</span>
               </div>
               <div className="xp-bar-container">
-                <div className="xp-bar-fill" style={{ width: `${Math.min(100, (xp / (level * 1000 + 1000)) * 100)}%` }}></div>
+                {(() => {
+                  const xpAtStart = (level * (level - 1) / 2) * 10000;
+                  const xpRequired = level * 10000;
+                  const progress = ((xp - xpAtStart) / xpRequired) * 100;
+                  return (
+                    <div className="xp-bar-fill" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}></div>
+                  );
+                })()}
               </div>
             </div>
           </div>

@@ -254,6 +254,7 @@ sdk = mercadopago.SDK(MERCADO_PAGO_ACCESS_TOKEN)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -861,100 +862,100 @@ async def api_auction_bid(req: AuctionBidRequest):
 
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
-    success = sync_user_stats(req.username, req.level, req.xp, req.credits, req.paladio, req.minerals, req.owned_ships, req.inventory, req.equipped, req.timed_upgrades, is_invisible=req.is_invisible, wips=req.wips, eco=req.eco, ammo=req.ammo)
-    if not success:
-        raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas")
-    # ACTUALIZACIÓN EN TIEMPO REAL: Si el jugador está conectado, actualizar su estado en memoria
-    for pid, p in game_state.players.items():
-        if p.get("user_id") == req.username:
-            if req.minerals is not None:
-                p["minerals"] = req.minerals.copy()
-            p["credits"] = req.credits
-            p["paladio"] = req.paladio
-            p["level"] = req.level
-            p["xp"] = req.xp
+    print(f"DEBUG: Iniciando sincronización para {req.username}")
+    try:
+        # 1. Sincronizar con DB
+        print("DEBUG: Sincronizando con base de datos...")
+        success = sync_user_stats(
+            req.username, req.level, req.xp, req.credits, req.paladio, 
+            req.minerals, req.owned_ships, req.inventory, req.equipped, 
+            req.timed_upgrades, is_invisible=req.is_invisible, 
+            wips=req.wips, eco=req.eco, ammo=req.ammo
+        )
+        if not success:
+            print("DEBUG: Error en sync_user_stats (database.py)")
+            raise HTTPException(status_code=500, detail="Error al sincronizar estadísticas en DB")
             
-            if req.ammo is not None:
-                # Split combined ammo into ammo and missiles for the GameState format
-                p["ammo"] = {k: v for k, v in req.ammo.items() if not k.startswith("missile")}
-                p["missiles"] = {k: v for k, v in req.ammo.items() if k.startswith("missile")}
-            
-            if req.owned_ships is not None:
-                # Combinar naves para evitar pérdidas (solo añadir las nuevas)
-                current_ships = set(p.get("owned_ships", ["starter"]))
-                new_ships = set(req.owned_ships)
-                p["owned_ships"] = list(current_ships.union(new_ships))
-            # ELIMINADO: p["is_invisible"] = req.is_invisible 
-            # Dejamos que el backend sea el único que controle cuándo se rompe la invisibilidad
-            # y que el endpoint de compra sea el único que la active.
-            
-            # Sincronización de refinamientos en tiempo real
-            if req.timed_upgrades is not None:
-                p["timed_upgrades"] = req.timed_upgrades
-                # Recalcular estadísticas inmediatamente (Velocidad, Daño, etc)
-                game_state.recalculate_player_stats(p)
-                print(f"Stats de refinamiento recalculados en tiempo real para {req.username}")
-            
-            if req.equipped is not None:
-                # Update equipped modules for the active ship in memory
-                current_ship_id = p.get("ship_id", "starter")
-                if current_ship_id in req.equipped:
-                    p["equipped"] = req.equipped[current_ship_id]
-                    game_state.recalculate_player_stats(p)
-                    print(f"Equipamiento sincronizado en tiempo real para {req.username} (Nave: {current_ship_id})")
+        # 2. Actualizar en Memoria
+        print("DEBUG: Actualizando GameState en memoria...")
+        updated_stats = None
+        user_found_in_memory = False
+        
+        # Copiar items para iterar de forma segura
+        player_list = list(game_state.players.items())
+        
+        for pid, p in player_list:
+            if p.get("user_id") == req.username:
+                user_found_in_memory = True
+                print(f"DEBUG: Usuario {req.username} encontrado en memoria. Aplicando cambios...")
+                
+                if req.minerals is not None:
+                    p["minerals"] = req.minerals.copy()
+                p["credits"] = req.credits
+                p["paladio"] = req.paladio
+                p["level"] = req.level
+                p["xp"] = req.xp
+                
+                if req.ammo is not None:
+                    p["ammo"] = {k: v for k, v in req.ammo.items() if not k.startswith("missile")}
+                    p["missiles"] = {k: v for k, v in req.ammo.items() if k.startswith("missile")}
+                
+                if req.owned_ships is not None:
+                    current_ships = set(p.get("owned_ships", ["starter"]))
+                    new_ships = set(req.owned_ships)
+                    p["owned_ships"] = list(current_ships.union(new_ships))
+                
+                if req.timed_upgrades is not None:
+                    p["timed_upgrades"] = req.timed_upgrades
+                
+                if req.equipped is not None:
+                    current_ship_id = p.get("ship_id", "starter")
+                    if current_ship_id in req.equipped:
+                        p["equipped"] = req.equipped[current_ship_id]
+                
+                if req.wips is not None:
+                    p["wips"] = req.wips
+                
+                if req.eco is not None:
+                    if "eco" not in p or p["eco"] is None:
+                        p["eco"] = req.eco
+                    else:
+                        # Preservar estados volátiles del servidor
+                        current_deployed = p["eco"].get("deployed", False)
+                        current_fuel = p["eco"].get("fuel", 5000)
+                        p["eco"].update(req.eco)
+                        p["eco"]["deployed"] = current_deployed
+                        p["eco"]["fuel"] = current_fuel
 
-            if req.wips is not None:
-                p["wips"] = req.wips
-                game_state.recalculate_player_stats(p) # Drones may contribute stats
-            if req.eco is not None:
-                if "eco" not in p or p["eco"] is None:
-                    p["eco"] = req.eco
-                else:
-                    # Preservar estados volátiles que el servidor controla en tiempo real
-                    # Evitamos que el cliente sobreescriba el estado de despliegue o recursos durante un sync rutinario
-                    current_active = p["eco"].get("active", False)
-                    current_deployed = p["eco"].get("deployed", False)
-                    current_fuel = p["eco"].get("fuel", 5000)
-                    current_integrity = p["eco"].get("integrity", 100)
-                    current_shield = p["eco"].get("shield", 0)
-                    
-                    p["eco"].update(req.eco)
-                    
-                    # PROTECCIÓN: Si ya estaba activo, no permitir que el cliente lo desactive (evita pérdida por desincronización)
-                    if current_active:
-                        p["eco"]["active"] = True
-                        
-                    # Restaurar estados volátiles para evitar desync desde el cliente
-                    p["eco"]["deployed"] = current_deployed
-                    p["eco"]["fuel"] = current_fuel
-                    p["eco"]["integrity"] = current_integrity
-                    if "shield" in p["eco"]:
-                        p["eco"]["shield"] = current_shield
-                    
+                # Recalcular estadísticas
+                print("DEBUG: Recalculando estadísticas del jugador...")
                 game_state.recalculate_player_stats(p)
-            break
+                
+                updated_stats = {
+                    "max_cargo": p.get("max_cargo", 100),
+                    "hp": p.get("hp", 0),
+                    "max_hp": p.get("max_hp", 0),
+                    "shld": p.get("shld", 0),
+                    "max_shld": p.get("max_shld", 0),
+                    "atk": p.get("atk", 0),
+                    "spd": p.get("spd", 0)
+                }
+                print(f"DEBUG: Sincronización exitosa para {req.username}")
+                break
+        
+        if not user_found_in_memory:
+            print(f"DEBUG: Usuario {req.username} no está actualmente en el GameState (no está volando)")
             
-    # Devolvemos las estadísticas actualizadas para que el frontend pueda refrescarse instantáneamente
-    player_data = None
-    for p in game_state.players:
-        if p["id"] == req.username:
-            player_data = p
-            break
-            
-    return {
-        "success": True, 
-        "message": "Sincronización exitosa.",
-        "updated_stats": {
-            "max_cargo": player_data["max_cargo"] if player_data else 1500,
-            "hp": player_data["hp"] if player_data else 0,
-            "max_hp": player_data["max_hp"] if player_data else 0,
-            "shld": player_data["shield"] if player_data else 0,
-            "max_shld": player_data["max_shield"] if player_data else 0,
-            "atk": player_data["atk"] if player_data else 0,
-            "spd": player_data["speed"] if player_data else 0
+        return {
+            "success": True, 
+            "message": "Sincronización completada", 
+            "updated_stats": updated_stats
         }
-    }
-
+    except Exception as e:
+        print(f"ERROR CRÍTICO en api_sync_stats: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Fallo de sincronización: {str(e)}")
 @app.post("/api/user/repair")
 async def api_repair_ship(req: RepairRequest):
     REPAIR_COST = 500

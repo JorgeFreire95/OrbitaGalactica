@@ -177,7 +177,8 @@ const AdminPanel = ({ user: currentUser, onBack, onUpdateCredits, onUpdatePaladi
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getNextLevelXp = (lvl) => lvl * 1000;
+  const getNextLevelXp = (lvl) => (lvl * (lvl + 1) / 2) * 10000;
+  const getXpAtStart = (lvl) => (lvl * (lvl - 1) / 2) * 10000;
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#00ffcc', fontFamily: 'Orbitron' }}>INICIALIZANDO SISTEMA DE CONTROL...</div>;
 
@@ -311,10 +312,19 @@ const AdminPanel = ({ user: currentUser, onBack, onUpdateCredits, onUpdatePaladi
                 <div className="xp-progress-container">
                   <div className="xp-label-row">
                     <span>EXP: {u.xp?.toLocaleString()} / {getNextLevelXp(u.level).toLocaleString()}</span>
-                    <span>{Math.floor(((u.xp || 0) / getNextLevelXp(u.level)) * 100)}%</span>
-                  </div>
-                  <div className="xp-bar-container" style={{ height: '6px', margin: 0, background: '#1a1a3a' }}>
-                    <div className="xp-bar-fill" style={{ width: `${Math.min(100, ((u.xp || 0) / getNextLevelXp(u.level)) * 100)}%` }}></div>
+                    {(() => {
+                      const xpAtStart = getXpAtStart(u.level);
+                      const xpRequired = u.level * 10000;
+                      const progress = (( (u.xp || 0) - xpAtStart) / xpRequired) * 100;
+                      return (
+                        <>
+                          <span>{Math.max(0, Math.floor(progress))}%</span>
+                          <div className="xp-bar-container" style={{ height: '6px', margin: 0, background: '#1a1a3a', width: '100%', gridColumn: 'span 2' }}>
+                            <div className="xp-bar-fill" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}></div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 

@@ -184,7 +184,8 @@ def init_db():
             reward_paladio INTEGER DEFAULT 0,
             reward_ammo_json TEXT DEFAULT '{}',
             map_name TEXT,
-            next_mission_id INTEGER
+            next_mission_id INTEGER,
+            category TEXT DEFAULT 'aliens'
         )
     ''')
 
@@ -203,8 +204,10 @@ def init_db():
     # Migraciones
     try:
         c.execute("ALTER TABLE missions ADD COLUMN map_name TEXT")
-    except sqlite3.OperationalError:
-        pass
+    except Exception: pass
+    try:
+        c.execute("ALTER TABLE missions ADD COLUMN faction TEXT")
+    except Exception: pass
     
     try:
         c.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
@@ -338,21 +341,189 @@ def init_missions(conn):
     c = conn.cursor()
     # Check if missions already exist
     c.execute("SELECT COUNT(*) FROM missions")
-    if c.fetchone()[0] == 0:
-        missions = [
-            (1, "Bautismo de Fuego", "Elimina 10 alienígenas Gryllos para demostrar tu valía.", "Gryllos", 10, 1, 1000, 5000, 10, json.dumps({"standard": 1000}), "Mars 1 / Moon 1 / Pluto 1", 2),
-            (2, "Limpieza de Selene", "Los Xylos están invadiendo sectores lunares. Acaba con 15 de ellos.", "Xylos", 15, 2, 2500, 12000, 25, json.dumps({"thermal": 200}), "Moon 2", 3),
-            (3, "Nebulosa Hostil", "Caza 20 Nykor en las zonas de gas denso.", "Nykor", 20, 3, 6000, 25000, 50, json.dumps({"plasma": 100}), "Neutral 1", 4),
-            (4, "Punta del Horizonte", "El vacío es peligroso. Elimina 25 Syrith para asegurar la ruta.", "Syrith", 25, 4, 12000, 50000, 100, json.dumps({"siphon": 50, "missile_1": 20}), "Pluto 4", 5),
-            (5, "Tormenta sobre Marte", "Caza 30 Vexis bajo las tormentas de polvo.", "Vexis", 30, 5, 25000, 100000, 250, json.dumps({"plasma": 500, "missile_2": 50}), "Mars 5", 6),
-            (6, "Desafío de los Antiguos", "Elimina 40 Kragos en las ruinas de Plutón.", "Kragos", 40, 6, 50000, 250000, 500, json.dumps({"plasma": 1000, "missile_3": 25}), "Pluto 7", None)
+    if c.fetchone()[0] < 1100:
+        c.execute("DELETE FROM missions")
+        alien_data = [
+            {"name": "Gryllos", "level": 1, "map": "Sector de Hierro / Bahía de Selene / Abismo de Caronte", "xp": 400, "credits": 400, "paladio": 1},
+            {"name": "Xylos", "level": 2, "map": "Cráter de Cristal", "xp": 800, "credits": 800, "paladio": 2},
+            {"name": "Nykor", "level": 3, "map": "Zona Neutral 1", "xp": 1600, "credits": 1600, "paladio": 4},
+            {"name": "Syrith", "level": 4, "map": "Punta del Horizonte", "xp": 3200, "credits": 6400, "paladio": 8},
+            {"name": "Vexis", "level": 5, "map": "Base Dust-Storm", "xp": 12800, "credits": 65000, "paladio": 25},
+            {"name": "Kragos", "level": 6, "map": "Vórtice Sombrío", "xp": 6400, "credits": 12800, "paladio": 16},
+            {"name": "Zoltan", "level": 7, "map": "Puesto de Avanzada Phobos", "xp": 51000, "credits": 350000, "paladio": 115},
+            {"name": "Drakon", "level": 8, "map": "Plataforma de Asedio", "xp": 200000, "credits": 1000000, "paladio": 1000}
         ]
+
+        import random
+        prefixes = ["Operación", "Protocolo", "Proyecto", "Incursión", "Supresión", "Pacificación", "Código"]
+        codenames = ["Alpha", "Beta", "Sigma", "Omega", "Zeta", "Nebula", "Void", "Nova", "Dark", "Solar", "Storm", "Titan", "Zero", "Prime"]
+        suffixes = ["X", "Y", "Z", "1", "2", "3", "Prime", "Strike", "Point", "Zero"]
+
+        def generate_random_title(alien_name, is_boss):
+            pre = random.choice(prefixes)
+            code = random.choice(codenames)
+            suf = random.choice(suffixes)
+            if is_boss:
+                return f"{pre} {code}-{suf}: ELIMINAR LÍDER {alien_name.upper()}"
+            return f"{pre} {code}-{suf}: {alien_name.upper()}"
+
+        missions = []
+        current_id = 1
+        
+        for alien in alien_data:
+            # 50 Normal Missions
+            for i in range(1, 51):
+                count = 10 + (i * 2)
+                title = generate_random_title(alien['name'], False)
+                desc = f"Fase de combate {i}. Elimina {count} {alien['name']} para asegurar el sector {alien['map']}."
+                
+                # Rewards scaling
+                mult = 1.2 + (i * 0.05)
+                reward_xp = int(alien['xp'] * count * mult)
+                reward_credits = int(alien['credits'] * count * mult)
+                reward_paladio = int(alien['paladio'] * count * mult * 0.5)
+                
+                ammo = {"standard": count * 100}
+                if i > 10: ammo["thermal"] = count * 20
+                if i > 30: ammo["plasma"] = count * 10
+                
+                missions.append((
+                    current_id,
+                    title,
+                    desc,
+                    alien['name'],
+                    count,
+                    1, # alien['level'],
+                    reward_xp,
+                    reward_credits,
+                    reward_paladio,
+                    json.dumps(ammo),
+                    alien['map'],
+                    current_id + 1,
+                    'aliens',
+                    None
+                ))
+                current_id += 1
+                
+            # 50 Boss Missions
+            if alien['name'] == "Drakon":
+                last_m = missions[-1]
+                missions[-1] = last_m[:-1] + (None,)
+                continue
+
+            for i in range(1, 51):
+                count = 1 + (i // 5)
+                boss_name = f"Boss {alien['name']}"
+                title = generate_random_title(alien['name'], True)
+                desc = f"Fase crítica {i}. Derrota a {count} {boss_name} detectados en {alien['map']}. Son extremadamente peligrosos."
+                
+                mult = 5.0 + (i * 0.5)
+                reward_xp = int(alien['xp'] * count * mult)
+                reward_credits = int(alien['credits'] * count * mult)
+                reward_paladio = int(alien['paladio'] * count * mult * 0.8)
+                
+                ammo = {"plasma": count * 500}
+                if i > 20: ammo["siphon"] = count * 100
+                if i > 40: ammo["missile_3"] = 10
+                
+                missions.append((
+                    current_id,
+                    title,
+                    desc,
+                    boss_name,
+                    count,
+                    1, # alien['level'],
+                    reward_xp,
+                    reward_credits,
+                    reward_paladio,
+                    json.dumps(ammo),
+                    alien['map'],
+                    current_id + 1 if not (alien['name'] == "Drakon" and i == 50) else None,
+                    'aliens',
+                    None
+                ))
+                current_id += 1
+
+        # --- 2. INVASION MISSIONS (New Category) ---
+        # 8 Missions per Ship per Faction = 3 * 10 * 8 = 240 Missions
+        invasion_maps = {
+            "MARS": ["Cráter de Cristal", "Valles de Magma", "Zona Neutral 1"],
+            "MOON": ["Bahía de Selene", "Mar de la Tranquilidad", "Punta del Horizonte"],
+            "PLUTO": ["Abismo de Caronte", "Sector de Hierro", "Fundición Ares"]
+        }
+        
+        target_ships = [
+            "Phoenix (Básica)", "Aegis Vanguard", "Nova Striker (Rápida)", 
+            "Orion Phantom", "Titan Hammer", "Helix Support", 
+            "Sovereign Exterminator", "Cosmic Harvester", "Solar Wind", 
+            "Obsidian Bastion"
+        ]
+
+        # Faction-specific adjectives for random titles
+        f_adj = {
+            "MARS": ["Ígneo", "Marciano", "Rojo", "Volcánico", "Férreo"],
+            "MOON": ["Lunar", "Plateado", "Gélido", "Sideral", "Críptico"],
+            "PLUTO": ["Oscuro", "Plutónico", "Abisal", "Siniestro", "Espectral"]
+        }
+
+        for faction, maps in invasion_maps.items():
+            for ship in target_ships:
+                for i in range(1, 9): # 8 missions per ship
+                    m_map = random.choice(maps)
+                    adj = random.choice(f_adj[faction])
+                    codename = random.choice(codenames)
+                    
+                    title = f"INVASIÓN {faction}: {adj} {codename} {i}"
+                    desc = f"Infiltración táctica. Localiza y neutraliza {5+i} naves modelo {ship} de la flota de {faction} en {m_map}."
+                    
+                    # ship difficulty multipliers
+                    ship_mults = {
+                        "Phoenix (Básica)": 1.0,
+                        "Aegis Vanguard": 1.5,
+                        "Nova Striker (Rápida)": 2.0,
+                        "Orion Phantom": 3.0,
+                        "Titan Hammer": 5.0,
+                        "Helix Support": 6.5,
+                        "Sovereign Exterminator": 10.0,
+                        "Cosmic Harvester": 15.0,
+                        "Solar Wind": 25.0,
+                        "Obsidian Bastion": 45.0
+                    }
+                    mult = ship_mults.get(ship, 1.0)
+                    
+                    # Rewards scaling based on ship and mission index (i)
+                    reward_xp = int(2500 * mult * (1 + i * 0.25))
+                    reward_credits = int(6000 * mult * (1 + i * 0.4))
+                    reward_paladio = int(5 * mult * (1 + i * 0.15))
+                    
+                    ammo = {"thermal": 500 * i, "plasma": 100 * i}
+                    if i > 5: ammo["siphon"] = 50 * i
+                    
+                    missions.append((
+                        current_id,
+                        title,
+                        desc,
+                        ship,
+                        5 + i,
+                        1,
+                        reward_xp,
+                        reward_credits,
+                        reward_paladio,
+                        json.dumps(ammo),
+                        m_map,
+                        current_id + 1 if i < 8 else None,
+                        'invasion',
+                        faction
+                    ))
+                    current_id += 1
+
+        # Final insertion
         c.executemany('''
-            INSERT INTO missions (id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, map_name, next_mission_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO missions (id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, map_name, next_mission_id, category, faction)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', missions)
         conn.commit()
-        print("Misiones inicializadas correctamente.")
+        print(f"Sistema de misiones inicializado con {len(missions)} misiones.")
 
 def hash_password(password, salt=None):
     if salt is None:
@@ -1698,39 +1869,23 @@ def get_missions_db(username):
         def localize_map(map_str, faction):
             if not map_str: return "Sector Desconocido"
             
-            # Faction names mapping
-            f_names = {
-                "MARS": "Marte",
-                "MOON": "Luna",
-                "PLUTO": "Plutón"
-            }
-            f_prefix = f_names.get(faction, "Marte")
-            
-            # Case 1: Multiple options "Mars 1 / Moon 1 / Pluto 1"
+            # Case 1: Multiple faction options (e.g. "Sector A / Sector B / Sector C")
+            # We assume the order is Mars / Moon / Pluto
             if " / " in map_str:
                 parts = map_str.split(" / ")
-                for p in parts:
-                    if faction.lower() in p.lower() or f_prefix.lower() in p.lower():
-                        return p
+                if len(parts) == 3:
+                    idx = {"MARS": 0, "MOON": 1, "PLUTO": 2}.get(faction, 0)
+                    return parts[idx]
                 return parts[0]
             
-            # Case 2: Shared/Neutral maps
-            if "Neutral" in map_str or "Sector" in map_str:
-                return map_str
-                
-            # Case 3: Specific faction map "Moon 2" -> "Marte 2"
-            match = re.search(r'(Mars|Moon|Pluto|Marte|Luna|Plutón)\s*(\d+)', map_str, re.IGNORECASE)
-            if match:
-                num = match.group(2)
-                return f"{f_prefix} {num}"
-                
+            # For everything else, return the name as is (don't translate "Luna 2" to "Marte 2")
             return map_str
 
         # Get active missions
         c.execute('''
             SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
                    m.min_level, m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
-                   um.progress, um.status, m.map_name
+                   um.progress, um.status, m.map_name, m.category, m.faction
             FROM missions m
             JOIN user_missions um ON m.id = um.mission_id
             WHERE um.username = ? AND um.status IN ('active', 'completed')
@@ -1744,14 +1899,15 @@ def get_missions_db(username):
                 "target_alien": r[3], "target_count": r[4],
                 "min_level": r[5], "reward_xp": r[6], "reward_credits": r[7], "reward_paladio": r[8],
                 "reward_ammo": json.loads(r[9]),
-                "progress": r[10], "status": r[11], "map_name": localize_map(r[12], user_faction)
+                "progress": r[10], "status": r[11], "map_name": localize_map(r[12], user_faction),
+                "category": r[13], "faction": r[14]
             })
             
         # Get all completed/claimed missions for this user to know what to offer next
         c.execute('''
             SELECT m.id, m.title, m.description, m.target_alien, m.target_count, 
                    m.min_level, m.reward_xp, m.reward_credits, m.reward_paladio, m.reward_ammo_json,
-                   um.progress, um.status, m.map_name
+                   um.progress, um.status, m.map_name, m.category, m.faction
             FROM missions m
             JOIN user_missions um ON m.id = um.mission_id
             WHERE um.username = ? AND um.status = "claimed"
@@ -1766,7 +1922,8 @@ def get_missions_db(username):
                 "target_alien": r[3], "target_count": r[4],
                 "min_level": r[5], "reward_xp": r[6], "reward_credits": r[7], "reward_paladio": r[8],
                 "reward_ammo": json.loads(r[9]),
-                "progress": r[10], "status": r[11], "map_name": localize_map(r[12], user_faction)
+                "progress": r[10], "status": r[11], "map_name": localize_map(r[12], user_faction),
+                "category": r[13], "faction": r[14]
             })
             claimed_ids.append(r[0])
         
@@ -1774,7 +1931,7 @@ def get_missions_db(username):
         available_missions = []
         already_interacted_ids = set(claimed_ids) | set(m["id"] for m in active_missions)
         
-        query = "SELECT id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, map_name FROM missions"
+        query = "SELECT id, title, description, target_alien, target_count, min_level, reward_xp, reward_credits, reward_paladio, reward_ammo_json, map_name, category, faction FROM missions"
         if already_interacted_ids:
             placeholders = ','.join(['?'] * len(already_interacted_ids))
             query += f" WHERE id NOT IN ({placeholders})"
@@ -1790,7 +1947,8 @@ def get_missions_db(username):
                 "id": m[0], "title": m[1], "description": m[2],
                 "target_alien": m[3], "target_count": m[4], "min_level": m[5],
                 "reward_xp": m[6], "reward_credits": m[7], "reward_paladio": m[8],
-                "reward_ammo": json.loads(m[9]), "map_name": localize_map(m[10], user_faction)
+                "reward_ammo": json.loads(m[9]), "map_name": localize_map(m[10], user_faction),
+                "category": m[11], "faction": m[12]
             })
 
         return {"active": active_missions, "available": available_missions, "completed": completed_missions}
@@ -1859,10 +2017,11 @@ def claim_mission_reward_db(username, mission_id):
         # XP and Level up (simplified, we should use similar logic as gain_xp)
         new_xp = uxp + rxp
         new_lvl = ulvl
-        xp_next = (new_lvl * (new_lvl + 1) // 2) * 1000
+        # Requisito para subir a nivel L+1: Total XP >= (L * (L+1) / 2) * 10000
+        xp_next = (new_lvl * (new_lvl + 1) // 2) * 10000
         while new_xp >= xp_next:
             new_lvl += 1
-            xp_next = (new_lvl * (new_lvl + 1) // 2) * 1000
+            xp_next = (new_lvl * (new_lvl + 1) // 2) * 10000
             
         # Ammo/Items (we'll just update inventory/ammo in users if needed, 
         # but in this game ammo is handled in a dict in memory and synced back.

@@ -820,13 +820,13 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
         let pColor3 = '#999999';
 
         if (isMarsPortal) {
-            pColor = '#ff6600'; pColor2 = '#ff3300'; pColor3 = '#990000';
+            pColor = '#ff2200'; pColor2 = '#cc0000'; pColor3 = '#880000'; // Mars: Red
         } else if (isMoonPortal) {
-            pColor = '#00ffff'; pColor2 = '#00ccff'; pColor3 = '#0088ff';
+            pColor = '#0088ff'; pColor2 = '#0044ff'; pColor3 = '#0000cc'; // Moon: Blue
         } else if (isPlutoPortal) {
-            pColor = '#6666ff'; pColor2 = '#3333ff'; pColor3 = '#000099';
+            pColor = '#bf00ff'; pColor2 = '#8a2be2'; pColor3 = '#4b0082'; // Pluto: Purple
         } else {
-            pColor = '#00ffff'; pColor2 = '#0088ff'; pColor3 = '#0044ff';
+            pColor = '#ffffff'; pColor2 = '#cccccc'; pColor3 = '#999999'; // Default: White/Gray
         }
 
         // Capas del Agujero de Gusano
@@ -2154,7 +2154,14 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
   // 4. Portales
   gameState.portals?.forEach(portal => {
     const isMarsPortal = portal.target.startsWith('mars');
-    ctx.strokeStyle = isMarsPortal ? '#ff6600' : '#00ffff';
+    const isMoonPortal = portal.target.startsWith('moon');
+    const isPlutoPortal = portal.target.startsWith('pluto');
+    
+    if (isMarsPortal) ctx.strokeStyle = '#ff2200';
+    else if (isMoonPortal) ctx.strokeStyle = '#0088ff';
+    else if (isPlutoPortal) ctx.strokeStyle = '#bf00ff';
+    else ctx.strokeStyle = '#ffffff';
+
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(mmX + portal.x * scaleX, mmY + portal.y * scaleY, 6, 0, Math.PI * 2);

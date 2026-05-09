@@ -38,6 +38,14 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Mercado Estelar**: Casa de subastas sincronizada para items exclusivos.
 - **HUD Táctico Modular**: Interfaz de combate con ChatBox movible, barra de habilidades dinámica y **Reloj Local Persistente** (Fecha/Hora).
 - **Legibilidad Visual**: Sistema de siglas de alta visibilidad en hotbar con superposición inteligente de stock.
+- **Insignias de Estatus**: Indicadores Visuales para usuarios **VIP** y estado **BETA** con animaciones dinámicas de pulso.
+
+### 📜 Épica: Progresión y Desafíos (Misiones)
+- **Nivelación Exponencial**: Sistema de progresión re-balanceado con curva de dificultad progresiva (Base 10,000 XP).
+- **Centro de Operaciones**: Sistema de misiones con interfaz de **Cartas 3D (Flip Effect)** para visualización de recompensas.
+- **Campaña Global**: +1000 misiones disponibles, incluyendo 240 misiones de **Invasión** categorizadas por facción.
+- **Loyalty Filter**: Sistema de filtrado inteligente que bloquea misiones contra la propia empresa para mantener coherencia táctica.
+- **Botín Proporcional**: Recompensas escaladas por dificultad de nave enemiga (Multiplicadores desde 1.0x hasta 45.0x).
 
 ---
 
@@ -61,6 +69,9 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Visuales de Vanguardia**: Eliminación de iconos genéricos (🔧) y uso de assets visuales de alta calidad para drones de reparación.
 - **Localización Temporal**: Formato de fecha y hora estandarizado a nivel local en correos y HUD.
 - **Red de Portales**: Reubicación estratégica de accesos en el sector Cañón del Óxido (mars_2).
+- **Curva de Nivelación**: Implementación de progresión exponencial para un endgame más longevo.
+- **Sistema de Invasión**: Despliegue de misiones por empresa con recompensas escaladas por dificultad.
+- **UI de Misiones 2.0**: Navegación lateral por subcategorías (Aliens/Empresas) y tarjetas interactivas.
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.

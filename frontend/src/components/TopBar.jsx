@@ -20,6 +20,20 @@ const TopBar = ({ credits, paladio, level, onlineCount, user, onLogout, onNaviga
             letterSpacing: '1px'
           }}>VIP</span>
         )}
+        <span style={{
+          background: 'linear-gradient(45deg, #00d4ff, #0055ff)',
+          color: '#fff',
+          fontWeight: '900',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '0.9rem',
+          marginLeft: '10px',
+          boxShadow: '0 0 15px rgba(0, 212, 255, 0.8), inset 0 0 5px rgba(255,255,255,0.4)',
+          textShadow: '0 0 5px rgba(255,255,255,0.5)',
+          letterSpacing: '1px',
+          animation: 'betaPulse 2s infinite ease-in-out',
+          display: 'inline-block'
+        }}>BETA</span>
       </div>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
         

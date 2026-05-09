@@ -2176,14 +2176,12 @@ class GameState:
         self.beacons = alive_beacons
 
     def spawn_alien(self, map_id="mars_1"):
-        if map_id == "neutral_1":
-            return
         # Determinar nombre del alien según el mapa
         if map_id in ["mars_1", "moon_1", "pluto_1"]:
             alien_name = "Gryllos"
         elif map_id in ["mars_2", "moon_2", "pluto_2"]:
             alien_name = "Xylos"
-        elif map_id in ["mars_3", "moon_3", "pluto_3"]:
+        elif map_id in ["mars_3", "moon_3", "pluto_3", "neutral_1"]:
             alien_name = "Nykor"
         elif map_id in ["mars_4", "moon_4", "pluto_4"]:
             alien_name = "Syrith"

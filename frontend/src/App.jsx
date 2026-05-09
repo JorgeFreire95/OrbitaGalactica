@@ -453,18 +453,8 @@ function App() {
           })
         });
         const result = await response.json();
-        if (result.success && result.updated_stats && hudState) {
-          // Actualización instantánea del HUD local con los valores calculados por el servidor
-          setHudState(prev => ({
-            ...prev,
-            max_cargo: result.updated_stats.max_cargo,
-            hp: result.updated_stats.hp,
-            max_hp: result.updated_stats.max_hp,
-            shld: result.updated_stats.shld,
-            max_shld: result.updated_stats.max_shld,
-            atk: result.updated_stats.atk,
-            spd: result.updated_stats.spd
-          }));
+        if (result.success && result.updated_stats) {
+          // Stats updated on backend
         }
       } catch (e) {
         console.log("Sync error:", e);
