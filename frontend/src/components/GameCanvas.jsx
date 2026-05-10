@@ -611,7 +611,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                   shld: me.shld, max_shld: me.max_shld,
                   atk: me.atk,
                   spd: me.spd,
-                  xp: me.xp, credits: me.credits, level: me.level,
+                  xp: me.xp, xp_next: me.xp_next, credits: me.credits, level: me.level,
                   paladio: me.paladio,
                   minerals: me.minerals, max_cargo: me.max_cargo,
                   in_safe_zone: me.in_safe_zone,
@@ -1204,6 +1204,25 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     <div className="status-item" style={{ background: 'rgba(100,0,200,0.1)', borderLeft: '2px solid #cc33ff' }}>
                         <span style={{ color: '#cc33ff' }}>🪐</span>
                         <span className="status-value">{(hudState?.paladio ?? 0).toLocaleString()} PAL</span>
+                    </div>
+                </div>
+
+                {/* XP PROGRESS BAR BLOCK */}
+                <div className="status-block hud-variant" style={{ marginTop: '5px', padding: '5px 12px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                        <span style={{ fontSize: '0.6rem', color: '#00ffcc', fontWeight: 'bold', letterSpacing: '0.5px' }}>PROGRESS XP</span>
+                        <span style={{ fontSize: '0.6rem', color: '#fff', opacity: 0.8 }}>
+                            {Math.floor(hudState?.xp ?? 0).toLocaleString()} / {Math.floor(hudState?.xp_next ?? 15000).toLocaleString()}
+                        </span>
+                    </div>
+                    <div style={{ width: '100%', height: '4px', background: 'rgba(0, 255, 204, 0.05)', borderRadius: '2px', overflow: 'hidden', border: '1px solid rgba(0, 255, 204, 0.1)' }}>
+                        <div style={{ 
+                            width: `${Math.min(100, ((hudState?.xp ?? 0) / (hudState?.xp_next || 1)) * 100)}%`, 
+                            height: '100%', 
+                            background: 'linear-gradient(90deg, #00ffcc, #00ccff)',
+                            boxShadow: '0 0 8px rgba(0, 255, 204, 0.4)',
+                            transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }} />
                     </div>
                 </div>
                 <div className="status-block hud-variant" style={{ minWidth: '200px' }}>

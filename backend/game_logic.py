@@ -13,6 +13,7 @@ class GameState:
         self.last_alien_spawn = time.time()
         self.alien_spawn_rate = 0.5 
         self.max_enemies = 1000 
+        self.player_persistence = {}
         self.kill_events = [] 
         self.loot_events = [] 
         self.damage_events = []
@@ -230,7 +231,7 @@ class GameState:
                     {"x": 2012, "y": 14088, "target": "pluto_7", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Estación Exilio"},
                     {"x": 1999, "y": 2024, "target": "pluto_6", "tx": 17532 - 220, "ty": 14300 - 220, "label": "Vórtice Sombrío"}
                 ],
-                "station": {"x": PB_X, "y": PB_Y} # Avanzada de Plutón
+                "station": {"x": 17300, "y": 7893} # Avanzada de Plutón
             },
             # --- MAPAS NEUTRALES ---
             "neutral_1": {
@@ -377,8 +378,8 @@ class GameState:
             "last_missile_shot": 0,
             "ammo_type": "standard",
             "level": initial_level,
-            "xp": initial_xp + (((initial_level - 1) * initial_level // 2) * 1000) if initial_xp < (((initial_level - 1) * initial_level // 2) * 1000) else initial_xp,
-            "xp_next": (initial_level * (initial_level + 1) // 2) * 1000,
+            "xp": initial_xp,
+            "xp_next": self.calculate_xp_next(initial_level),
             "minerals": initial_minerals if (initial_minerals and isinstance(initial_minerals, dict)) else {"titanium": 0, "plutonium": 0, "silicon": 0},
             "max_cargo": prof.get("cargo_capacity", 1500),
             "base_max_cargo": prof.get("cargo_capacity", 1500),
@@ -3031,6 +3032,18 @@ class GameState:
             
         print(f"Diseño actualizado y stats escaladas para {client_id}: {design_id}")
 
+    def calculate_xp_next(self, level):
+        """
+        Calcula el XP total acumulado necesario para subir al siguiente nivel (level + 1).
+        L1->L2: 15.000
+        L2->L3: 15.000 + 20.000 = 35.000
+        L3->L4: 35.000 + 25.000 = 60.000
+        """
+        total = 0
+        for i in range(1, level + 1):
+            total += 15000 + (i - 1) * 5000
+        return total
+
     def gain_xp(self, player, amount):
         # Aplicar bono de diseño si corresponde
         design_id = player.get("equipped_design")
@@ -3041,18 +3054,32 @@ class GameState:
         if player.get("eco") and player["eco"].get("active"):
             eco_portion = int(amount * 0.15)
             self.gain_eco_xp(player, eco_portion)
-            # El jugador recibe el resto (opcionalmente podrías darle el 100% y al ECO extra, 
-            # pero el usuario dijo "cierto porcentaje se vaya", lo que suele implicar división)
-            # amount = amount - eco_portion # Si queremos que sea compartido. 
-            # Mantendré el 100% para el jugador para que no sienta que el ECO le "roba" XP, 
-            # pero el ECO recibe su propia porción.
 
         player["xp"] += amount
+        
         # Level up logic (Cumulative System)
-        while player["xp"] >= player["xp_next"]:
+        leveled_up = False
+        while player["xp"] >= player.get("xp_next", 15000):
             player["level"] += 1
-            player["xp_next"] = player["level"] * 100000
-            player["hp"] = min(player["max_hp"], player["hp"] + 25)
+            player["xp_next"] = self.calculate_xp_next(player["level"])
+            player["hp"] = min(player["max_hp"], player["hp"] + 500) 
+            player["shld"] = player["max_shld"] 
+            leveled_up = True
+            
+            print(f"🚀 PLAYER LEVEL UP: {player.get('user_id')} | Level {player['level']} | Next: {player['xp_next']}")
+            
+            client_id = player.get("id")
+            if client_id:
+                self._send_sys_msg(client_id, f"🎊 ¡FELICIDADES! Has alcanzado el NIVEL {player['level']} 🎊")
+                self._send_sys_msg(client_id, f"📈 Siguiente nivel en: {player['xp_next'] - player['xp']} XP")
+
+        if leveled_up:
+            self.recalculate_player_stats(player)
+            user_id = player.get("user_id")
+            if user_id and "guest" not in str(user_id):
+                try:
+                    sync_user_stats(user_id, player["level"], player["xp"], player["credits"], player.get("paladio", 0))
+                except: pass
 
     def gain_eco_xp(self, player, amount):
         if not player.get("eco"): return

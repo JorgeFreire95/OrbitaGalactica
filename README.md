@@ -43,7 +43,7 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Identidad Corporativa**: Proceso de registro con logotipos oficiales de **MARS, MOON y PLUTO** y efectos visuales de facción.
 
 ### 📜 Épica: Progresión y Desafíos (Misiones)
-- **Nivelación Exponencial**: Sistema de progresión re-balanceado con curva de dificultad progresiva (Base 10,000 XP).
+- **Nivelación Progresiva**: Sistema de progresión re-balanceado con curva de dificultad cuadrática (Base 15,000 XP) para un escalado de nivel más desafiante.
 - **Centro de Operaciones**: Sistema de misiones con interfaz de **Cartas 3D (Flip Effect)** para visualización de recompensas.
 - **Campaña Global**: +1000 misiones disponibles, incluyendo 240 misiones de **Invasión** categorizadas por facción.
 - **Loyalty Filter**: Sistema de filtrado inteligente que bloquea misiones contra la propia empresa para mantener coherencia táctica.
@@ -77,6 +77,9 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Premium Asset Overhaul**: Sustitución de emojis por assets de alta fidelidad (4K/Futuristas) para CPUs de Ranuras y Minerales Estratégicos.
 - **Onboarding de Facción**: Integración de logotipos oficiales y micro-animaciones en la selección de empresa durante el registro.
 - **Persistencia de Transacciones**: Corrección del flujo de sincronización de misiles y munición, asegurando deducción y guardado persistente (Cero-Bloqueo).
+- **Sistema de XP Progresivo (V2)**: Refactorización completa del algoritmo de nivelación con base de 15,000 XP y escalado dinámico por nivel.
+- **Visualizador de Progreso (HUD)**: Integración de una barra de XP táctica con gradiente dinámico y efectos de brillo para seguimiento en tiempo real.
+- **Logística Galáctica (Pluto-8)**: Relocalización estratégica de la Estación Central en el sector Resplandor de Hielo para optimizar la defensa de la frontera.
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.
