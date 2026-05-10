@@ -696,13 +696,12 @@ function App() {
     };
   }, []);
 
-  // Sync on every relevant change (Transaction-based as requested)
   useEffect(() => {
     // We only sync if we are already logged in and not in the auth/faction screen
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible, eco, wips]);
+  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible, eco, wips, ammo]);
 
   useEffect(() => {
     if (user && user.faction) {

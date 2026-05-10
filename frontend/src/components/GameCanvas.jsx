@@ -292,7 +292,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
     const mouseX = screenX + cameraRef.current.x, mouseY = screenY + cameraRef.current.y;
     if(e.button === 0) {
       // Check if we clicked an ally to target them
-      const hitPlayer = gameStateRef.current?.players?.find(p => !p.is_self && Math.hypot(p.x - mouseX, p.y - mouseY) < 45);
+      const players = gameStateRef.current?.players || [];
+      const enemies = gameStateRef.current?.enemies || [];
+
+      const hitPlayer = players
+        .filter(p => !p.is_self && Math.hypot(p.x - mouseX, p.y - mouseY) < 45)
+        .sort((a, b) => Math.hypot(a.x - mouseX, a.y - mouseY) - Math.hypot(b.x - mouseX, b.y - mouseY))[0];
+
       if (hitPlayer) {
         keys.current.locked_target_id = hitPlayer.id;
         keys.current.target_x = null; 
@@ -302,7 +308,10 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
         return; 
       }
 
-      const hitTarget = gameStateRef.current?.enemies?.find(en => Math.hypot(en.x - mouseX, en.y - mouseY) < 45);
+      const hitTarget = enemies
+        .filter(en => Math.hypot(en.x - mouseX, en.y - mouseY) < 45)
+        .sort((a, b) => Math.hypot(a.x - mouseX, a.y - mouseY) - Math.hypot(b.x - mouseX, b.y - mouseY))[0];
+
       if (hitTarget) {
         keys.current.locked_target_id = hitTarget.id;
         keys.current.target_x = null; 

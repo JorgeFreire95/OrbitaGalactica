@@ -858,15 +858,12 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
             safe_level = max(level, curr_lvl)
             safe_xp = max(xp, curr_xp) if level >= curr_lvl else curr_xp
             
-            # Protección contra reseteo accidental de créditos a 0
-            # Si los créditos recibidos son 0 pero en DB hay más de 50,000, 
-            # ignoramos el 0 (probablemente un bug de sincronización/race condition)
+            # Sincronización de Monedas (Permitir gastar todo)
             safe_credits = credits
-            if credits <= 0 and curr_cred > 50000:
-                print(f"ALERTA: Intento de reseteo de créditos bloqueado para {username} ({curr_cred} -> {credits})")
-                safe_credits = curr_cred
-                
-            safe_paladio = max(paladio, curr_pal) if paladio <= 0 and curr_pal > 0 else paladio
+            safe_paladio = paladio
+            
+            if abs(curr_cred - credits) > 0 or abs(curr_pal - paladio) > 0:
+                print(f"Sync Stats for {username}: Credits {curr_cred} -> {credits}, Paladio {curr_pal} -> {paladio}")
         else:
             safe_level, safe_xp, safe_credits, safe_paladio = level, xp, credits, paladio
 

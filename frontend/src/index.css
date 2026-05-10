@@ -1818,8 +1818,22 @@ canvas {
 }
 
 .faction-icon {
-  font-size: 4rem;
   margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 120px;
+}
+
+.faction-logo {
+  width: 110px;
+  height: 110px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.faction-card:hover .faction-logo {
+  transform: scale(1.1);
 }
 
 .faction-card h2 {

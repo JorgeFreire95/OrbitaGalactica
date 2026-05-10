@@ -404,8 +404,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 game_state.update_wips(client_id, wips)
             
             elif data.get("type") == "update_resources" and player_added:
-                ammo_data = data.get("ammo_data", {})
-                game_state.update_resources(client_id, ammo_data)
+                game_state.update_resources(client_id, data)
 
             elif data.get("type") == "update_upgrades" and player_added:
                 upgrades = data.get("upgrades", {})

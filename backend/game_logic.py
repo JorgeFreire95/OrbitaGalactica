@@ -1850,6 +1850,9 @@ class GameState:
                 # Check contra aliens
                 for e in self.enemies:
                     if p.get("map_id") != e.get("map_id"): continue
+                    # Si el proyectil es teledirigido a un objetivo, ignorar otros enemigos que se crucen
+                    if p.get("target_id") and p.get("target_id") != e["id"] and p.get("is_homing"):
+                        continue
                     dist = math.hypot(p["x"] - e["x"], p["y"] - e["y"])
                     # Radio colisión mayor para armas de jugadores (100% efectividad/puntería)
                     laser_hit_radius = 80 if p.get("is_homing") else 35 
@@ -1980,6 +1983,9 @@ class GameState:
                     if p["owner_id"] == pid: continue # No friendly fire
                     if target["hp"] <= 0: continue
                     if p.get("map_id") != target.get("current_map"): continue # FIX: Map check
+                    # Si el proyectil es teledirigido a un objetivo, ignorar otros jugadores que se crucen
+                    if p.get("target_id") and p.get("target_id") != pid and p.get("is_homing"):
+                        continue
                     # Comprobar habilidad de invulnerabilidad
                     if "invulnerability" in target.get("active_abilities", {}): continue
 

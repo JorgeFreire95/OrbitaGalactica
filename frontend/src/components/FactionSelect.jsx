@@ -9,7 +9,8 @@ export default function FactionSelect({ onSelectFaction }) {
       color: '#ff3333',
       description: 'Una corporación forjada en hierro y sangre. Especializados en poder bélico pesado, expansión territorial inquebrantable y monopolio de asteroides ricos en minerales densos.',
       bonuses: '+5% Daño Láser | +10% Resistencia de Nave',
-      icon: '⚔️'
+      icon: '⚔️',
+      image: '/faction_mars.png'
     },
     {
       id: 'MOON',
@@ -18,7 +19,8 @@ export default function FactionSelect({ onSelectFaction }) {
       color: '#33ccff',
       description: 'Mentes brillantes enfocadas en el avance tecnológico. Cuentan con los escudos más avanzados del sistema y redes de sensores precisos. Quien tiene la información, tiene el control.',
       bonuses: '+10% Poder de Escudos | +5% Energía de Regeneración',
-      icon: '🛡️'
+      icon: '🛡️',
+      image: '/faction_moon.png'
     },
     {
       id: 'PLUTO',
@@ -27,7 +29,8 @@ export default function FactionSelect({ onSelectFaction }) {
       color: '#cc33ff',
       description: 'Sigilosos, ricos e implacables. Los amos del mercado negro y las rutas de contrabando. Prefieren golpear rápido desde las sombras y escapar con el botín.',
       bonuses: '+10% Velocidad de Motor | +5% Bonificación de Créditos',
-      icon: '⚛️'
+      icon: '⚛️',
+      image: '/faction_pluto.png'
     }
   ];
 
@@ -46,7 +49,9 @@ export default function FactionSelect({ onSelectFaction }) {
             onClick={() => onSelectFaction(f.id)}
           >
             <div className="faction-card-inner" style={{ '--faction-color': f.color }}>
-              <div className="faction-icon" style={{ textShadow: `0 0 20px ${f.color}` }}>{f.icon}</div>
+              <div className="faction-icon">
+                <img src={f.image} alt={f.name} className="faction-logo" style={{ filter: `drop-shadow(0 0 15px ${f.color})` }} />
+              </div>
               <h2 style={{ color: f.color }}>{f.name}</h2>
               <h4 style={{ color: 'white' }}>{f.title}</h4>
               <p>{f.description}</p>

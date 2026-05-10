@@ -24,7 +24,8 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **CPU de Misil Automático (CPU-MA)**: Sistema de fuego autónomo con seguimiento (Homing) y sincronización de stock.
 - **Módulos de Sigilo**: Tecnología de invisibilidad estándar y **Invisibilidad Avanzada** (ataque sin revelación).
 - **Habilidades de Clase**: Habilidades activas únicas (**Invulnerabilidad, Provocación, Refuerzo de Escudo**).
-- **Laboratorio de Minerales**: Refinado de recursos con bonos porcentuales (**+15% HP, +10% SHLD, +8% SPD, +5% ATK**).
+- **Laboratorio de Minerales**: Refinado de recursos con bonos porcentuales (**+15% HP, +10% SHLD, +8% SPD, +5% ATK**). Ahora con iconos de alta resolución (**Titanio, Plutonio**).
+- **CPUs de Expansión**: Módulos de ranuras adicionales (Nivel 1, 2 y 3) con visuales premium que muestran la capacidad de slots.
 
 ### 🤖 Épica: Sistemas de Apoyo (Drones & AI)
 - **E.C.O. (Emergency Companion Observer)**: Drone inteligente con nivel propio, sistema de combustible y protocolos de auto-reparación.
@@ -39,6 +40,7 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **HUD Táctico Modular**: Interfaz de combate con ChatBox movible, barra de habilidades dinámica y **Reloj Local Persistente** (Fecha/Hora).
 - **Legibilidad Visual**: Sistema de siglas de alta visibilidad en hotbar con superposición inteligente de stock.
 - **Insignias de Estatus**: Indicadores Visuales para usuarios **VIP** y estado **BETA** con animaciones dinámicas de pulso.
+- **Identidad Corporativa**: Proceso de registro con logotipos oficiales de **MARS, MOON y PLUTO** y efectos visuales de facción.
 
 ### 📜 Épica: Progresión y Desafíos (Misiones)
 - **Nivelación Exponencial**: Sistema de progresión re-balanceado con curva de dificultad progresiva (Base 10,000 XP).
@@ -72,11 +74,15 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Curva de Nivelación**: Implementación de progresión exponencial para un endgame más longevo.
 - **Sistema de Invasión**: Despliegue de misiones por empresa con recompensas escaladas por dificultad.
 - **UI de Misiones 2.0**: Navegación lateral por subcategorías (Aliens/Empresas) y tarjetas interactivas.
+- **Premium Asset Overhaul**: Sustitución de emojis por assets de alta fidelidad (4K/Futuristas) para CPUs de Ranuras y Minerales Estratégicos.
+- **Onboarding de Facción**: Integración de logotipos oficiales y micro-animaciones en la selección de empresa durante el registro.
+- **Persistencia de Transacciones**: Corrección del flujo de sincronización de misiles y munición, asegurando deducción y guardado persistente (Cero-Bloqueo).
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.
 - Mejora de IA para naves alienígenas tipo "Drakon".
 - Implementación de efectos visuales (Aura de Invulnerabilidad y Beacons).
+- Refactorización del motor de efectos especiales para partículas de alta densidad.
 
 ### 📅 To Do (Siguientes Sprints)
 - **Módulos de Estación**: Bases conquistables por clanes.

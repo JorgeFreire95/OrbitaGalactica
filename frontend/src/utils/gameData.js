@@ -166,9 +166,9 @@ export const MODULES_CATALOG = [
   { id: 'util_cloak_l', type: 'utility', lvl: 2, name: 'CPU de Camuflaje L CPU-CL', cost: 5000, currency: 'paladio', desc: 'Proporciona 10 camuflajes para hacer tu nave invisible.', icon: '🎭', image: '/cloak_cpu_l.png', charges: 10, is_cloak_cpu: true },
   { id: 'util_cloak_xl', type: 'utility', lvl: 2, name: 'CPU de Camuflaje XL CPU-CXL', cost: 22500, currency: 'paladio', desc: 'Proporciona 50 camuflajes para hacer tu nave invisible.', icon: '👺', image: '/cloak_cpu_xl.png', charges: 50, is_cloak_cpu: true },
   { id: 'util_cargo_compressor', type: 'utility', lvl: 2, name: 'Compresor de Carga CMP-C', cost: 10000, currency: 'paladio', desc: 'Duplica el tonelaje disponible con compresión molecular.', icon: '🎒', image: '/cargo_compressor.png', is_cargo_compressor: true },
-  { id: 'util_slot_cpu_1', type: 'utility', lvl: 1, name: 'CPU 1 de Ranuras CPU-R1', cost: 600000, currency: 'credits', desc: 'Añade 2 nuevas ranuras libres para extras en la nave.', icon: '🎛️', extraSlots: 2 },
-  { id: 'util_slot_cpu_2', type: 'utility', lvl: 2, name: 'CPU 2 de Ranuras CPU-R2', cost: 150000, currency: 'paladio', desc: 'Proporciona 6 nuevas ranuras para extras para tu nave.', icon: '📟', extraSlots: 6 },
-  { id: 'util_slot_cpu_3', type: 'utility', lvl: 3, name: 'CPU 3 de Ranuras CPU-R3', cost: 250000, currency: 'paladio', desc: 'Proporciona 10 ranuras nuevas para extras en la nave.', icon: '📼', extraSlots: 10 },
+  { id: 'util_slot_cpu_1', type: 'utility', lvl: 1, name: 'CPU 1 de Ranuras CPU-R1', cost: 600000, currency: 'credits', desc: 'Añade 2 nuevas ranuras libres para extras en la nave.', image: '/cpu_slots_1.png', icon: '🎛️', extraSlots: 2 },
+  { id: 'util_slot_cpu_2', type: 'utility', lvl: 2, name: 'CPU 2 de Ranuras CPU-R2', cost: 150000, currency: 'paladio', desc: 'Proporciona 6 nuevas ranuras para extras para tu nave.', image: '/cpu_slots_2.png', icon: '📟', extraSlots: 6 },
+  { id: 'util_slot_cpu_3', type: 'utility', lvl: 3, name: 'CPU 3 de Ranuras CPU-R3', cost: 250000, currency: 'paladio', desc: 'Proporciona 10 ranuras nuevas para extras en la nave.', image: '/cpu_slots_3.png', icon: '📼', extraSlots: 10 },
 ];
 
 export const WIPS_CATALOG = [
@@ -511,8 +511,8 @@ export const getRank = (level) => {
 };
 
 export const MINERAL_TYPES = [
-  { id: 'titanium', name: 'Titanio', color: '#00c8ff', icon: '💎', stat: 'shld', desc: 'Mejora escudos base', sellPrice: 15 },
-  { id: 'plutonium', name: 'Plutonio', color: '#ff3333', icon: '🏮', stat: 'atk',  desc: 'Mejora ataque base', sellPrice: 25 },
+  { id: 'titanium', name: 'Titanio', color: '#00c8ff', icon: '💎', image: '/mineral_titanium.png', stat: 'shld', desc: 'Mejora escudos base', sellPrice: 15 },
+  { id: 'plutonium', name: 'Plutonio', color: '#ff3333', icon: '🏮', image: '/mineral_plutonium.png', stat: 'atk',  desc: 'Mejora ataque base', sellPrice: 25 },
   { id: 'silicon',   name: 'Silicio',  color: '#00ffcc', icon: '💾', stat: 'spd',  desc: 'Mejora velocidad base', sellPrice: 18 },
   { id: 'iridium',   name: 'Iridio',   color: '#cc00ff', icon: '🔮', stat: 'hp',   desc: 'Mejora casco base', sellPrice: 50 },
 ];
