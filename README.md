@@ -51,8 +51,22 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 
 ---
 
-## 🛠️ 3. Tech Stack (Herramientas de Desarrollo)
+## 🛠️ 3. Arquitectura y Tech Stack (Herramientas de Desarrollo)
 
+### Arquitectura de 3 Capas (3-Tier Architecture)
+El proyecto está estructurado bajo una **Arquitectura de 3 Capas**, separando responsabilidades para garantizar la escalabilidad, mantenibilidad y seguridad del sistema:
+
+1. **Capa de Presentación (Frontend)**:
+   - **Tecnología:** React + Vite, Vanilla CSS, Canvas API.
+   - **Responsabilidad:** Gestión de la Interfaz de Usuario (UI), experiencia visual "Premium", animaciones, renderizado del cliente y recolección de entradas del jugador (teclado/ratón).
+2. **Capa de Lógica de Negocio (Backend)**:
+   - **Tecnología:** Python + FastAPI, WebSockets.
+   - **Responsabilidad:** Motor autoritativo del juego, validación de colisiones, cálculo de daño PvP/PvE, control de economía, seguridad antifraude y reglas de progresión de nivel/misiones.
+3. **Capa de Datos (Persistencia)**:
+   - **Tecnología:** SQLite.
+   - **Responsabilidad:** Almacenamiento seguro del estado del usuario, inventarios, progreso de misiones, configuración de naves y economía del juego persistente.
+
+### Stack Tecnológico
 | Componente | Tecnología | Rol |
 | :--- | :--- | :--- |
 | **Frontend** | React + Vite | Interfaz de Usuario y Gestión de Estado |
@@ -66,6 +80,10 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ## 📈 4. Sprint Status (Estado Actual del Desarrollo)
 
 ### ✅ Done (Terminado en el último incremento)
+- **Combate Interfacción (Cross-Faction PvP)**: Se eliminaron las restricciones de fuego amigo en zonas de combate, permitiendo la batalla entre jugadores de MARS, MOON y PLUTO, y conservando la protección en zonas seguras (bases y portales).
+- **HUD y Eventos de Daño PvP**: Implementación visual de daño recibido/realizado con código de colores e identificadores de jugador hostil (nombres rojos y retícula carmesí).
+- **Misiones de Invasión Interplanetaria**: Reestructuración de la base de datos de misiones para hacerlas agnósticas al mapa, con 50 niveles de progresión y recompensas exponenciales.
+- **Overhaul Gráfico de Minerales**: Integración de texturas de alta fidelidad para el **Titanio, Plutonio y Silicio**, sustituyendo placeholders genéricos en Laboratorio, Tienda y HUD en juego.
 - **Sincronización de Carga (CMP-C)**: Sincronización instantánea de bodega tras equipar módulos de compresión.
 - **Reloj del Sistema Local**: Integración de tiempo real del usuario en el HUD para sesiones persistentes.
 - **Visuales de Vanguardia**: Eliminación de iconos genéricos (🔧) y uso de assets visuales de alta calidad para drones de reparación.

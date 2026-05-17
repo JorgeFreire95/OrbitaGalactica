@@ -1755,6 +1755,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
     
     // Name
     ctx.fillStyle = '#fff';
+    if (me && me.faction && player.faction && me.faction !== player.faction) {
+        ctx.fillStyle = '#ff4444'; // Nombre rojo para enemigos
+    }
     ctx.font = '12px Orbitron';
     ctx.textAlign = 'center';
     let displayName = player.user_id || player.id.substring(0,6);
@@ -1784,6 +1787,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
         let color = '#00ffcc'; // Siempre verde/cian para aliados
         if (me) {
             dist = Math.hypot(player.x - me.x, player.y - me.y);
+            if (me.faction && player.faction && me.faction !== player.faction) {
+                color = '#ff0044'; // Rojo/Carmesí para enemigos
+            }
         }
 
         ctx.strokeStyle = color;

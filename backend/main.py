@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
@@ -16,8 +16,9 @@ import re
 
 import mercadopago
 
+from email_service import send_welcome_email
 from game_logic import GameState
-from database import init_db, register_user, login_user, set_user_faction, get_all_users_db, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, get_unread_messages_count_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_clan_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db, send_friend_request, accept_friend_request, get_friends, get_friend_requests
+from database import init_db, register_user, login_user, set_user_faction, get_all_users_db, update_user, delete_user, get_available_clans, create_clan_db, join_clan_db, get_user_clan_data, leave_clan_db, kick_member_db, get_user_messages_db, get_unread_messages_count_db, mark_message_read_db, sync_user_stats, update_clan_tax_db, collect_all_taxes, donate_from_clan_db, get_user_stats_db, get_clan_logs_db, get_user_by_email_db, set_reset_token_db, get_user_by_token_db, update_password_by_token_db, hash_password, get_leaderboard_db, get_clan_leaderboard_db, get_announcements_db, create_announcement_db, delete_announcement_db, get_clan_details_db, get_all_clans_detailed, get_clan_diplomacy_status, add_diplomacy_request, respond_diplomacy_request, get_missions_db, accept_mission_db, claim_mission_reward_db, send_friend_request, accept_friend_request, get_friends, get_friend_requests, send_system_message_db
 
 class RegisterRequest(BaseModel):
     username: str
@@ -647,10 +648,42 @@ async def api_get_diplomacy(clan_tag: str):
     return data
 
 @app.post("/api/set_faction")
-async def api_set_faction(req: SetFactionRequest):
+async def api_set_faction(req: SetFactionRequest, background_tasks: BackgroundTasks):
+    # Obtener datos actuales del usuario antes de actualizar
+    user_data = get_user_stats_db(req.username)
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    
+    # Si ya tiene facción, solo actualizamos (no enviamos correo de bienvenida de nuevo)
+    already_had_faction = user_data.get("faction") is not None
+    
     updated = set_user_faction(req.username, req.faction)
     if not updated:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    
+    # Si es la primera vez que elige facción, enviamos correo de bienvenida y mensaje interno
+    if not already_had_faction:
+        # Mensaje interno al juego
+        faction_names = {"MARS": "Industrias Mars", "MOON": "Corporación Lunar", "PLUTO": "Sindicato de Plutón"}
+        faction_name = faction_names.get(req.faction, req.faction)
+        
+        send_system_message_db(
+            req.username, 
+            "¡Bienvenido a la Flota!", 
+            f"Saludos Comandante. Has completado tu registro y te has unido a {faction_name}. Revisa tu correo electrónico para más detalles sobre tus primeros pasos. ¡Buena suerte en el espacio!"
+        )
+        logger.info(f"Mensaje interno de bienvenida enviado a {req.username}")
+
+        # Correo externo
+        if user_data.get("email"):
+            background_tasks.add_task(
+                send_welcome_email, 
+                user_data["email"], 
+                req.username, 
+                req.faction
+            )
+            logger.info(f"Tarea de correo de bienvenida programada para {req.username} ({user_data['email']})")
+
     return {"message": "Facción actualizada exitosamente."}
 
 class ShipUpdateRequest(BaseModel):
@@ -1043,11 +1076,29 @@ async def api_forgot_password(req: ForgotPasswordRequest):
     expiry = datetime.now() + timedelta(hours=1)
     set_reset_token_db(username, token, expiry.isoformat())
     
-    # Simulación de envío de correo
+    # Envío de correo de recuperación
+    from email_service import send_email
     reset_link = f"http://localhost:5173/?token={token}"
-    print(f"\n[EMAIL SIMULATION] Para: {req.email}")
-    print(f"[EMAIL SIMULATION] Enlace: {reset_link}\n")
-    logger.info(f"Password reset requested for {username}. Token generated.")
+    subject = "Recuperación de contraseña - Órbita Galáctica"
+    body_text = f"Hola, has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace: {reset_link}"
+    body_html = f"""
+    <html>
+    <body style="font-family: sans-serif; background-color: #0b0e14; color: #e0e0e0; padding: 20px;">
+        <div style="max-width: 500px; margin: 0 auto; background-color: #161b22; padding: 20px; border-radius: 8px; border: 1px solid #30363d;">
+            <h2 style="color: #58a6ff;">Recuperación de Contraseña</h2>
+            <p>Has solicitado restablecer tu contraseña en <strong>Órbita Galáctica</strong>.</p>
+            <p>Haz clic en el botón de abajo para elegir una nueva contraseña. Este enlace expirará en 1 hora.</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_link}" style="background-color: #238636; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Restablecer Contraseña</a>
+            </div>
+            <p style="font-size: 12px; color: #8b949e;">Si no solicitaste este cambio, puedes ignorar este correo con seguridad.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    background_tasks.add_task(send_email, req.email, subject, body_html, body_text)
+    logger.info(f"Tarea de recuperación de contraseña programada para {req.email}")
     
     return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
 

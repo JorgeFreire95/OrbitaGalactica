@@ -1082,6 +1082,7 @@ class GameState:
         # 1. Spawn Enemies (Por cada mapa)
         if now - self.last_alien_spawn > self.alien_spawn_rate:
             for map_id in self.MAPS:
+                if map_id == "neutral_1": continue # No spawn en zona neutral por petición
                 if len(self.enemies) >= self.max_enemies: break
                 
                 map_enemies_count = len([e for e in self.enemies if e.get("map_id") == map_id])
@@ -1336,7 +1337,10 @@ class GameState:
                 # Buscar objetivo (Enemigo o Jugador)
                 target_enemy = next((en for en in self.enemies if en["id"] == locked_id and en.get("map_id") == p["current_map"]), None)
                 if not target_enemy and locked_id in self.players and self.players[locked_id].get("current_map") == p["current_map"]:
-                    target_enemy = self.players[locked_id]
+                    potential_target = self.players[locked_id]
+                    # Solo permitir fijar como objetivo de ataque si es de facción enemiga
+                    if potential_target["faction"] != p["faction"]:
+                        target_enemy = potential_target
                 
                 # Si el objetivo no existe (murió o cambió mapa), limpiar
                 if not target_enemy:
@@ -1981,7 +1985,12 @@ class GameState:
                         break
                 # Check contra jugadores
                 for pid, target in self.players.items():
-                    if p["owner_id"] == pid: continue # No friendly fire
+                    attacker = self.players.get(p["owner_id"])
+                    if not attacker or attacker["id"] == pid: continue 
+                    
+                    # PvP: Solo permitir daño entre facciones diferentes (No Friendly Fire)
+                    if attacker["faction"] == target["faction"]: continue
+                    
                     if target["hp"] <= 0: continue
                     if p.get("map_id") != target.get("current_map"): continue # FIX: Map check
                     # Si el proyectil es teledirigido a un objetivo, ignorar otros jugadores que se crucen
@@ -1989,6 +1998,9 @@ class GameState:
                         continue
                     # Comprobar habilidad de invulnerabilidad
                     if "invulnerability" in target.get("active_abilities", {}): continue
+                    
+                    # No permitir PvP si alguno de los dos está en zona segura
+                    if target.get("in_safe_zone") or attacker.get("in_safe_zone"): continue
 
                     dist = math.hypot(p["x"] - target["x"], p["y"] - target["y"])
                     if dist < 20:
@@ -2009,8 +2021,79 @@ class GameState:
 
                         target["hp"] -= hp_dmg
                         
+                        # Enviar evento visual de daño PvP
+                        is_crit = random.random() < 0.15 # 15% Crit chance
+                        final_damage = damage * (1.5 if is_crit else 1.0)
+                        
+                        # El evento se muestra al atacante
+                        self.damage_events.append({
+                            "id": f"dmg_{random.random()}",
+                            "x": target["x"] + random.randint(-15, 15),
+                            "y": target["y"] + random.randint(-15, 15),
+                            "amount": int(final_damage),
+                            "time": now,
+                            "owner_id": p["owner_id"],
+                            "color": "#ff0044" if is_crit else "#ff99aa" # Colores para daño a enemigo
+                        })
+                        
+                        # El evento se muestra al que recibe el daño
+                        self.damage_events.append({
+                            "id": f"dmg_recv_{random.random()}",
+                            "x": target["x"] + random.randint(-15, 15),
+                            "y": target["y"] + random.randint(-15, 15),
+                            "amount": int(final_damage),
+                            "time": now,
+                            "owner_id": pid,
+                            "color": "#ff4444" # Rojo para daño recibido
+                        })
+                        
+                        # PvP Kill Reward Logic
+                        if target["hp"] <= 0:
+                            kill_reward_xp = 5000
+                            kill_reward_credits = 10000
+                            kill_reward_paladio = 10
+                            
+                            attacker["credits"] += kill_reward_credits
+                            attacker["paladio"] = attacker.get("paladio", 0) + kill_reward_paladio
+                            self.gain_xp(attacker, kill_reward_xp)
+                            
+                            self.kill_events.append({
+                                "id": f"pvp_{random.random()}",
+                                "x": target["x"], "y": target["y"],
+                                "xp": kill_reward_xp,
+                                "credits": kill_reward_credits,
+                                "paladio": kill_reward_paladio,
+                                "time": now,
+                                "owner_id": p["owner_id"]
+                            })
+                            
+                            # Actualizar misiones de invasión del atacante
+                            if target.get("faction"):
+                                target_faction_name = f"Jugador {target['faction']}"
+                                self._update_mission_progress(attacker, target_faction_name)
+                            
+                            # Chat announcement
+                            import asyncio
+                            import json
+                            loop = asyncio.get_event_loop()
+                            msg = json.dumps({
+                                "type": "chat_update",
+                                "message": {
+                                    "id": "sys_" + str(time.time()),
+                                    "sender": "SISTEMA",
+                                    "display_name": "SISTEMA",
+                                    "text": f"⚔️ {attacker.get('user_id', 'Piloto')} ha destruido a {target.get('user_id', 'Piloto')}",
+                                    "channel": "global",
+                                    "faction": "SYSTEM",
+                                    "time": time.time()
+                                }
+                            })
+                            if loop.is_running():
+                                for client in self.clients.values():
+                                    loop.create_task(client.send_text(msg))
+                        
                         # Trigger Kamikaze if HP < 20%
-                        if target["hp"] > 0 and target["hp"] < target["max_hp"] * 0.2:
+                        elif target["hp"] < target["max_hp"] * 0.2:
                             self.trigger_eco_kamikaze(pid)
 
                         hit = True
@@ -2064,8 +2147,8 @@ class GameState:
                 
         self.projectiles = alive_projectiles
         
-        # Aliens muertos desaparecen
-        self.enemies = [e for e in self.enemies if e["hp"] > 0]
+        # Aliens muertos desaparecen (y aliens en zona neutral si alguno quedó)
+        self.enemies = [e for e in self.enemies if e["hp"] > 0 and e.get("map_id") != "neutral_1"]
         
         # Jugadores vs Cajas (Looting)
         alive_boxes = []
@@ -2183,6 +2266,7 @@ class GameState:
         self.beacons = alive_beacons
 
     def spawn_alien(self, map_id="mars_1"):
+        if map_id == "neutral_1": return # Seguridad extra: No spawn en neutral
         # Determinar nombre del alien según el mapa
         if map_id in ["mars_1", "moon_1", "pluto_1"]:
             alien_name = "Gryllos"

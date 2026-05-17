@@ -445,19 +445,8 @@ def init_missions(conn):
                 current_id += 1
 
         # --- 2. INVASION MISSIONS (New Category) ---
-        # 8 Missions per Ship per Faction = 3 * 10 * 8 = 240 Missions
-        invasion_maps = {
-            "MARS": ["Cráter de Cristal", "Valles de Magma", "Zona Neutral 1"],
-            "MOON": ["Bahía de Selene", "Mar de la Tranquilidad", "Punta del Horizonte"],
-            "PLUTO": ["Abismo de Caronte", "Sector de Hierro", "Fundición Ares"]
-        }
-        
-        target_ships = [
-            "Phoenix (Básica)", "Aegis Vanguard", "Nova Striker (Rápida)", 
-            "Orion Phantom", "Titan Hammer", "Helix Support", 
-            "Sovereign Exterminator", "Cosmic Harvester", "Solar Wind", 
-            "Obsidian Bastion"
-        ]
+        # 50 Missions per Faction
+        factions = ["MARS", "MOON", "PLUTO"]
 
         # Faction-specific adjectives for random titles
         f_adj = {
@@ -466,56 +455,42 @@ def init_missions(conn):
             "PLUTO": ["Oscuro", "Plutónico", "Abisal", "Siniestro", "Espectral"]
         }
 
-        for faction, maps in invasion_maps.items():
-            for ship in target_ships:
-                for i in range(1, 9): # 8 missions per ship
-                    m_map = random.choice(maps)
-                    adj = random.choice(f_adj[faction])
-                    codename = random.choice(codenames)
-                    
-                    title = f"INVASIÓN {faction}: {adj} {codename} {i}"
-                    desc = f"Infiltración táctica. Localiza y neutraliza {5+i} naves modelo {ship} de la flota de {faction} en {m_map}."
-                    
-                    # ship difficulty multipliers
-                    ship_mults = {
-                        "Phoenix (Básica)": 1.0,
-                        "Aegis Vanguard": 1.5,
-                        "Nova Striker (Rápida)": 2.0,
-                        "Orion Phantom": 3.0,
-                        "Titan Hammer": 5.0,
-                        "Helix Support": 6.5,
-                        "Sovereign Exterminator": 10.0,
-                        "Cosmic Harvester": 15.0,
-                        "Solar Wind": 25.0,
-                        "Obsidian Bastion": 45.0
-                    }
-                    mult = ship_mults.get(ship, 1.0)
-                    
-                    # Rewards scaling based on ship and mission index (i)
-                    reward_xp = int(2500 * mult * (1 + i * 0.25))
-                    reward_credits = int(6000 * mult * (1 + i * 0.4))
-                    reward_paladio = int(5 * mult * (1 + i * 0.15))
-                    
-                    ammo = {"thermal": 500 * i, "plasma": 100 * i}
-                    if i > 5: ammo["siphon"] = 50 * i
-                    
-                    missions.append((
-                        current_id,
-                        title,
-                        desc,
-                        ship,
-                        5 + i,
-                        1,
-                        reward_xp,
-                        reward_credits,
-                        reward_paladio,
-                        json.dumps(ammo),
-                        m_map,
-                        current_id + 1 if i < 8 else None,
-                        'invasion',
-                        faction
-                    ))
-                    current_id += 1
+        for faction in factions:
+            for i in range(1, 51): # 50 misiones de invasión por facción
+                adj = random.choice(f_adj[faction])
+                codename = random.choice(codenames)
+                
+                title = f"INVASIÓN {faction}: {adj} {codename} {i}"
+                desc = f"Infiltración táctica. Localiza y neutraliza a {i} jugadores de la facción {faction} en Cualquier Mapa."
+                
+                # Rewards scaling based on difficulty
+                reward_xp = int(5000 * (1 + i * 0.5))
+                reward_credits = int(10000 * (1 + i * 0.5))
+                reward_paladio = int(10 * (1 + i * 0.25))
+                
+                ammo = {"thermal": 500 * i, "plasma": 100 * i}
+                if i > 10: ammo["siphon"] = 50 * i
+                if i > 20: ammo["missile_3"] = 2 * i
+                
+                target_name = f"Jugador {faction}"
+                
+                missions.append((
+                    current_id,
+                    title,
+                    desc,
+                    target_name,
+                    i, # El número de bajas requeridas aumenta con la misión
+                    1,
+                    reward_xp,
+                    reward_credits,
+                    reward_paladio,
+                    json.dumps(ammo),
+                    "Cualquier Mapa",
+                    current_id + 1 if i < 50 else None,
+                    'invasion',
+                    faction
+                ))
+                current_id += 1
 
         # Final insertion
         c.executemany('''
@@ -559,9 +534,9 @@ def get_user_stats_db(username):
     c = conn.cursor()
     try:
         try:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json, ammo_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json, ammo_json, email, faction FROM users WHERE username = ?', (username,))
         except sqlite3.OperationalError:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json, \'{}\' as ammo_json FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json, \'{}\' as ammo_json, NULL as email, NULL as faction FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -600,7 +575,9 @@ def get_user_stats_db(username):
             "is_invisible": bool(row[10]) if len(row) > 10 else False,
             "wips": wips,
             "eco": eco,
-            "ammo": ammo
+            "ammo": ammo,
+            "email": row[14] if len(row) > 14 else None,
+            "faction": row[15] if len(row) > 15 else None
         }
     finally:
         conn.close()

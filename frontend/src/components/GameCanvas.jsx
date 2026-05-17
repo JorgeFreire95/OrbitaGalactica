@@ -1309,13 +1309,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
                         {[
-                            { type: 'titanium', icon: '🔹' },
-                            { type: 'plutonium', icon: '🏮' },
-                            { type: 'silicon', icon: '💾' },
+                            { type: 'titanium', img: '/mineral_titanium.png', icon: '🔹' },
+                            { type: 'plutonium', img: '/mineral_plutonium.png', icon: '🏮' },
+                            { type: 'silicon', img: '/silicon.jpg' },
                             { type: 'iridium', icon: '☄️' }
                         ].map(m => (
                             <span key={m.type} style={{ fontSize: '0.65rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                <span style={{ fontSize: '0.8rem' }}>{m.icon}</span>
+                                {m.img ? <img src={m.img} alt={m.type} style={{ width: '12px', height: '12px', objectFit: 'contain' }} /> : <span style={{ fontSize: '0.8rem' }}>{m.icon}</span>}
                                 <span style={{ color: '#aaa' }}>{hudState?.minerals?.[m.type] || 0}</span>
                             </span>
                         ))}

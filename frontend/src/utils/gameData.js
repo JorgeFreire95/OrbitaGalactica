@@ -513,7 +513,7 @@ export const getRank = (level) => {
 export const MINERAL_TYPES = [
   { id: 'titanium', name: 'Titanio', color: '#00c8ff', icon: '💎', image: '/mineral_titanium.png', stat: 'shld', desc: 'Mejora escudos base', sellPrice: 15 },
   { id: 'plutonium', name: 'Plutonio', color: '#ff3333', icon: '🏮', image: '/mineral_plutonium.png', stat: 'atk',  desc: 'Mejora ataque base', sellPrice: 25 },
-  { id: 'silicon',   name: 'Silicio',  color: '#00ffcc', icon: '💾', stat: 'spd',  desc: 'Mejora velocidad base', sellPrice: 18 },
+  { id: 'silicon',   name: 'Silicio',  color: '#00ffcc', icon: '💾', image: '/silicon.jpg', stat: 'spd',  desc: 'Mejora velocidad base', sellPrice: 18 },
   { id: 'iridium',   name: 'Iridio',   color: '#cc00ff', icon: '🔮', stat: 'hp',   desc: 'Mejora casco base', sellPrice: 50 },
 ];
 

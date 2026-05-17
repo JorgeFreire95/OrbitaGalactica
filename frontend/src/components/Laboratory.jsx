@@ -6,9 +6,9 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
   const maxCargo = selectedShip?.cargo_capacity || 50;
 
   const mineralTypes = [
-    { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', color: '#ff3333', amount: 50, bonus: 5, desc: 'Aumenta el daño total de tus láseres en un 5%' },
-    { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', color: '#00c8ff', amount: 50, bonus: 10, desc: 'Refuerza la capacidad máxima de tus escudos en un 10%' },
-    { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', color: '#00ffcc', amount: 50, bonus: 8, desc: 'Mejora la velocidad de propulsión en un 8%' },
+    { id: 'plutonium', name: 'Plutonio', stat: 'atk', icon: '🏮', image: '/mineral_plutonium.png', color: '#ff3333', amount: 50, bonus: 5, desc: 'Aumenta el daño total de tus láseres en un 5%' },
+    { id: 'titanium',  name: 'Titanio',  stat: 'shld', icon: '💎', image: '/mineral_titanium.png', color: '#00c8ff', amount: 50, bonus: 10, desc: 'Refuerza la capacidad máxima de tus escudos en un 10%' },
+    { id: 'silicon',   name: 'Silicio',   stat: 'spd',  icon: '💾', image: '/silicon.jpg', color: '#00ffcc', amount: 50, bonus: 8, desc: 'Mejora la velocidad de propulsión en un 8%' },
     { id: 'iridium',   name: 'Iridio',    stat: 'hp',   icon: '🧲', color: '#ff4466', amount: 50, bonus: 15, desc: 'Aumenta la vida estructural de tu casco (PV) en un 15%' },
   ];
 
@@ -69,7 +69,11 @@ const Laboratory = ({ minerals, upgrades, onRefine, onSellMinerals, onBack, onNa
                 gap: '25px'
               }}>
                 <div style={{ fontSize: '4rem', background: 'rgba(0,0,0,0.3)', width: '100px', height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '15px', border: `1px solid ${min.color}44` }}>
-                  {min.icon}
+                  {min.image ? (
+                    <img src={min.image} alt={min.name} style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', filter: `drop-shadow(0 0 10px ${min.color})` }} />
+                  ) : (
+                    min.icon
+                  )}
                 </div>
                 
                 <div style={{ flex: 1 }}>
