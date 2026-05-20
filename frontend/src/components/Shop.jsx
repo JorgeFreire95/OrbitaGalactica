@@ -38,7 +38,7 @@ export default function Shop({
 
   const handleBuyModule = (module, qty = 1) => {
     const currency = module.currency || 'credits';
-    const totalCost = module.cost * qty;
+    const totalCost = getDiscountedCost(module.cost * qty);
     
     if (currency === 'paladio') {
       if (paladio < totalCost) return alert('No tienes suficiente paladio');
@@ -60,6 +60,14 @@ export default function Shop({
   const triggerSuccess = (msg) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const isVip = !!(user?.vip_until && new Date(user.vip_until) > new Date());
+  const getDiscountedCost = (baseCost) => {
+    if (isVip && activeCategory === 'disenos') {
+      return Math.max(1, Math.round(baseCost * 0.9));
+    }
+    return baseCost;
   };
 
   const categories = [
@@ -197,7 +205,7 @@ export default function Shop({
     return currentItem.cost * currentQty;
   };
 
-  const currentTotalCost = getDynamicCost();
+  const currentTotalCost = getDiscountedCost(getDynamicCost());
 
   const isAffordable = currentItem 
     ? ( (activeCategory === 'wips' && currentItem.id === 'sparks') || currentItem.currency === 'paladio' 
@@ -618,6 +626,11 @@ export default function Shop({
                        isMineral ? (amountOwned * currentItem.sellPrice).toLocaleString() : currentTotalCost.toLocaleString()} {currentItem.currency === 'paladio' ? 'PAL' : 'Cr'}
                     </div>
                   </div>
+                  {isVip && activeCategory === 'disenos' && (
+                    <div style={{ fontSize: '0.75rem', color: '#00ffcc', marginTop: '-6px' }}>
+                      10% de descuento VIP aplicado sobre el precio original.
+                    </div>
+                  )}
                   <button 
                     className="buy-button" 
                     disabled={isMineral ? amountOwned === 0 : (activeCategory === 'naves' && ownedShips.includes(currentItem.id)) || (activeCategory === 'eco' && currentItem.id === 'eco' && eco.active) || (activeCategory === 'disenos' && inventory.find(i => i.id === currentItem.id)) || !isAffordable}
@@ -681,7 +694,11 @@ export default function Shop({
                 {selectedItem.currency === 'paladio' ? 'paladio' : 'créditos'} de tu cuenta.
               </span>
             </p>
-
+            {isVip && activeCategory === 'disenos' && !isMineral && (
+              <div style={{ color: '#00ffcc', fontSize: '0.85rem', marginTop: '-10px', marginBottom: '10px' }}>
+                Descuento VIP del 10% aplicado.
+              </div>
+            )}
             {selectedItem?.id === 'eco' && (
               <div style={{ marginBottom: '30px', textAlign: 'left' }}>
                 <label style={{ color: '#00ffcc', fontSize: '0.75rem', display: 'block', marginBottom: '10px', fontFamily: 'Orbitron' }}>ASIGNA UN NOMBRE A TU E.C.O.:</label>
@@ -707,7 +724,7 @@ export default function Shop({
                 />
               </div>
             )}
-            
+
             <div style={{ display: 'flex', gap: '15px' }}>
               <button 
                 onClick={executePurchase}

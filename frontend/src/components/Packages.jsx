@@ -110,7 +110,7 @@ export default function Packages({ user, paladio, setPaladio, onBack }) {
         <div className="dashboard-panel" style={{ gridColumn: 2 }}>
           <div className="panel-header">
             <span>{selectedSection === 'vip' ? 'Detalle Paquete VIP' : 'Paquetes de Paladio'}</span>
-            <span style={{ fontSize: '1.2rem' }}>{selectedSection === 'vip' ? '💎' : '💰'}</span>
+            <span style={{ fontSize: '1.2rem' }}>{selectedSection === 'vip' ? '💎' : ''}</span>
           </div>
           <div className="panel-content">
             {selectedSection === 'vip' ? (
@@ -124,6 +124,7 @@ export default function Packages({ user, paladio, setPaladio, onBack }) {
                   <ul>
                     <li><span>🔧</span> Reparación gratuita</li>
                     <li><span>💰</span> 10% de descuento en todas las compras de paladio</li>
+                    <li><span>🎨</span> 10% de descuento en los diseños de la tienda</li>
                     <li><span>⚡</span> Acceso VIP a eventos especiales</li>
                   </ul>
                 </div>

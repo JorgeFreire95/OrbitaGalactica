@@ -20,6 +20,7 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 ### ⚔️ Épica: Combate y Personalización
 - **Flota Estelar**: 10 modelos de naves, incluyendo la nueva **Helix Support** especializada en soporte táctico.
 - **Diseños Legendarios (Premium Skins)**: Sistema de personalización con bonos de combate reales (HP, Escudo, Daño, Absorción).
+- **Descuento VIP en Diseños**: Usuarios VIP reciben 10% de descuento en los diseños de la tienda.
 - **Arsenal Inteligente**: Láseres de 4 niveles y misiles teledirigidos (**M-1 Seta, M-2 Ciclón, M-3 Giga-Nuke**).
 - **CPU de Misil Automático (CPU-MA)**: Sistema de fuego autónomo con seguimiento (Homing) y sincronización de stock.
 - **Módulos de Sigilo**: Tecnología de invisibilidad estándar y **Invisibilidad Avanzada** (ataque sin revelación).
@@ -83,7 +84,8 @@ El proyecto está estructurado bajo una **Arquitectura de 3 Capas**, separando r
 - **Combate Interfacción (Cross-Faction PvP)**: Se eliminaron las restricciones de fuego amigo en zonas de combate, permitiendo la batalla entre jugadores de MARS, MOON y PLUTO, y conservando la protección en zonas seguras (bases y portales).
 - **HUD y Eventos de Daño PvP**: Implementación visual de daño recibido/realizado con código de colores e identificadores de jugador hostil (nombres rojos y retícula carmesí).
 - **Misiones de Invasión Interplanetaria**: Reestructuración de la base de datos de misiones para hacerlas agnósticas al mapa, con 50 niveles de progresión y recompensas exponenciales.
-- **Overhaul Gráfico de Minerales**: Integración de texturas de alta fidelidad para el **Titanio, Plutonio y Silicio**, sustituyendo placeholders genéricos en Laboratorio, Tienda y HUD en juego.
+- **Overhaul Gráfico de Minerales**: Integración de texturas de alta fidelidad para el **Titanio, Plutonio, Silicio e Iridio**, sustituyendo placeholders genéricos en Laboratorio, Tienda y HUD en juego.
+- **Descuento VIP en Diseños de Tienda**: Implementación de descuento del 10% para usuarios VIP al comprar diseños.
 - **Sincronización de Carga (CMP-C)**: Sincronización instantánea de bodega tras equipar módulos de compresión.
 - **Reloj del Sistema Local**: Integración de tiempo real del usuario en el HUD para sesiones persistentes.
 - **Visuales de Vanguardia**: Eliminación de iconos genéricos (🔧) y uso de assets visuales de alta calidad para drones de reparación.
