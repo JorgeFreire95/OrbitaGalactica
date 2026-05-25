@@ -59,6 +59,7 @@ class SyncRequest(BaseModel):
     wips: Optional[list] = None
     eco: Optional[dict] = None
     ammo: Optional[dict] = None
+    altares: Optional[dict] = None
 
 
 class ClanCreateRequest(BaseModel):
@@ -892,6 +893,232 @@ async def api_auction_bid(req: AuctionBidRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+class AltarMaterializeRequest(BaseModel):
+    username: str
+    portal: str # 'nexus', 'eclipse', or 'cosmos'
+
+@app.post("/api/user/altars/materialize")
+async def api_materialize_altar_piece(req: AltarMaterializeRequest):
+    username = req.username
+    portal = req.portal
+    if portal not in ["nexus", "eclipse", "cosmos"]:
+        raise HTTPException(status_code=400, detail="Portal inválido")
+    
+    # 1. Buscar en memoria si está online
+    p_mem = None
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == username:
+            p_mem = p
+            break
+            
+    if p_mem:
+        if "altares" not in p_mem or not p_mem["altares"]:
+            p_mem["altares"] = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
+        
+        if p_mem["altares"]["energy"] < 1:
+            raise HTTPException(status_code=400, detail="No tienes suficiente Energía Extra")
+            
+        p_mem["altares"]["energy"] -= 1
+        p_mem["altares"][portal] += 1
+        
+        # Sincronizar en DB
+        sync_user_stats(
+            username=username, level=p_mem["level"], xp=p_mem["xp"], 
+            credits=p_mem["credits"], paladio=p_mem["paladio"], 
+            altares=p_mem["altares"]
+        )
+        return {"success": True, "altares": p_mem["altares"]}
+    else:
+        # Offline: Cargar desde DB, modificar y guardar
+        stats = get_user_stats_db(username)
+        if not stats:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            
+        altares = stats.get("altares", {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}})
+        if altares.get("energy", 0) < 1:
+            raise HTTPException(status_code=400, detail="No tienes suficiente Energía Extra")
+            
+        altares["energy"] -= 1
+        altares[portal] += 1
+        
+        sync_user_stats(
+            username=username, level=stats["level"], xp=stats["xp"], 
+            credits=stats["credits"], paladio=stats["paladio"], 
+            altares=altares
+        )
+        return {"success": True, "altares": altares}
+
+@app.post("/api/user/altars/test_fill")
+async def api_test_fill(req: AltarCompleteRequest):
+    username = req.username
+    portal = req.portal
+    limits = {"nexus": 25, "eclipse": 30, "cosmos": 35}
+    if portal not in limits:
+        raise HTTPException(status_code=400, detail="Portal inválido")
+    req_pieces = limits[portal]
+    p_mem = None
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == username:
+            p_mem = p
+            break
+    if p_mem:
+        if "altares" not in p_mem or not p_mem["altares"]:
+            p_mem["altares"] = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
+        p_mem["altares"][portal] = req_pieces
+        sync_user_stats(
+            username=username, level=p_mem["level"], xp=p_mem["xp"],
+            credits=p_mem["credits"], paladio=p_mem["paladio"],
+            altares=p_mem["altares"]
+        )
+        return {"success": True, "altares": p_mem["altares"]}
+    else:
+        stats = get_user_stats_db(username)
+        if not stats:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        altares = stats.get("altares", {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}})
+        altares[portal] = req_pieces
+        sync_user_stats(
+            username=username, level=stats["level"], xp=stats["xp"],
+            credits=stats["credits"], paladio=stats["paladio"],
+            altares=altares
+        )
+        return {"success": True, "altares": altares}
+
+class AltarCompleteRequest(BaseModel):
+    username: str
+    portal: str # 'nexus', 'eclipse', or 'cosmos'
+
+@app.post("/api/user/altars/complete")
+async def api_complete_altar_portal(req: AltarCompleteRequest):
+    username = req.username
+    portal = req.portal
+    
+    limits = {"nexus": 25, "eclipse": 30, "cosmos": 35}
+    if portal not in limits:
+        raise HTTPException(status_code=400, detail="Portal inválido")
+        
+    req_pieces = limits[portal]
+    
+    # 1. Buscar en memoria si está online
+    p_mem = None
+    for pid, p in game_state.players.items():
+        if p.get("user_id") == username:
+            p_mem = p
+            break
+            
+    # Configurar recompensas (con XP y munición Plasma para todos)
+    rewards = {
+        "nexus": {"credits": 50000, "paladio": 500, "xp": 25000, "ammo": {"plasma": 5000}, "buff": {"stat": "hp", "amount": 10}},
+        "eclipse": {"credits": 100000, "paladio": 1000, "xp": 50000, "ammo": {"plasma": 5000}, "buff": {"stat": "shld", "amount": 15}},
+        "cosmos": {"credits": 250000, "paladio": 2500, "xp": 100000, "ammo": {"plasma": 5000}, "buff": {"stat": "atk", "amount": 10}}
+    }
+    
+    r = rewards[portal]
+    now_ms = int((time.time() + 3600) * 1000)
+    
+    if p_mem:
+        if "altares" not in p_mem or not p_mem["altares"]:
+            p_mem["altares"] = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
+            
+        if p_mem["altares"].get(portal, 0) < req_pieces:
+            raise HTTPException(status_code=400, detail=f"No tienes suficientes piezas para completar el Portal {portal.capitalize()}")
+            
+        # Descontar piezas e incrementar completados
+        p_mem["altares"][portal] -= req_pieces
+        if "completions" not in p_mem["altares"]:
+            p_mem["altares"]["completions"] = {"nexus": 0, "eclipse": 0, "cosmos": 0}
+        p_mem["altares"]["completions"][portal] += 1
+        
+        # Dar recompensas
+        p_mem["credits"] += r["credits"]
+        p_mem["paladio"] += r["paladio"]
+        game_state.gain_xp(p_mem, r["xp"]) # Dar experiencia
+        if "ammo" not in p_mem:
+            p_mem["ammo"] = {}
+        for ammo_key, qty in r["ammo"].items():
+            p_mem["ammo"][ammo_key] = p_mem["ammo"].get(ammo_key, 0) + qty
+            
+        # Dar timed buff
+        stat = r["buff"]["stat"]
+        amount = r["buff"]["amount"]
+        if "timed_upgrades" not in p_mem or p_mem["timed_upgrades"] is None:
+            p_mem["timed_upgrades"] = {"atk": [], "shld": [], "spd": [], "hp": []}
+        p_mem["timed_upgrades"][stat].append({"amount": amount, "expires": now_ms})
+        
+        # Recalcular stats
+        game_state.recalculate_player_stats(p_mem)
+        
+        # Guardar en DB
+        sync_user_stats(
+            username=username, level=p_mem["level"], xp=p_mem["xp"],
+            credits=p_mem["credits"], paladio=p_mem["paladio"],
+            timed_upgrades=p_mem["timed_upgrades"], ammo={**p_mem["ammo"], **p_mem.get("missiles", {})},
+            altares=p_mem["altares"]
+        )
+        
+        return {
+            "success": True, 
+            "altares": p_mem["altares"],
+            "credits": p_mem["credits"],
+            "paladio": p_mem["paladio"],
+            "ammo": {**p_mem["ammo"], **p_mem.get("missiles", {})},
+            "timed_upgrades": p_mem["timed_upgrades"]
+        }
+    else:
+        # Offline
+        stats = get_user_stats_db(username)
+        if not stats:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+            
+        altares = stats.get("altares", {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}})
+        if altares.get(portal, 0) < req_pieces:
+            raise HTTPException(status_code=400, detail=f"No tienes suficientes piezas para completar el Portal {portal.capitalize()}")
+            
+        altares[portal] -= req_pieces
+        if "completions" not in altares:
+            altares["completions"] = {"nexus": 0, "eclipse": 0, "cosmos": 0}
+        altares["completions"][portal] += 1
+        
+        new_credits = stats["credits"] + r["credits"]
+        new_paladio = stats["paladio"] + r["paladio"]
+        
+        # Incrementar XP offline y recalcular nivel
+        new_xp = stats["xp"] + r["xp"]
+        new_level = stats["level"]
+        while True:
+            xp_needed = 0
+            for i in range(1, new_level + 1):
+                xp_needed += 15000 + (i - 1) * 5000
+            if new_xp >= xp_needed:
+                new_level += 1
+            else:
+                break
+        
+        db_ammo = stats.get("ammo", {"standard": 0})
+        for ammo_key, qty in r["ammo"].items():
+            db_ammo[ammo_key] = db_ammo.get(ammo_key, 0) + qty
+            
+        timed_upgrades = stats.get("timed_upgrades", {"atk": [], "shld": [], "spd": [], "hp": []})
+        stat = r["buff"]["stat"]
+        amount = r["buff"]["amount"]
+        timed_upgrades[stat].append({"amount": amount, "expires": now_ms})
+        
+        sync_user_stats(
+            username=username, level=new_level, xp=new_xp,
+            credits=new_credits, paladio=new_paladio,
+            timed_upgrades=timed_upgrades, ammo=db_ammo,
+            altares=altares
+        )
+        
+        return {
+            "success": True,
+            "altares": altares,
+            "credits": new_credits,
+            "paladio": new_paladio,
+            "ammo": db_ammo,
+            "timed_upgrades": timed_upgrades
+        }
+
 @app.post("/api/user/sync")
 async def api_sync_stats(req: SyncRequest):
     print(f"DEBUG: Iniciando sincronización para {req.username}")
@@ -902,7 +1129,7 @@ async def api_sync_stats(req: SyncRequest):
             req.username, req.level, req.xp, req.credits, req.paladio, 
             req.minerals, req.owned_ships, req.inventory, req.equipped, 
             req.timed_upgrades, is_invisible=req.is_invisible, 
-            wips=req.wips, eco=req.eco, ammo=req.ammo
+            wips=req.wips, eco=req.eco, ammo=req.ammo, altares=req.altares
         )
         if not success:
             print("DEBUG: Error en sync_user_stats (database.py)")
@@ -947,6 +1174,9 @@ async def api_sync_stats(req: SyncRequest):
                 
                 if req.wips is not None:
                     p["wips"] = req.wips
+                
+                if req.altares is not None:
+                    p["altares"] = req.altares
                 
                 if req.eco is not None:
                     if "eco" not in p or p["eco"] is None:
@@ -1033,9 +1263,13 @@ async def api_repair_ship(req: RepairRequest):
         if faction == "MOON": base_map = "moon_1"
         if faction == "PLUTO": base_map = "pluto_1"
         
+        # Obtener coordenadas de la estación de la base de la facción
+        map_info = game_state.MAPS.get(base_map, {})
+        st = map_info.get("station", {"x": 1750, "y": 1150})
+        
         player["current_map"] = base_map
-        player["x"] = 1750
-        player["y"] = 1150
+        player["x"] = st["x"]
+        player["y"] = st["y"]
         player["vx"] = 0
         player["vy"] = 0
         

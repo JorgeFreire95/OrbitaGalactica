@@ -8,7 +8,13 @@ DB_FILE = os.path.join(os.path.dirname(__file__), "orbita_galactica.db")
 
 def get_connection():
     # Use check_same_thread=False since FastAPI runs multiple threads
-    return sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn = sqlite3.connect(DB_FILE, timeout=30.0, check_same_thread=False)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    except sqlite3.OperationalError:
+        pass # In case of read-only access or early locks
+    return conn
 
 def init_db():
     conn = get_connection()
@@ -48,7 +54,8 @@ def init_db():
         ("timed_upgrades_json", "TEXT DEFAULT '{\"atk\": [], \"shld\": [], \"spd\": [], \"hp\": []}'"),
         ("wips_json", "TEXT DEFAULT '[]'"),
         ("eco_json", "TEXT DEFAULT '{\"active\": false, \"customName\": \"E.C.O.\", \"level\": 1, \"integrity\": 100, \"fuel\": 1000, \"equipped\": {\"lasers\": [], \"generators\": [], \"protocols\": [], \"utility\": []}}'"),
-        ("ammo_json", "TEXT DEFAULT '{\"standard\": 1000, \"thermal\": 0, \"plasma\": 0, \"siphon\": 0, \"missile_1\": 0, \"missile_2\": 0, \"missile_3\": 0}'")
+        ("ammo_json", "TEXT DEFAULT '{\"standard\": 1000, \"thermal\": 0, \"plasma\": 0, \"siphon\": 0, \"missile_1\": 0, \"missile_2\": 0, \"missile_3\": 0}'"),
+        ("altares_estelares_json", "TEXT DEFAULT '{\"energy\": 0, \"nexus\": 0, \"eclipse\": 0, \"cosmos\": 0, \"completions\": {\"nexus\": 0, \"eclipse\": 0, \"cosmos\": 0}}'")
     ]
     for col_name, col_type in columns:
         try:
@@ -534,9 +541,9 @@ def get_user_stats_db(username):
     c = conn.cursor()
     try:
         try:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json, ammo_json, email, faction FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, vip_until, owned_ships_json, inventory_json, equipped_json, timed_upgrades_json, is_invisible, wips_json, eco_json, ammo_json, email, faction, altares_estelares_json FROM users WHERE username = ?', (username,))
         except sqlite3.OperationalError:
-            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json, \'{}\' as ammo_json, NULL as email, NULL as faction FROM users WHERE username = ?', (username,))
+            c.execute('SELECT level, xp, credits, paladio, minerals_json, NULL as vip_until, \'["starter"]\', \'[]\', \'{}\', \'{"atk":[],"shld":[],"spd":[],"hp":[]}\', 0 as is_invisible, \'[]\' as wips_json, \'{"active": false}\' as eco_json, \'{}\' as ammo_json, NULL as email, NULL as faction, \'{"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}\' as altares_estelares_json FROM users WHERE username = ?', (username,))
         row = c.fetchone()
         if not row:
             return None
@@ -551,6 +558,7 @@ def get_user_stats_db(username):
             wips = json.loads(row[11]) if (len(row) > 11 and row[11]) else []
             eco = json.loads(row[12]) if (len(row) > 12 and row[12]) else {"active": False}
             ammo = json.loads(row[13]) if (len(row) > 13 and row[13]) else {"standard": 1000}
+            altares = json.loads(row[16]) if (len(row) > 16 and row[16]) else {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
         except:
             minerals = {"titanium": 0, "plutonium": 0, "silicon": 0, "iridium": 0}
             owned_ships = ["starter"]
@@ -560,6 +568,7 @@ def get_user_stats_db(username):
             wips = []
             eco = {"active": False}
             ammo = {"standard": 1000}
+            altares = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
 
         return {
             "level": row[0],
@@ -577,7 +586,8 @@ def get_user_stats_db(username):
             "eco": eco,
             "ammo": ammo,
             "email": row[14] if len(row) > 14 else None,
-            "faction": row[15] if len(row) > 15 else None
+            "faction": row[15] if len(row) > 15 else None,
+            "altares": altares
         }
     finally:
         conn.close()
@@ -820,7 +830,7 @@ def update_stats_offline(username, updates):
         ammo=stats.get("ammo")
     )
 
-def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None, is_invisible=None, wips=None, eco=None, ammo=None, **kwargs):
+def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_ships=None, inventory=None, equipped=None, timed_upgrades=None, is_invisible=None, wips=None, eco=None, ammo=None, altares=None, **kwargs):
     conn = get_connection()
     c = conn.cursor()
     import json
@@ -895,6 +905,9 @@ def sync_user_stats(username, level, xp, credits, paladio, minerals=None, owned_
         if ammo is not None:
             fields.append("ammo_json = ?")
             params.append(json.dumps(ammo))
+        if altares is not None:
+            fields.append("altares_estelares_json = ?")
+            params.append(json.dumps(altares))
             
         params.append(username)
         query = f"UPDATE users SET {', '.join(fields)} WHERE username = ?"
@@ -960,11 +973,12 @@ def collect_all_taxes():
                             VALUES (?, ?, ?, ?, ?)
                         ''', (tag, 'IMPUESTO', f"Impuesto diario ({rate}%)", tax_amount, username))
 
-                        # 5. Enviar notificación
+                        # 5. Enviar notificación (reusing cursor to avoid deadlock)
                         send_system_message_db(
                             username, 
                             "Cobro de Impuestos", 
-                            f"Se ha descontado {tax_amount:,} créditos de tu banco por concepto de impuestos del clan ({rate}%)."
+                            f"Se ha descontado {tax_amount:,} créditos de tu banco por concepto de impuestos del clan ({rate}%).",
+                            cursor=c
                         )
             
             # 6. Sumar a la tesorería del clan
@@ -1047,7 +1061,8 @@ def create_clan_request_db(clan_tag, username, message):
             send_system_message_db(
                 leader[0], 
                 "Nueva Solicitud de Ingreso", 
-                f"El piloto {username} ha enviado una solicitud para unirse a tu clan [{clan_tag.upper()}]. Revisa el panel de administración."
+                f"El piloto {username} ha enviado una solicitud para unirse a tu clan [{clan_tag.upper()}]. Revisa el panel de administración.",
+                cursor=c
             )
 
         conn.commit()
@@ -1077,15 +1092,15 @@ def respond_clan_request_db(request_id, response):
         
         if response == 'accept':
             # Intentar unir al usuario
-            join_res = join_clan_db(username, clan_tag)
+            join_res = join_clan_db(username, clan_tag, cursor=c)
             if not join_res["success"]:
                 return join_res
             
             c.execute('UPDATE clan_requests SET status = "accepted" WHERE id = ?', (request_id,))
-            send_system_message_db(username, "Solicitud Aceptada", f"¡Bienvenido! Tu solicitud para unirte al clan [{clan_tag}] ha sido aceptada.")
+            send_system_message_db(username, "Solicitud Aceptada", f"¡Bienvenido! Tu solicitud para unirte al clan [{clan_tag}] ha sido aceptada.", cursor=c)
         else:
             c.execute('UPDATE clan_requests SET status = "rejected" WHERE id = ?', (request_id,))
-            send_system_message_db(username, "Solicitud Rechazada", f"Tu solicitud para unirte al clan [{clan_tag}] ha sido rechazada.")
+            send_system_message_db(username, "Solicitud Rechazada", f"Tu solicitud para unirte al clan [{clan_tag}] ha sido rechazada.", cursor=c)
 
         conn.commit()
         return {"success": True}
@@ -1119,7 +1134,8 @@ def donate_from_clan_db(clan_tag, target_username, amount, sender_username="UNKN
         send_system_message_db(
             target_username, 
             "Transferencia de Clan", 
-            f"{sender_username} te ha transferido {amount:,} créditos desde la tesorería del clan [{clan_tag}]."
+            f"{sender_username} te ha transferido {amount:,} créditos desde la tesorería del clan [{clan_tag}].",
+            cursor=c
         )
 
         
@@ -1175,7 +1191,43 @@ def get_available_clans(search=None):
     conn.close()
     return [{"tag": r[0], "name": r[1], "leader": r[2], "members": r[3], "tax_rate": r[4], "credits": r[5], "join_type": r[6] if len(r) > 6 else "Abierto", "faction": r[7] if len(r) > 7 else "MARS", "xp": r[8] if len(r) > 8 else 0} for r in rows]
 
-def join_clan_db(username, clan_tag):
+def join_clan_db(username, clan_tag, cursor=None):
+    if cursor is not None:
+        try:
+            # Verificar si el clan existe y su estado
+            cursor.execute('SELECT tag, members_count, status FROM clans WHERE tag = ?', (clan_tag.upper(),))
+            clan_data = cursor.fetchone()
+            if not clan_data:
+                return {"success": False, "error": "El clan no existe."}
+                
+            current_members = clan_data[1]
+            status = clan_data[2]
+            
+            if current_members >= 30:
+                return {"success": False, "error": "El clan ha alcanzado su límite máximo de 30 miembros."}
+                
+            if status == 'Sin Cupo':
+                return {"success": False, "error": "Este clan no está aceptando nuevos miembros actualmente."}
+                
+            # Verificar si el usuario ya está en un clan
+            cursor.execute('SELECT clan_tag FROM users WHERE username = ?', (username,))
+            user_res = cursor.fetchone()
+            if user_res and user_res[0]:
+                return {"success": False, "error": "Ya perteneces a un clan. Debes abandonarlo primero."}
+
+            # Asignar clan al usuario con rol Novato
+            cursor.execute('''
+                UPDATE users 
+                SET clan_tag = ?, clan_role = ?, clan_joined_at = CURRENT_TIMESTAMP 
+                WHERE username = ?
+            ''', (clan_tag.upper(), "Novato", username))
+            
+            # Incrementar contador de miembros
+            cursor.execute('UPDATE clans SET members_count = members_count + 1 WHERE tag = ?', (clan_tag.upper(),))
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -1220,77 +1272,74 @@ def join_clan_db(username, clan_tag):
 def get_user_clan_data(username):
     conn = get_connection()
     c = conn.cursor()
-    c.execute('SELECT clan_tag FROM users WHERE username = ?', (username,))
-    res = c.fetchone()
-    if not res or not res[0]:
-        conn.close()
-        return None
-        
-    clan_tag = res[0]
-    
-    # Obtener metadata del clan
-    c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type, faction, xp FROM clans WHERE tag = ?', (clan_tag,))
-    clan = c.fetchone()
-    if not clan:
-        conn.close()
-        return None
-        
-    # Obtener lista de miembros
-    c.execute('''
-        SELECT username, clan_role, clan_joined_at, credits, xp 
-        FROM users 
-        WHERE clan_tag = ?
-    ''', (clan_tag,))
-    members_rows = c.fetchall()
-
-    # Obtener el ranking del clan
-    c.execute('SELECT COUNT(*) FROM clans WHERE xp > ?', (clan[10] or 0,))
-    clan_rank = c.fetchone()[0] + 1
-
-    conn.close()
-    
-    members_list = []
-    for m in members_rows:
-        members_list.append({
-            "name": m[0],
-            "role": m[1] or "Miembro",
-            "joined": m[2] or "Recientemente",
-            "credits": m[3],
-            "xp": m[4] or 0
-        })
-    
-    import json
     try:
-        # need to fetch news and logo_url too
-        c = get_connection().cursor()
-        c.execute('SELECT news, logo_url, status FROM clans WHERE tag = ?', (clan_tag,))
-        row = c.fetchone()
-        news_data = json.loads(row[0]) if row and row[0] else []
-        logo_url = row[1] if row else ""
-        status = row[2] if row else "Reclutando"
-    except Exception:
-        news_data = []
-        logo_url = ""
-        status = "Reclutando"
+        c.execute('SELECT clan_tag FROM users WHERE username = ?', (username,))
+        res = c.fetchone()
+        if not res or not res[0]:
+            return None
+            
+        clan_tag = res[0]
+        
+        # Obtener metadata del clan
+        c.execute('SELECT tag, name, leader, members_count, description, created_at, tax_rate, credits, join_type, faction, xp FROM clans WHERE tag = ?', (clan_tag,))
+        clan = c.fetchone()
+        if not clan:
+            return None
+            
+        # Obtener lista de miembros
+        c.execute('''
+            SELECT username, clan_role, clan_joined_at, credits, xp 
+            FROM users 
+            WHERE clan_tag = ?
+        ''', (clan_tag,))
+        members_rows = c.fetchall()
 
-    return {
-        "tag": clan[0],
-        "name": clan[1],
-        "leader": clan[2],
-        "members_count": len(members_list),
-        "description": clan[4],
-        "created_at": clan[5],
-        "tax_rate": clan[6],
-        "credits": clan[7],
-        "join_type": clan[8] or "Abierto",
-        "faction": clan[9] or "MARS",
-        "xp": clan[10] if len(clan) > 10 else 0,
-        "rank": clan_rank,
-        "status": status,
-        "news": news_data,
-        "logo": logo_url,
-        "members": members_list
-    }
+        # Obtener el ranking del clan
+        c.execute('SELECT COUNT(*) FROM clans WHERE xp > ?', (clan[10] or 0,))
+        clan_rank = c.fetchone()[0] + 1
+        
+        import json
+        try:
+            c.execute('SELECT news, logo_url, status FROM clans WHERE tag = ?', (clan_tag,))
+            row = c.fetchone()
+            news_data = json.loads(row[0]) if row and row[0] else []
+            logo_url = row[1] if row else ""
+            status = row[2] if row else "Reclutando"
+        except Exception:
+            news_data = []
+            logo_url = ""
+            status = "Reclutando"
+            
+        members_list = []
+        for m in members_rows:
+            members_list.append({
+                "name": m[0],
+                "role": m[1] or "Miembro",
+                "joined": m[2] or "Recientemente",
+                "credits": m[3],
+                "xp": m[4] or 0
+            })
+            
+        return {
+            "tag": clan[0],
+            "name": clan[1],
+            "leader": clan[2],
+            "members_count": len(members_list),
+            "description": clan[4],
+            "created_at": clan[5],
+            "tax_rate": clan[6],
+            "credits": clan[7],
+            "join_type": clan[8] or "Abierto",
+            "faction": clan[9] or "MARS",
+            "xp": clan[10] if len(clan) > 10 else 0,
+            "rank": clan_rank,
+            "status": status,
+            "news": news_data,
+            "logo": logo_url,
+            "members": members_list
+        }
+    finally:
+        conn.close()
 
 def update_clan_metadata_db(old_tag, new_tag, name, description, status, news, logo, join_type="Abierto", faction="MARS"):
     conn = get_connection()
@@ -1345,6 +1394,7 @@ def leave_clan_db(username):
 
         if role == 'Líder':
             # Si el líder sale, disolvemos el clan (según plan)
+            conn.close()
             return dissolve_clan_db(clan_tag)
         
         # Quitar clan al usuario
@@ -1358,7 +1408,10 @@ def leave_clan_db(username):
     except Exception as e:
         return {"success": False, "error": str(e)}
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except sqlite3.ProgrammingError:
+            pass # Already closed in Leader branch
 
 def kick_member_db(leader_username, target_username):
     conn = get_connection()
@@ -1394,7 +1447,43 @@ def kick_member_db(leader_username, target_username):
     finally:
         conn.close()
 
-def dissolve_clan_db(clan_tag):
+def dissolve_clan_db(clan_tag, cursor=None):
+    if cursor is not None:
+        try:
+            # Obtener nombres de todos los miembros antes de borrarlos
+            cursor.execute('SELECT username FROM users WHERE clan_tag = ?', (clan_tag,))
+            members = [row[0] for row in cursor.fetchall()]
+            
+            # Obtener nombre del clan para el mensaje
+            cursor.execute('SELECT name FROM clans WHERE tag = ?', (clan_tag,))
+            clan_name_row = cursor.fetchone()
+            clan_name = clan_name_row[0] if clan_name_row else clan_tag
+
+            # Enviar mensaje de despedida a cada uno
+            for member in members:
+                send_system_message_db(
+                    member, 
+                    "Notificación de Clan: Disolución", 
+                    f"Lamentamos informarte que el clan [{clan_tag}] {clan_name} ha sido disuelto por su Líder. Ya no formas parte de esta alianza.",
+                    cursor=cursor
+                )
+
+            # Remover clan de todos los miembros
+            cursor.execute('UPDATE users SET clan_tag = NULL, clan_role = NULL, clan_joined_at = NULL WHERE clan_tag = ?', (clan_tag,))
+            
+            # Borrar logs
+            cursor.execute('DELETE FROM clan_logs WHERE clan_tag = ?', (clan_tag,))
+            # Borrar diplomacia (tanto si fue emisor como receptor)
+            cursor.execute('DELETE FROM clan_diplomacy WHERE sender_tag = ? OR receiver_tag = ?', (clan_tag, clan_tag))
+            # Borrar solicitudes pendientes
+            cursor.execute('DELETE FROM clan_requests WHERE clan_tag = ?', (clan_tag,))
+            
+            # Borrar el clan
+            cursor.execute('DELETE FROM clans WHERE tag = ?', (clan_tag,))
+            return {"success": True, "message": "Clan disuelto y miembros notificados."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     conn = get_connection()
     c = conn.cursor()
     try:
@@ -1412,7 +1501,8 @@ def dissolve_clan_db(clan_tag):
             send_system_message_db(
                 member, 
                 "Notificación de Clan: Disolución", 
-                f"Lamentamos informarte que el clan [{clan_tag}] {clan_name} ha sido disuelto por su Líder. Ya no formas parte de esta alianza."
+                f"Lamentamos informarte que el clan [{clan_tag}] {clan_name} ha sido disuelto por su Líder. Ya no formas parte de esta alianza.",
+                cursor=c
             )
 
         # Remover clan de todos los miembros
@@ -1464,7 +1554,18 @@ def send_user_message_db(sender, receiver, subject, body, msg_type='user'):
     finally:
         conn.close()
 
-def send_system_message_db(receiver, subject, body):
+def send_system_message_db(receiver, subject, body, cursor=None):
+    if cursor is not None:
+        try:
+            cursor.execute('''
+                INSERT INTO messages (sender, receiver, subject, body, type)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ('SYSTEM', receiver, subject, body, 'notif'))
+            return True
+        except Exception as e:
+            print(f"Error sending msg: {e}")
+            return False
+
     conn = get_connection()
     c = conn.cursor()
     try:

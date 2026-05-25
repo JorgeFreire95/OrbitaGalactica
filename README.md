@@ -50,6 +50,12 @@ Crear la experiencia de combate espacial definitiva en el navegador, combinando 
 - **Loyalty Filter**: Sistema de filtrado inteligente que bloquea misiones contra la propia empresa para mantener coherencia táctica.
 - **Botín Proporcional**: Recompensas escaladas por dificultad de nave enemiga (Multiplicadores desde 1.0x hasta 45.0x).
 
+### 🌌 Épica: Altares Estelares y Portales Galácticos
+- **Energía Extra**: Sistema de cofres especiales (drop en el espacio) para forjar portales galácticos ancestrales.
+- **Portales Galácticos**: Nexus, Eclipse y Cosmos, cada uno con requisitos incrementales (25, 30 y 35 piezas).
+- **Recompensas Cósmicas**: Créditos masivos, Paladio, Experiencia, Munición de Plasma y **Potenciadores (Buffs)** de tiempo limitado (+10% HP, +15% Escudo, +10% Daño).
+- **Desafío Orbital**: Acceso físico a los portales en los sectores iniciales tras completarlos en la interfaz con 3 vidas por intento.
+
 ---
 
 ## 🛠️ 3. Arquitectura y Tech Stack (Herramientas de Desarrollo)
@@ -100,6 +106,9 @@ El proyecto está estructurado bajo una **Arquitectura de 3 Capas**, separando r
 - **Sistema de XP Progresivo (V2)**: Refactorización completa del algoritmo de nivelación con base de 15,000 XP y escalado dinámico por nivel.
 - **Visualizador de Progreso (HUD)**: Integración de una barra de XP táctica con gradiente dinámico y efectos de brillo para seguimiento en tiempo real.
 - **Logística Galáctica (Pluto-8)**: Relocalización estratégica de la Estación Central en el sector Resplandor de Hielo para optimizar la defensa de la frontera.
+- **Optimización y Concurrencia de Base de Datos (SQLite WAL)**: Migración de la persistencia al modo WAL (Write-Ahead Logging) y configuración de sincronización en `NORMAL` con un tiempo de espera de conexión de 30 segundos, eliminando errores de concurrencia y bloqueos de base de datos (*database is locked*).
+- **Resolución de Deadlocks y Fugas de Conexiones**: Refactorización de operaciones y transacciones de base de datos anidadas para reutilizar cursores abiertos en lugar de instanciar múltiples conexiones concurrentes, junto con la adición de bloques de cierre explícitos (`finally: conn.close()`) para evitar fugas de recursos.
+- **Sistema de Altares Estelares**: Implementación de recolección de "Energía Extra" en cofres especiales para forjar portales (Nexus, Eclipse, Cosmos) con recompensas masivas, experiencia y potenciadores temporales de combate, además de mapas de bolsillo dinámicos.
 
 ### 🏃 In Progress (Sprint Actual)
 - Optimización de colisiones en sectores de alta densidad.

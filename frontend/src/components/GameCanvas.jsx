@@ -16,7 +16,7 @@ const getItemSigla = (name) => {
   return last;
 };
 
-export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, onUpdateOwnedShips, equippedDesign }) {
+export default function GameCanvas({ user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag, onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, onRepair, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, onUpdateOwnedShips, equippedDesign, onUpdateAltares }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const gameStateRef = useRef(null);
@@ -70,7 +70,7 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
 
   const dragOffset = useRef({ x: 0, y: 0 });
   const missionDragOffset = useRef({ x: 0, y: 0 });
-  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', ammo: '', wips: '', eco: '', is_invisible: null });
+  const lastSyncRef = useRef({ credits: -1, paladio: -1, xp: -1, level: -1, minerals: '', ammo: '', wips: '', eco: '', is_invisible: null, altares: '' });
   const [inviteIdText, setInviteIdText] = useState('');
   const [showPartyMenu, setShowPartyMenu] = useState(false);
   const [missionNotification, setMissionNotification] = useState(null);
@@ -509,13 +509,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
   // We store props in a ref to avoid re-triggering the main effect when parents re-render
   const propsRef = useRef({
     user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag,
-    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, equippedDesign
+    onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, equippedDesign, onUpdateAltares
   });
   
   useEffect(() => {
     propsRef.current = {
       user, selectedShip, initialModules, initialAmmo, initialLevel, initialXp, initialCredits, initialPaladio, initialMinerals, initialUpgrades, initialWips, initialEco, initialClan, initialClanTag,
-      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, equippedDesign
+      onUpdateAmmo, onUpdateProgress, onUpdateCredits, onUpdatePaladio, onUpdateMinerals, isInvisible, onUpdateInvisibility, onUpdateWips, onUpdateEco, equippedDesign, onUpdateAltares
     };
   });
 
@@ -703,6 +703,13 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
                 if (shipsStr !== last.owned_ships) {
                     p.onUpdateOwnedShips(me.owned_ships || ["starter"]);
                     last.owned_ships = shipsStr;
+                }
+            }
+            if (p.onUpdateAltares) {
+                const altaresStr = JSON.stringify(me.altares || { energy: 0, nexus: 0, eclipse: 0, cosmos: 0, completions: { nexus: 0, eclipse: 0, cosmos: 0 } });
+                if (altaresStr !== last.altares) {
+                    p.onUpdateAltares(me.altares || { energy: 0, nexus: 0, eclipse: 0, cosmos: 0, completions: { nexus: 0, eclipse: 0, cosmos: 0 } });
+                    last.altares = altaresStr;
                 }
             }
             
@@ -2166,6 +2173,58 @@ export default function GameCanvas({ user, selectedShip, initialModules, initial
           </>
         )}
       </div>
+
+      {gameState?.gate_lives !== undefined && (
+          <div 
+              style={{
+                  position: 'fixed',
+                  top: '80px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  background: 'rgba(10, 15, 30, 0.85)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(0, 255, 204, 0.3)',
+                  borderBottom: '3px solid #00ffcc',
+                  padding: '10px 25px',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontFamily: 'Orbitron',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  letterSpacing: '1.5px',
+                  boxShadow: '0 0 25px rgba(0, 255, 204, 0.25)',
+                  zIndex: 9999,
+                  pointerEvents: 'none',
+                  animation: 'pulse-portal-hud 2s infinite ease-in-out'
+              }}
+          >
+              <style>{`
+                  @keyframes pulse-portal-hud {
+                      0%, 100% { box-shadow: 0 0 25px rgba(0, 255, 204, 0.25); border-color: rgba(0, 255, 204, 0.3); }
+                      50% { box-shadow: 0 0 35px rgba(0, 255, 204, 0.45); border-color: rgba(0, 255, 204, 0.7); }
+                  }
+              `}</style>
+              <span style={{ color: '#00ffcc', textShadow: '0 0 10px rgba(0, 255, 204, 0.5)' }}>🌌 PORTAL DE COMBATE</span>
+              <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
+              <span style={{ display: 'flex', gap: '6px', fontSize: '18px' }}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                      <span key={i} style={{ 
+                          color: i < gameState.gate_lives ? '#ff3366' : 'rgba(255, 255, 255, 0.1)',
+                          textShadow: i < gameState.gate_lives ? '0 0 8px #ff3366' : 'none',
+                          transition: 'color 0.5s ease'
+                      }}>
+                          ❤️
+                      </span>
+                  ))}
+              </span>
+              <span style={{ fontSize: '12px', color: '#ff3366', marginLeft: '5px' }}>
+                  ({gameState.gate_lives}/3 VIDAS)
+              </span>
+          </div>
+      )}
 
       {hudState?.is_dead && (
           <div className="death-overlay" style={{

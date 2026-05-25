@@ -471,6 +471,10 @@ const drawSpaceStation = (ctx, x, y, radius, style) => {
     ctx.save();
     ctx.translate(x, y);
 
+    // Escalar la estación espacial según el radio (radio base de referencia: 350)
+    const scale = radius / 350;
+    ctx.scale(scale, scale);
+
     // --- FUNCIONES INTERNAS DE DIBUJO ---
     const drawIsometricBox = (ox, oy, w, h, d, color) => {
         ctx.save();
@@ -815,6 +819,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
         const isMarsPortal = portal.target.startsWith('mars');
         const isMoonPortal = portal.target.startsWith('moon');
         const isPlutoPortal = portal.target.startsWith('pluto');
+        const isNexus = portal.target.includes('nexus');
+        const isEclipse = portal.target.includes('eclipse');
+        const isCosmos = portal.target.includes('cosmos');
         let pColor = '#ffffff';
         let pColor2 = '#cccccc';
         let pColor3 = '#999999';
@@ -825,6 +832,12 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
             pColor = '#0088ff'; pColor2 = '#0044ff'; pColor3 = '#0000cc'; // Moon: Blue
         } else if (isPlutoPortal) {
             pColor = '#bf00ff'; pColor2 = '#8a2be2'; pColor3 = '#4b0082'; // Pluto: Purple
+        } else if (isNexus) {
+            pColor = '#00ffcc'; pColor2 = '#00ccaa'; pColor3 = '#008877'; // Nexus: Cian
+        } else if (isEclipse) {
+            pColor = '#ff00ff'; pColor2 = '#cc00cc'; pColor3 = '#880088'; // Eclipse: Magenta
+        } else if (isCosmos) {
+            pColor = '#ffaa00'; pColor2 = '#cc8800'; pColor3 = '#885500'; // Cosmos: Gold
         } else {
             pColor = '#ffffff'; pColor2 = '#cccccc'; pColor3 = '#999999'; // Default: White/Gray
         }
@@ -1921,6 +1934,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
         } else if (event.type === "special_coin") {
           text = `✨ +${event.amount} PALADIO`;
           color = '#ff00ff';
+        } else if (event.type === "extra_energy") {
+          text = `✨ +${event.amount} ENERGÍA EXTRA`;
+          color = '#ffd700';
         }
 
         ctx.fillStyle = color;
@@ -2166,6 +2182,9 @@ export const drawGame = (ctx, gameState, camX = 0, camY = 0, minimapPos = null, 
     if (isMarsPortal) ctx.strokeStyle = '#ff2200';
     else if (isMoonPortal) ctx.strokeStyle = '#0088ff';
     else if (isPlutoPortal) ctx.strokeStyle = '#bf00ff';
+    else if (portal.target.includes('nexus')) ctx.strokeStyle = '#00ffcc';
+    else if (portal.target.includes('eclipse')) ctx.strokeStyle = '#ff00ff';
+    else if (portal.target.includes('cosmos')) ctx.strokeStyle = '#ffaa00';
     else ctx.strokeStyle = '#ffffff';
 
     ctx.lineWidth = 1;

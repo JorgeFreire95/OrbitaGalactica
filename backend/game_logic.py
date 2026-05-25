@@ -33,9 +33,9 @@ class GameState:
         print(f"DEBUG: GameState iniciado con {len(self.auctions)} subastas. Hora local: {self.last_reset_hour}")
         
         # --- BASE Y ZONA SEGURA ---
-        self.BASE_X = 1750
-        self.BASE_Y = 1150
-        self.SAFE_ZONE_RADIUS = 350
+        self.BASE_X = 2500
+        self.BASE_Y = 1805
+        self.SAFE_ZONE_RADIUS = 700
         
         self.GAME_WIDTH = 20000
         self.GAME_HEIGHT = 16000
@@ -55,14 +55,14 @@ class GameState:
             "mars_1": {
                 "name": "Sector de Hierro", "level": 1, "style": "mars",
                 "portals": [
-                    {"x": 18716, "y": 14834, "target": "mars_2",   "tx": 2700 + 220, "ty": 2027 + 220, "label": "Cañón del Óxido"}
+                    {"x": 17871, "y": 13941, "target": "mars_2",   "tx": 2700 + 220, "ty": 2027 + 220, "label": "Cañón del Óxido"}
                 ],
-                "station": {"x": 1750, "y": 1150} # Base de Inicio
+                "station": {"x": 2500, "y": 1805} # Base de Inicio
             },
             "mars_2": {
                 "name": "Cañón del Óxido", "level": 2, "style": "mars",
                 "portals": [
-                    {"x": 2700, "y": 2027, "target": "mars_1", "tx": 18716 - 220, "ty": 14834 - 220, "label": "Sector de Hierro"},
+                    {"x": 2700, "y": 2027, "target": "mars_1", "tx": 17871 - 220, "ty": 13941 - 220, "label": "Sector de Hierro"},
                     {"x": 17400, "y": 13653, "target": "mars_3", "tx": 1134 + 220, "ty": 1134 + 220, "label": "Fundición Ares"}
                 ]
             },
@@ -247,6 +247,15 @@ class GameState:
             }
         }
         
+        # Add Star Altars portals to initial maps
+        for m_id in ["mars_1", "moon_1", "pluto_1"]:
+            if m_id in self.MAPS:
+                self.MAPS[m_id]["portals"].extend([
+                    {"x": 3500, "y": 3500, "target": "gate_nexus", "tx": 10000, "ty": 8000, "label": "Portal Nexus"},
+                    {"x": 5000, "y": 5000, "target": "gate_eclipse", "tx": 10000, "ty": 8000, "label": "Portal Eclipse"},
+                    {"x": 6500, "y": 6500, "target": "gate_cosmos", "tx": 10000, "ty": 8000, "label": "Portal Cosmos"}
+                ])
+
         # --- PERFIL DE NAVES ---
         self.SHIP_PROFILES = {
             "starter": {
@@ -334,13 +343,20 @@ class GameState:
         c_lasers = max(1, round(prof["atk"] / 25))
         c_shields = max(1, round(prof["hp"] / 25))
         c_engines = max(1, round(prof["spd"] / 20))
+
+        # Determinar mapa inicial y coordenadas de base dinámicamente según la facción
+        base_map = "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1")
+        map_info = self.MAPS.get(base_map, {})
+        st_coords = map_info.get("station", {"x": 1750, "y": 1150})
+        start_x = st_coords["x"]
+        start_y = st_coords["y"]
         
         player = {
             "id": client_id,
             "user_id": user_id,
             "ship_type": ship_type,
-            "x": 1750,
-            "y": 1150,
+            "x": start_x,
+            "y": start_y,
             "vx": 0,
             "vy": 0,
             "hp": prof["hp"],
@@ -360,8 +376,8 @@ class GameState:
             "spd": prof["spd"],
             "base_spd": prof["spd"],
             "color": prof["color"],
-            "x": 1750, # Posición inicial segura (Base)
-            "y": 1150,
+            "x": start_x, # Posición inicial segura (Base)
+            "y": start_y,
             "target_x": None,
             "target_y": None,
             "score": 0,
@@ -400,14 +416,15 @@ class GameState:
                 "active": False, "deployed": False, "mode": "passive", "level": 1, 
                 "integrity": 50000, "max_integrity": 50000, "shield": 100000, "max_shield": 100000, 
                 "fuel": 100000, "max_fuel": 100000, "speed": 0,
-                "x": 1750, "y": 1150, "vx": 0, "vy": 0,
+                "x": start_x, "y": start_y, "vx": 0, "vy": 0,
                 "equipped": {"lasers": [], "generators": [], "protocols": [], "utility": []},
                 "unlocked_slots": {"lasers": 1, "generators": 1, "protocols": 1, "utility": 1},
                 "xp": 0, "xp_next": 100000
             },
             "active_abilities": {}, # {id: expiry_time}
             "ability_cooldowns": {}, # {id: ready_time}
-            "_force_full_shield": 10 # Flag/Contador para asegurar escudo al máximo los primeros ticks
+            "_force_full_shield": 10, # Flag/Contador para asegurar escudo al máximo los primeros ticks
+            "altares": {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
         }
         
         # Cargar datos desde DB si hay user_id (misiones y mejoras)
@@ -421,6 +438,8 @@ class GameState:
                 # Cargar mejoras temporales (AHORA DESDE DB PARA QUE SEA 100% PERSISTENTE)
                 db_stats = get_user_stats_db(user_id)
                 if db_stats:
+                    if "altares" in db_stats:
+                        player["altares"] = db_stats["altares"]
                     if "timed_upgrades" in db_stats:
                         initial_upgrades = db_stats["timed_upgrades"]
                     if "is_invisible" in db_stats:
@@ -495,8 +514,8 @@ class GameState:
                 player["xp"] = current_xp
                 
             player["xp_next"] = player["level"] * 100000
-            player["x"] = saved.get("x", 1750)
-            player["y"] = saved.get("y", 1150)
+            player["x"] = saved.get("x", start_x)
+            player["y"] = saved.get("y", start_y)
             player["current_map"] = saved.get("current_map", "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1"))
             player["equipped_design"] = saved.get("equipped_design", equipped_design)
             
@@ -1082,6 +1101,7 @@ class GameState:
         # 1. Spawn Enemies (Por cada mapa)
         if now - self.last_alien_spawn > self.alien_spawn_rate:
             for map_id in self.MAPS:
+                if map_id.startswith("gate_"): continue # Evitar spawn aleatorio en portales de altares
                 if map_id == "neutral_1": continue # No spawn en zona neutral por petición
                 if len(self.enemies) >= self.max_enemies: break
                 
@@ -1094,6 +1114,84 @@ class GameState:
                         if len(self.enemies) < self.max_enemies:
                             self.spawn_alien(map_id)
             self.last_alien_spawn = now
+
+        # Update Gate Maps (Gestión de oleadas y portales dinámicos)
+        for map_id in list(self.MAPS.keys()):
+            if not map_id.startswith("gate_"):
+                continue
+            
+            cfg = self.MAPS[map_id]
+            pid = cfg.get("player_id")
+            player = self.players.get(pid)
+            
+            # Limpiar si el jugador se desconectó o si se agotaron las vidas del portal
+            if not player or cfg.get("lives", 3) <= 0:
+                self.enemies = [e for e in self.enemies if e.get("map_id") != map_id]
+                try:
+                    del self.MAPS[map_id]
+                except:
+                    pass
+                continue
+                
+            # Si el jugador está en otro mapa (reparando en base, etc.) o está muerto, pausar el desafío
+            if player.get("current_map") != map_id or player.get("is_dead"):
+                continue
+            
+            wave_idx = cfg.get("wave_index", 0)
+            aliens_list = cfg.get("aliens_list", [])
+            
+            # Si completó todas las oleadas del último alien
+            if wave_idx >= len(aliens_list):
+                if not cfg.get("portals"):
+                    faction = player.get("faction", "MARS")
+                    base_map = "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1")
+                    st = self.MAPS.get(base_map, {}).get("station", {"x": 2500, "y": 1805})
+                    cfg["portals"] = [
+                        {"x": 10000, "y": 8000, "target": base_map, "tx": st["x"], "ty": st["y"], "label": "Volver al Mapa Inicial"}
+                    ]
+                continue
+            
+            current_alien = aliens_list[wave_idx]
+            
+            # Oleada 1: Spawn a los 15 segundos de entrar/reiniciar
+            if not cfg.get("spawned_wave_1"):
+                elapsed = now - cfg.get("wave_timer", 0)
+                if elapsed >= 15.0:
+                    cfg["spawned_wave_1"] = True
+                    cfg["killed_in_wave_1"] = 0
+                    cfg["killed_in_wave_2"] = 0
+                    cfg["spawned_wave_2"] = False
+                    for _ in range(15):
+                        self.spawn_alien(map_id)
+                    print(f"DEBUG: Spawned Wave 1 of {current_alien} in {map_id}")
+            
+            # Oleada 2: Spawn cuando se ha eliminado la mitad de la primera oleada (8 Gryllos de 15)
+            elif not cfg.get("spawned_wave_2"):
+                if cfg.get("killed_in_wave_1", 0) >= 8:
+                    cfg["spawned_wave_2"] = True
+                    for _ in range(15):
+                        self.spawn_alien(map_id)
+                    print(f"DEBUG: Spawned Wave 2 of {current_alien} in {map_id}")
+                    
+            # Si ambas oleadas de la fase actual se completaron, spawnear portales
+            elif cfg.get("killed_in_wave_2", 0) >= 15:
+                if not cfg.get("portals"):
+                    faction = player.get("faction", "MARS")
+                    base_map = "pluto_1" if faction == "PLUTO" else ("moon_1" if faction == "MOON" else "mars_1")
+                    st = self.MAPS.get(base_map, {}).get("station", {"x": 2500, "y": 1805})
+                    
+                    if wave_idx == len(aliens_list) - 1:
+                        # Último alien derrotado: sólo retorno
+                        cfg["portals"] = [
+                            {"x": 10000, "y": 8000, "target": base_map, "tx": st["x"], "ty": st["y"], "label": "Volver al Mapa Inicial (Completado)"}
+                        ]
+                    else:
+                        # Mostrar retorno y avance
+                        cfg["portals"] = [
+                            {"x": 9800, "y": 8000, "target": base_map, "tx": st["x"], "ty": st["y"], "label": "Volver al Mapa Inicial"},
+                            {"x": 10200, "y": 8000, "target": f"continue_{map_id}", "tx": 10000, "ty": 8000, "label": "Siguiente Alien"}
+                        ]
+                    print(f"DEBUG: Gate {map_id} wave finished. Portals spawned.")
             
         # Spawn de Cofre Especial (Cada 30 segundos mantenemos 5 por mapa)
         if now - self.last_special_spawn > self.special_spawn_rate:
@@ -1142,6 +1240,47 @@ class GameState:
 
                     # Recalcular stats por si perdimos un Wip o el ECO con módulos
                     self.recalculate_player_stats(p)
+
+                    # --- SISTEMA DE VIDAS EN ALTARES ESTELARES ---
+                    map_id = p.get("current_map", "")
+                    if map_id.startswith("gate_"):
+                        cfg = self.MAPS.get(map_id)
+                        if cfg:
+                            cfg["lives"] = cfg.get("lives", 3) - 1
+                            remaining_lives = cfg["lives"]
+                            gate_type = cfg.get("gate_type", "gate_nexus")
+                            altar_name = "Nexus" if "nexus" in gate_type else ("Eclipse" if "eclipse" in gate_type else "Cosmos")
+                            print(f"DEBUG: Jugador {pid} murió en portal {map_id}. Vidas restantes: {remaining_lives}")
+                            
+                            if remaining_lives <= 0:
+                                # Restablecer las piezas a 0
+                                altar_key = gate_type.replace("gate_", "")
+                                if "altares" not in p or not p["altares"]:
+                                    p["altares"] = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
+                                p["altares"][altar_key] = 0
+                                
+                                # Sincronizar stats a la DB
+                                try:
+                                    sync_user_stats(
+                                        username=p["user_id"], level=p["level"], xp=p["xp"],
+                                        credits=p["credits"], paladio=p["paladio"],
+                                        ammo={**p["ammo"], **p.get("missiles", {})},
+                                        altares=p["altares"]
+                                    )
+                                except Exception as e:
+                                    print(f"Error persisting gate destruction pieces reset: {e}")
+                                
+                                # Limpiar el mapa y eliminarlo
+                                self.enemies = [e for e in self.enemies if e.get("map_id") != map_id]
+                                if map_id in self.MAPS:
+                                    try:
+                                        del self.MAPS[map_id]
+                                    except:
+                                        pass
+                                
+                                self.send_system_message_to_player(pid, f"💥 ¡PORTAL DESTRUIDO! Has agotado tus 3 vidas. Las piezas del Portal {altar_name} se han desintegrado y debes reunirlas nuevamente.")
+                            else:
+                                self.send_system_message_to_player(pid, f"❌ Has sido derribado en el Desafío {altar_name}. Vidas del Portal: {remaining_lives}/3. Repara tu nave y regresa antes de perder el portal.")
                 continue
             
             # Si el jugador estaba muerto (reparado), reseter flag
@@ -1897,6 +2036,8 @@ class GameState:
                         
                         hit = True
                         if e["hp"] <= 0:
+                            if e.get("map_id", "").startswith("gate_"):
+                                self.handle_gate_alien_death(e["map_id"])
                             # Kill enemy, award score, credits and XP
                             if p["owner_id"] in self.players:
                                 player = self.players[p["owner_id"]]
@@ -2208,6 +2349,8 @@ class GameState:
                     
                     # Si la colisión mata al alien, contar progreso de misión
                     if e["hp"] <= 0:
+                        if e.get("map_id", "").startswith("gate_"):
+                            self.handle_gate_alien_death(e["map_id"])
                         self._update_mission_progress(p, e["name"])
                         # Si está en grupo, dar crédito a los demás también
                         if p.get("party_id") and p["party_id"] in self.parties:
@@ -2267,8 +2410,19 @@ class GameState:
 
     def spawn_alien(self, map_id="mars_1"):
         if map_id == "neutral_1": return # Seguridad extra: No spawn en neutral
-        # Determinar nombre del alien según el mapa
-        if map_id in ["mars_1", "moon_1", "pluto_1"]:
+        # Determinar nombre del alien según el mapa u oleada
+        if "gate_" in map_id:
+            cfg = self.MAPS.get(map_id)
+            if cfg:
+                aliens_list = cfg.get("aliens_list", ["Gryllos"])
+                wave_idx = cfg.get("wave_index", 0)
+                if wave_idx < len(aliens_list):
+                    alien_name = aliens_list[wave_idx]
+                else:
+                    alien_name = "Gryllos"
+            else:
+                alien_name = "Gryllos"
+        elif map_id in ["mars_1", "moon_1", "pluto_1"]:
             alien_name = "Gryllos"
         elif map_id in ["mars_2", "moon_2", "pluto_2"]:
             alien_name = "Xylos"
@@ -2340,11 +2494,18 @@ class GameState:
             base_reward_credits = 250
             base_reward_paladio = lvl
 
+        if "gate_" in map_id:
+            spawn_x = random.randint(9000, 11000)
+            spawn_y = random.randint(7000, 9000)
+        else:
+            spawn_x = random.randint(100, self.GAME_WIDTH - 100)
+            spawn_y = random.randint(100, self.GAME_HEIGHT - 100)
+
         self.enemies.append({
             "id": alien_id,
             "name": final_name,
-            "x": random.randint(100, self.GAME_WIDTH - 100),
-            "y": random.randint(100, self.GAME_HEIGHT - 100),
+            "x": spawn_x,
+            "y": spawn_y,
             "hp": int(base_hp * (2.8 if is_hard else 1.0) * stat_boss_mult),
             "max_hp": int(base_hp * (2.8 if is_hard else 1.0) * stat_boss_mult),
             "shield": int(base_shld * (3.5 if is_hard else 1.0) * stat_boss_mult),
@@ -3258,8 +3419,142 @@ class GameState:
         for portal in map_info["portals"]:
             dist = math.hypot(p["x"] - portal["x"], p["y"] - portal["y"])
             if dist < self.PORTAL_RADIUS:
-                # Realizar el JUMP
-                p["current_map"] = portal["target"]
+                target_map = portal["target"]
+                
+                # JUMP: Manejar portal de avance en oleada
+                if target_map.startswith("continue_"):
+                    gate_map_id = target_map.replace("continue_", "")
+                    cfg = self.MAPS.get(gate_map_id)
+                    if cfg:
+                        cfg["wave_index"] = cfg.get("wave_index", 0) + 1
+                        cfg["portals"] = [] # Limpiar los portales para la siguiente oleada
+                        cfg["wave_timer"] = time.time()
+                        cfg["spawned_wave_1"] = False
+                        cfg["spawned_wave_2"] = False
+                        cfg["killed_in_wave_1"] = 0
+                        cfg["killed_in_wave_2"] = 0
+                        
+                        # Reubicar al jugador en el centro
+                        p["x"] = 10000
+                        p["y"] = 8000
+                        p["vx"] = 0
+                        p["vy"] = 0
+                        p["target_x"] = None
+                        p["target_y"] = None
+                        p["locked_target_id"] = None
+                        p["shoot_active"] = False
+                        p["last_jump_time"] = time.time()
+                        print(f"DEBUG: Jugador {client_id} avanzó a oleada {cfg['wave_index']}")
+                        return True
+                    return False
+                
+                # JUMP: Manejar salida de un portal de bolsillo
+                current_map = p.get("current_map", "")
+                if current_map.startswith("gate_"):
+                    cfg = self.MAPS.get(current_map)
+                    if cfg:
+                        is_completed = (portal.get("label") == "Volver al Mapa Inicial (Completado)")
+                        
+                        if is_completed:
+                            # Dar recompensas y resetear piezas a 0
+                            gate_type = cfg.get("gate_type", "gate_nexus")
+                            altar_key = gate_type.replace("gate_", "")
+                            
+                            # Configurar recompensas
+                            rewards = {
+                                "nexus": {"credits": 50000, "paladio": 500, "xp": 25000, "ammo": {"plasma": 5000}, "buff": {"stat": "hp", "amount": 10}},
+                                "eclipse": {"credits": 100000, "paladio": 1000, "xp": 50000, "ammo": {"plasma": 5000}, "buff": {"stat": "shld", "amount": 15}},
+                                "cosmos": {"credits": 250000, "paladio": 2500, "xp": 100000, "ammo": {"plasma": 5000}, "buff": {"stat": "atk", "amount": 10}}
+                            }
+                            
+                            r = rewards.get(altar_key)
+                            if r:
+                                if "altares" not in p or not p["altares"]:
+                                    p["altares"] = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
+                                
+                                p["altares"][altar_key] = 0
+                                if "completions" not in p["altares"]:
+                                    p["altares"]["completions"] = {"nexus": 0, "eclipse": 0, "cosmos": 0}
+                                p["altares"]["completions"][altar_key] = p["altares"]["completions"].get(altar_key, 0) + 1
+                                
+                                # Dar recompensas
+                                p["credits"] += r["credits"]
+                                p["paladio"] += r["paladio"]
+                                self.gain_xp(p, r["xp"])
+                                if "ammo" not in p:
+                                    p["ammo"] = {}
+                                for ammo_key, qty in r["ammo"].items():
+                                    p["ammo"][ammo_key] = p["ammo"].get(ammo_key, 0) + qty
+                                    
+                                # Dar timed buff
+                                stat = r["buff"]["stat"]
+                                amount = r["buff"]["amount"]
+                                now_ms = int((time.time() + 3600) * 1000)
+                                if "timed_upgrades" not in p or p["timed_upgrades"] is None:
+                                    p["timed_upgrades"] = {"atk": [], "shld": [], "spd": [], "hp": []}
+                                p["timed_upgrades"][stat].append({"amount": amount, "expires": now_ms})
+                                
+                                self.recalculate_player_stats(p)
+                                
+                                # Guardar en DB
+                                try:
+                                    sync_user_stats(
+                                        username=p["user_id"], level=p["level"], xp=p["xp"],
+                                        credits=p["credits"], paladio=p["paladio"],
+                                        timed_upgrades=p["timed_upgrades"], ammo={**p["ammo"], **p.get("missiles", {})},
+                                        altares=p["altares"]
+                                    )
+                                except Exception as e:
+                                    print(f"Error persisting gate completion stats: {e}")
+                                    
+                                self.send_system_message_to_player(client_id, f"🏆 ¡PORTAL {altar_key.upper()} COMPLETADO! Recompensas: +{r['credits']} CR, +{r['paladio']} PAL, +{r['xp']} XP, +5,000 PLASMA y Buff de {stat.upper()} (+{amount}%).")
+                                
+                                self.loot_events.append({
+                                    "id": str(random.random()), "x": p["x"], "y": p["y"],
+                                    "type": "credits", "amount": r["credits"], "text": f"¡{altar_key.upper()} COMPLETADO!",
+                                    "time": time.time(), "owner_id": client_id
+                                })
+                        
+                        # Limpiar enemigos de este mapa y borrar el mapa de bolsillo
+                        self.enemies = [e for e in self.enemies if e.get("map_id") != current_map]
+                        if current_map in self.MAPS:
+                            try:
+                                del self.MAPS[current_map]
+                            except:
+                                pass
+
+                # JUMP: Manejar portales de entrada a Altares Estelares (Nexus, Eclipse, Cosmos)
+                if target_map in ["gate_nexus", "gate_eclipse", "gate_cosmos"]:
+                    limits = {"gate_nexus": 25, "gate_eclipse": 30, "gate_cosmos": 35}
+                    req_pieces = limits[target_map]
+                    altar_key = target_map.replace("gate_", "")
+                    if p.get("altares", {}).get(altar_key, 0) < req_pieces:
+                        continue
+                    
+                    target_map = f"{target_map}_{client_id}"
+                    if target_map not in self.MAPS:
+                        self.MAPS[target_map] = {
+                            "name": f"Altar {portal['label']}",
+                            "level": 5,
+                            "style": "void",
+                            "portals": [],
+                            "is_gate_map": True,
+                            "gate_type": portal["target"],
+                            "player_id": client_id,
+                            "lives": 3,
+                            "wave_index": 0,
+                            "wave_sub": 1,
+                            "wave_timer": time.time(),
+                            "spawned_wave_1": False,
+                            "spawned_wave_2": False,
+                            "killed_in_wave_1": 0,
+                            "killed_in_wave_2": 0,
+                            "aliens_list": ["Gryllos", "Xylos", "Nykor", "Syrith", "Vexis", "Kragos", "Zoltan"]
+                        }
+                        print(f"DEBUG: Creado mapa de bolsillo dinámico {target_map} para jugador {client_id} con 3 vidas")
+                
+                # Realizar el JUMP estándar
+                p["current_map"] = target_map
                 p["x"] = portal["tx"]
                 p["y"] = portal["ty"]
                 
@@ -3271,8 +3566,18 @@ class GameState:
                 p["locked_target_id"] = None
                 p["shoot_active"] = False
                 p["last_jump_time"] = time.time()
-                return True
         return False
+
+    def handle_gate_alien_death(self, map_id):
+        cfg = self.MAPS.get(map_id)
+        if not cfg:
+            return
+        if not cfg.get("spawned_wave_2"):
+            cfg["killed_in_wave_1"] = cfg.get("killed_in_wave_1", 0) + 1
+            print(f"DEBUG: Gate alien death in wave 1: killed {cfg['killed_in_wave_1']}/15")
+        else:
+            cfg["killed_in_wave_2"] = cfg.get("killed_in_wave_2", 0) + 1
+            print(f"DEBUG: Gate alien death in wave 2: killed {cfg['killed_in_wave_2']}/15")
 
     def get_state(self, client_id=None):
         # Si se proporciona client_id, devolvemos solo lo que le interesa a ese mapa
@@ -3283,8 +3588,21 @@ class GameState:
             m_id = me["current_map"]
             map_info = self.MAPS.get(m_id, {"name": "Espacio", "level": 1})
             
-            # Portales dinámicos según el mapa
-            portals = map_info.get("portals", [])
+            # Portales dinámicos según el mapa y estado de completitud de altares
+            raw_portals = map_info.get("portals", [])
+            portals = []
+            for portal in raw_portals:
+                t = portal.get("target")
+                if t == "gate_nexus":
+                    if me.get("altares", {}).get("nexus", 0) < 25:
+                        continue
+                elif t == "gate_eclipse":
+                    if me.get("altares", {}).get("eclipse", 0) < 30:
+                        continue
+                elif t == "gate_cosmos":
+                    if me.get("altares", {}).get("cosmos", 0) < 35:
+                        continue
+                portals.append(portal)
 
             players_to_send = []
             for p in players_list:
@@ -3330,7 +3648,9 @@ class GameState:
                 "beacons": [b for b in self.beacons if b.get("map_id") == m_id],
                 "server_time": time.time()
             }
-        # Resetear flag tras incluirlo en el estado
+            if m_id.startswith("gate_"):
+                state["gate_lives"] = map_info.get("lives", 3)
+            # Resetear flag tras incluirlo en el estado
             if me.get("needs_mission_sync"):
                 me["needs_mission_sync"] = False
                 
@@ -3874,6 +4194,29 @@ class GameState:
                     "id": str(random.random()), "x": box["x"], "y": box["y"],
                     "type": "paladio", "amount": amt, "time": now, "owner_id": pid
                 })
+            
+            # --- AGREGAR ENERGÍA EXTRA PARA ALTARES ESTELARES ---
+            energy_gained = random.randint(1, 3)
+            if "altares" not in player or not player["altares"]:
+                player["altares"] = {"energy": 0, "nexus": 0, "eclipse": 0, "cosmos": 0, "completions": {"nexus": 0, "eclipse": 0, "cosmos": 0}}
+            player["altares"]["energy"] += energy_gained
+            
+            self.loot_events.append({
+                "id": str(random.random()), "x": box["x"], "y": box["y"],
+                "type": "extra_energy", "amount": energy_gained, "time": now, "owner_id": pid
+            })
+            
+            # Persistir inmediatamente
+            try:
+                sync_user_stats(
+                    username=player["user_id"], level=player["level"], xp=player["xp"],
+                    credits=player["credits"], paladio=player["paladio"],
+                    ammo={**player["ammo"], **player.get("missiles", {})},
+                    altares=player["altares"]
+                )
+            except Exception as e:
+                print(f"Error persisting special chest energy: {e}")
+                
             return True
             
         return False
@@ -3887,3 +4230,31 @@ class GameState:
                 "type": "cargo_full", "time": now, "owner_id": pid
             })
             self._last_full_warn[pid] = now
+
+    def send_system_message_to_player(self, client_id, text):
+        if client_id not in self.players or client_id not in self.clients:
+            return
+        ws = self.clients[client_id]
+        p = self.players[client_id]
+        system_msg = {
+            "type": "chat_update",
+            "message": {
+                "id": str(random.random()),
+                "sender": "SISTEMA",
+                "display_name": "⚠️ SISTEMA",
+                "text": text,
+                "channel": "private",
+                "receiver": p.get("user_id"),
+                "faction": p["faction"],
+                "time": time.time()
+            }
+        }
+        import json
+        import asyncio
+        msg_str = json.dumps(system_msg)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(ws.send_text(msg_str))
+        except:
+            pass

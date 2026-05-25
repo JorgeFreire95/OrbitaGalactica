@@ -18,6 +18,7 @@ import Missions from './components/Missions'
 import FriendsPage from './components/FriendsPage'
 import MessagesPage from './components/MessagesPage'
 import Auctions from './components/Auctions'
+import StarAltars from './components/StarAltars'
 import './index.css'
 
 const API_URL = 'http://127.0.0.1:8000/api';
@@ -241,6 +242,16 @@ function App() {
     return defaultEco;
   });
 
+  const [altares, setAltares] = useState(() => {
+    const saved = localStorage.getItem('game_altares');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return { energy: 0, nexus: 0, eclipse: 0, cosmos: 0, completions: { nexus: 0, eclipse: 0, cosmos: 0 } };
+  });
+
   const [auctions, setAuctions] = useState([]);
   const [auctionResetIn, setAuctionResetIn] = useState(0);
 
@@ -351,6 +362,7 @@ function App() {
         case 'owned_ships': if (e.newValue) setOwnedShips(JSON.parse(e.newValue)); break;
         case 'game_upgrades': if (e.newValue) setUpgrades(JSON.parse(e.newValue)); break;
         case 'game_wips': if (e.newValue) setWips(JSON.parse(e.newValue)); break;
+        case 'game_altares': if (e.newValue) setAltares(JSON.parse(e.newValue)); break;
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -417,6 +429,10 @@ function App() {
     localStorage.setItem('game_eco', JSON.stringify(eco));
   }, [eco]);
 
+  useEffect(() => {
+    localStorage.setItem('game_altares', JSON.stringify(altares));
+  }, [altares]);
+
   // SYNC STATS WITH BACKEND (Debounced to prevent race conditions during multiple state updates)
   const syncStats = async () => {
     if (!user || currentView === 'auth') return;
@@ -449,7 +465,8 @@ function App() {
             timed_upgrades: upgrades,
             wips,
             eco,
-            ammo
+            ammo,
+            altares
           })
         });
         const result = await response.json();
@@ -597,6 +614,9 @@ function App() {
         if (data.ammo && JSON.stringify(data.ammo) !== JSON.stringify(ammo)) {
           setAmmo(data.ammo);
         }
+        if (data.altares && JSON.stringify(data.altares) !== JSON.stringify(altares)) {
+          setAltares(data.altares);
+        }
         if (data.auctions) {
           console.log("Subastas recibidas:", data.auctions.length);
           setAuctions(data.auctions);
@@ -701,7 +721,7 @@ function App() {
     if (user && user.faction) {
       syncStats();
     }
-  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible, eco, wips, ammo]);
+  }, [credits, paladio, xp, level, minerals, ownedShips, inventory, equippedByShip, upgrades, isInvisible, eco, wips, ammo, altares]);
 
   useEffect(() => {
     if (user && user.faction) {
@@ -797,6 +817,10 @@ function App() {
       if (data.ammo) {
         setAmmo(data.ammo);
         localStorage.setItem('game_ammo', JSON.stringify(data.ammo));
+      }
+      if (data.altares) {
+        setAltares(data.altares);
+        localStorage.setItem('game_altares', JSON.stringify(data.altares));
       }
 
       if (!data.faction) {
@@ -1408,7 +1432,7 @@ function App() {
 
   const currentEquippedModules = equippedByShip[selectedShipId] || [];
 
-  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages', 'missions', 'subasta', 'messages', 'friends', 'ranking'].includes(currentView);
+  const isDashboardView = ['menu', 'hangar', 'shop', 'lab', 'clan', 'admin', 'packages', 'missions', 'subasta', 'messages', 'friends', 'ranking', 'altar'].includes(currentView);
 
   return (
     <div className="app-container">
@@ -1588,6 +1612,22 @@ function App() {
         />
       )}
       
+      {currentView === 'altar' && (
+        <StarAltars 
+          user={user}
+          altares={altares}
+          credits={credits}
+          paladio={paladio}
+          level={level}
+          onNavigate={(view) => setCurrentView(view)}
+          onUpdateAltares={setAltares}
+          onUpdateCredits={setCredits}
+          onUpdatePaladio={setPaladio}
+          onUpdateAmmo={setAmmo}
+          onUpdateUpgrades={setUpgrades}
+        />
+      )}
+      
       {currentView === 'clan' && (
         <Clan 
           credits={credits}
@@ -1681,6 +1721,10 @@ function App() {
             onUpdateEco={(newEco) => setEco(newEco)}
             onUpdateOwnedShips={setOwnedShips}
             equippedDesign={equippedDesigns[selectedShipId]}
+            onUpdateAltares={(newAltares) => {
+              setAltares(newAltares);
+              localStorage.setItem('game_altares', JSON.stringify(newAltares));
+            }}
           />
         </>
       )}
